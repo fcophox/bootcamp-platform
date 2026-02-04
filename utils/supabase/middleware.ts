@@ -39,7 +39,13 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    await supabase.auth.getUser()
+    const {
+        data: { user },
+    } = await supabase.auth.getUser()
+
+    if (request.nextUrl.pathname.startsWith('/cms') && !user) {
+        return NextResponse.redirect(new URL('/login', request.url))
+    }
 
     return response
 }

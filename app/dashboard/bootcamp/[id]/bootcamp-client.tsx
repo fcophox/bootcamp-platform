@@ -164,59 +164,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                             <div className="flex items-center gap-4 relative">
                                 <span className="text-sm text-muted hidden md:block">Última visita hace 10m</span>
 
-                                {/* User Dropdown Trigger */}
-                                <div className="relative">
-                                    <div
-                                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                                        className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary border border-primary/20 cursor-pointer hover:bg-primary/20 transition-colors"
-                                    >
-                                        {userName.charAt(0)}
-                                    </div>
-
-                                    {/* Dropdown Menu */}
-                                    {isUserMenuOpen && (
-                                        <div className="absolute right-0 mt-2 w-56 bg-card-bg border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                            <div className="p-4 border-b border-border bg-background/50">
-                                                <p className="text-sm font-medium text-foreground">{userName}</p>
-                                                <p className="text-xs text-muted">Estudiante</p>
-                                            </div>
-                                            <div className="p-1">
-                                                <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-hover-bg rounded-lg transition-colors text-left">
-                                                    <User size={16} className="text-muted" />
-                                                    Mi Perfil
-                                                </button>
-                                                <button
-                                                    onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-                                                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-hover-bg rounded-lg transition-colors text-left"
-                                                >
-                                                    {resolvedTheme === 'dark' ? (
-                                                        <>
-                                                            <Sun size={16} className="text-muted" />
-                                                            Modo Claro
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Moon size={16} className="text-muted" />
-                                                            Modo Oscuro
-                                                        </>
-                                                    )}
-                                                </button>
-                                                <div className="h-px bg-border my-1"></div>
-                                                <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 rounded-lg transition-colors text-left">
-                                                    <LogOut size={16} />
-                                                    Cerrar Sesión
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                                {/* Backdrop to close menu */}
-                                {isUserMenuOpen && (
-                                    <div
-                                        className="fixed inset-0 z-40 bg-transparent"
-                                        onClick={() => setIsUserMenuOpen(false)}
-                                    />
-                                )}
+                                {/* User Dropdown Trigger Removed */}
                             </div>
                         </div>
                     </div>
@@ -289,6 +237,15 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                         </div>
                                         <span className="text-xl font-bold text-violet-500">{overallProgress}%</span>
                                     </div>
+                                    {overallProgress === 100 && (
+                                        <Link
+                                            href={`/dashboard/certificate/${bootcamp.id}`}
+                                            className="mt-4 flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:scale-105 transition-all animate-in zoom-in slide-in-from-bottom-4"
+                                        >
+                                            <Trophy size={16} className="fill-white/20" />
+                                            Ver Mi Certificado
+                                        </Link>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -452,7 +409,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                         )}
                     </div>
                 </main>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

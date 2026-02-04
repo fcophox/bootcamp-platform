@@ -704,7 +704,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
             <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
                 {/* Header */}
-                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background border-b border-border flex items-center px-6 justify-between transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
+                <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background border-b border-border flex items-center px-6 justify-between transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
                     <div className="flex items-center gap-2 text-sm text-muted">
                         <Link href="/cms" className="hover:text-foreground transition-colors">CMS</Link>
                         <ChevronRight size={14} />
@@ -819,13 +819,15 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         <p className="text-muted">Gestiona el contenido y los alumnos de tu curso.</p>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => setIsCreatingModule(true)}
-                                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
-                                >
-                                    <Plus size={20} />
-                                    <span>Nuevo Módulo</span>
-                                </button>
+                                {activeTab === 'content' && (
+                                    <button
+                                        onClick={() => setIsCreatingModule(true)}
+                                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+                                    >
+                                        <Plus size={20} />
+                                        <span>Nuevo Módulo</span>
+                                    </button>
+                                )}
                             </div>
 
                             <div className="flex items-center gap-4 border-b border-border">

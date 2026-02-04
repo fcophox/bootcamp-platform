@@ -130,7 +130,7 @@ export function ExamClient({ exam, questions }: ExamClientProps) {
 
             <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
                 {/* Header (Simplified for Exam) */}
-                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background/80 backdrop-blur-md border-b border-border flex items-center px-6 justify-between transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
+                <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background/80 backdrop-blur-md border-b border-border flex items-center px-6 justify-between transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
                     <div className="flex items-center gap-2 text-sm text-foreground font-medium">
                         <span>Examen</span>
                         <ChevronRight size={14} className="text-muted" />

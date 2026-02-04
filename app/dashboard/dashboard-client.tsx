@@ -46,9 +46,7 @@ export function DashboardClient({ bootcamps, userName = 'Francisco' }: Dashboard
                                 <span className="text-sm text-muted">Última visita hace 10m</span>
 
                                 {/* User Avatar */}
-                                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary border border-primary/20 cursor-pointer hover:bg-primary/20 transition-colors">
-                                    {userName.charAt(0)}
-                                </div>
+                                {/* User Avatar Removed */}
                             </div>
                         </div>
                     </div>

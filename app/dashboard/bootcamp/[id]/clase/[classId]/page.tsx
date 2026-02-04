@@ -335,45 +335,7 @@ export default function ClassPlayerPage() {
                         </nav>
                     </div>
 
-                    {/* User Menu */}
-                    <div className="flex items-center gap-4 relative flex-shrink-0 ml-4">
-                        <div className="relative">
-                            <div
-                                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                                className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary border border-primary/20 cursor-pointer hover:bg-primary/20 transition-colors"
-                            >
-                                {userName.charAt(0)}
-                            </div>
-
-                            {isUserMenuOpen && (
-                                <>
-                                    <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsUserMenuOpen(false)} />
-                                    <div className="absolute right-0 mt-2 w-56 bg-card-bg border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                        <div className="p-4 border-b border-border bg-background/50">
-                                            <p className="text-sm font-medium text-foreground">{userName}</p>
-                                            <p className="text-xs text-muted">Estudiante</p>
-                                        </div>
-                                        <div className="p-1">
-                                            <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-hover-bg rounded-lg transition-colors text-left">
-                                                <User size={16} className="text-muted" /> Mi Perfil
-                                            </button>
-                                            <button
-                                                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-                                                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-hover-bg rounded-lg transition-colors text-left"
-                                            >
-                                                {mounted && resolvedTheme === 'dark' ? <Sun size={16} className="text-muted" /> : <Moon size={16} className="text-muted" />}
-                                                {mounted && resolvedTheme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}
-                                            </button>
-                                            <div className="h-px bg-border my-1"></div>
-                                            <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 rounded-lg transition-colors text-left">
-                                                <LogOut size={16} /> Cerrar Sesión
-                                            </button>
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
+                    {/* User Menu Removed */}
                 </header>
 
                 {/* Main Content Area - Split View with Independent Scrolling */}
@@ -658,7 +620,7 @@ export default function ClassPlayerPage() {
 
                             {/* Right Column: Playlist Sidebar (Fixed & Scrollable) */}
                             <div className={`border-t lg:border-t-0 lg:border-l border-border bg-card-bg/50 overflow-y-auto overflow-x-hidden h-full flex-shrink-0 custom-scrollbar z-20 transition-all duration-300 ${isPlaylistCollapsed ? 'w-full lg:w-14' : 'w-full lg:w-96'}`}>
-                                <div className={`p-3 border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-10 flex items-center ${isPlaylistCollapsed ? 'justify-center p-2' : 'justify-between'}`}>
+                                <div className={`p-3 border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-1 flex items-center ${isPlaylistCollapsed ? 'justify-center p-2' : 'justify-between'}`}>
                                     {!isPlaylistCollapsed && (
                                         <div>
                                             <h3 className="font-semibold text-foreground">Contenido del Módulo</h3>

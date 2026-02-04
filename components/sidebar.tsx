@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { useSidebar } from './sidebar-context';
 import { Home, BarChart3, ClipboardList, Bell, User, Globe, Moon, Sun, LogOut, ChevronLeft, ChevronRight, Award } from 'lucide-react';
 import { Tooltip } from './tooltip';
+import { createClient } from '@/utils/supabase/client';
 
 const menuItems = [
     {
@@ -19,26 +20,31 @@ const menuItems = [
         name: 'Estadísticas',
         href: '/dashboard/estadisticas',
         icon: BarChart3,
+        disabled: true,
     },
     {
         name: 'Tareas',
         href: '/dashboard/tareas',
         icon: ClipboardList,
+        disabled: true,
     },
     {
         name: 'Notificaciones',
         href: '/dashboard/notificaciones',
         icon: Bell,
+        disabled: true,
     },
     {
         name: 'Certificación',
         href: '/dashboard/certificacion',
         icon: Award,
+        disabled: true,
     },
 ];
 
 export function Sidebar() {
     const pathname = usePathname();
+    const router = useRouter(); // Initialize router
     const { isCollapsed, toggleSidebar } = useSidebar();
     const { setTheme, resolvedTheme } = useTheme();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -60,6 +66,12 @@ export function Sidebar() {
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, []);
+
+    const handleLogout = async () => {
+        const supabase = createClient();
+        await supabase.auth.signOut();
+        router.push('/');
+    };
 
     const userName = 'fcojhormazabalh';
     const userEmail = 'fcojhormazabalh@gmail.com';
@@ -118,7 +130,12 @@ export function Sidebar() {
                         const isActive = pathname === item.href;
                         const Icon = item.icon;
 
-                        const linkContent = (
+                        const linkContent = item.disabled ? (
+                            <div className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-colors text-muted/50 cursor-not-allowed ${isCollapsed ? 'justify-center items-center px-2 py-2' : 'px-3 py-2'}`}>
+                                <Icon size={20} className="flex-shrink-0" />
+                                {!isCollapsed && <span>{item.name}</span>}
+                            </div>
+                        ) : (
                             <Link
                                 href={item.href}
                                 className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-colors ${isActive
@@ -196,7 +213,10 @@ export function Sidebar() {
 
                         {/* Logout */}
                         <div className="border-t border-border">
-                            <button className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-hover-bg transition-colors">
+                            <button
+                                onClick={handleLogout}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-hover-bg transition-colors"
+                            >
                                 <LogOut size={20} />
                                 <span>Cerrar sesión</span>
                             </button>

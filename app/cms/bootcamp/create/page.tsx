@@ -69,7 +69,7 @@ export default function CreateBootcampPage() {
 
             <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
                 {/* Header */}
-                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background border-b border-border transition-all duration-300 flex items-center px-6 justify-between ${isCollapsed ? 'left-16' : 'left-64'}`}>
+                <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background border-b border-border transition-all duration-300 flex items-center px-6 justify-between ${isCollapsed ? 'left-16' : 'left-64'}`}>
                     <div className="flex items-center gap-2 text-sm text-muted">
                         <span>CMS</span>
                         <ChevronRight size={14} />
