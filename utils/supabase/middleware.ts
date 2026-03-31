@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { getRoleFromEmail } from '@/utils/roles'
 
 export async function updateSession(request: NextRequest) {
     let response = NextResponse.next({
@@ -12,7 +13,6 @@ export async function updateSession(request: NextRequest) {
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     if (!url || !key || !url.startsWith('http')) {
-        // Fallback para evitar errores 500 si no hay env vars
         return response
     }
 
@@ -43,7 +43,12 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
+    // Only basic auth protection in middleware, role redirection is handled in pages via DB
     if (request.nextUrl.pathname.startsWith('/cms') && !user) {
+        return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
         return NextResponse.redirect(new URL('/login', request.url))
     }
 

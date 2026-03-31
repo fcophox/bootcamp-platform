@@ -11,6 +11,9 @@ const quicksand = Quicksand({
 export const metadata: Metadata = {
   title: "ClevereX Academy",
   description: "Plataforma de gestión del conocimiento",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 export default function RootLayout({

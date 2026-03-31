@@ -13,6 +13,7 @@ interface ConfirmationModalProps {
     confirmText?: string;
     cancelText?: string;
     variant?: 'danger' | 'primary' | 'success';
+    hideCancel?: boolean;
 }
 
 export function ConfirmationModal({
@@ -24,7 +25,8 @@ export function ConfirmationModal({
     isLoading = false,
     confirmText = 'Confirmar',
     cancelText = 'Cancelar',
-    variant = 'danger'
+    variant = 'danger',
+    hideCancel = false
 }: ConfirmationModalProps) {
     // ... existing logic ...
     const [isVisible, setIsVisible] = useState(false);
@@ -80,13 +82,15 @@ export function ConfirmationModal({
                 </div>
 
                 <div className="flex justify-end gap-3 p-6 border-t border-border bg-background/50 rounded-b-xl">
-                    <button
-                        onClick={onClose}
-                        disabled={isLoading}
-                        className="px-4 py-2 text-sm font-medium text-foreground bg-transparent border border-border rounded-lg hover:bg-hover-bg transition-colors"
-                    >
-                        {cancelText}
-                    </button>
+                    {!hideCancel && (
+                        <button
+                            onClick={onClose}
+                            disabled={isLoading}
+                            className="px-4 py-2 text-sm font-medium text-foreground bg-transparent border border-border rounded-lg hover:bg-hover-bg transition-colors"
+                        >
+                            {cancelText}
+                        </button>
+                    )}
                     <button
                         onClick={onConfirm}
                         disabled={isLoading}

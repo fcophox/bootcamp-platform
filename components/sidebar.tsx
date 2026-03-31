@@ -9,38 +9,78 @@ import { useSidebar } from './sidebar-context';
 import { Home, BarChart3, ClipboardList, Bell, User, Globe, Moon, Sun, LogOut, ChevronLeft, ChevronRight, Award } from 'lucide-react';
 import { Tooltip } from './tooltip';
 import { createClient } from '@/utils/supabase/client';
+import { getRoleFromEmail } from '@/utils/roles';
+import { getUserRoleFromDBClient } from '@/utils/roles-client';
 
-const menuItems = [
-    {
-        name: 'Dashboard',
-        href: '/dashboard',
-        icon: Home,
-    },
-    {
-        name: 'Estadísticas',
-        href: '/dashboard/estadisticas',
-        icon: BarChart3,
-        disabled: true,
-    },
-    {
-        name: 'Tareas',
-        href: '/dashboard/tareas',
-        icon: ClipboardList,
-        disabled: true,
-    },
-    {
-        name: 'Notificaciones',
-        href: '/dashboard/notificaciones',
-        icon: Bell,
-        disabled: true,
-    },
-    {
-        name: 'Certificación',
-        href: '/dashboard/certificacion',
-        icon: Award,
-        disabled: true,
-    },
-];
+const getMenuItems = (currentRole: string) => {
+    const studentItems = [
+        {
+            name: 'Dashboard',
+            href: '/dashboard',
+            icon: Home,
+        },
+        {
+            name: 'Tareas',
+            href: '/dashboard/tareas',
+            icon: ClipboardList,
+            disabled: true,
+        },
+        {
+            name: 'Notificaciones',
+            href: '/dashboard/notificaciones',
+            icon: Bell,
+            disabled: true,
+        },
+        {
+            name: 'Certificación',
+            href: '/dashboard/certificacion',
+            icon: Award,
+            disabled: true,
+        },
+    ];
+
+    if (currentRole === 'superadmin') {
+        return [
+            {
+                name: 'Cursos CMS',
+                href: '/cms',
+                icon: Globe
+            },
+            {
+                name: 'Gestión de Usuarios',
+                href: '/cms/usuarios',
+                icon: User
+            },
+
+            {
+                name: 'Tareas',
+                href: '/dashboard/tareas',
+                icon: ClipboardList,
+                disabled: true,
+            },
+            {
+                name: 'Notificaciones',
+                href: '/dashboard/notificaciones',
+                icon: Bell,
+                disabled: true,
+            },
+            {
+                name: 'Certificación',
+                href: '/dashboard/certificacion',
+                icon: Award,
+                disabled: true,
+            },
+
+
+        ];
+    } else if (currentRole === 'docente') {
+        return [
+            { name: 'Cursos CMS', href: '/cms', icon: Globe },
+        ];
+    }
+
+    return studentItems;
+};
 
 export function Sidebar() {
     const pathname = usePathname();
@@ -50,10 +90,32 @@ export function Sidebar() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const [userEmail, setUserEmail] = useState('');
+    const [userName, setUserName] = useState('');
+    const [role, setRole] = useState('alumno');
 
     // Close dropdown when clicking outside
     useEffect(() => {
-        // eslint-disable-next-line
+        async function fetchUser() {
+            const supabase = createClient();
+            const { data } = await supabase.auth.getUser();
+            if (data.user) {
+                setUserEmail(data.user.email || '');
+                setUserName(data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || '');
+
+                // Set initial role from metadata/email for speed
+                const initialRole = getRoleFromEmail(data.user.email, data.user.user_metadata);
+                setRole(initialRole);
+
+                // Fetch definitive role from DB table
+                const dbRole = await getUserRoleFromDBClient(data.user.id);
+                if (dbRole) {
+                    setRole(dbRole);
+                }
+            }
+        }
+        fetchUser();
+
         setMounted(true);
         function handleClickOutside(event: MouseEvent) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -73,8 +135,7 @@ export function Sidebar() {
         router.push('/');
     };
 
-    const userName = 'fcojhormazabalh';
-    const userEmail = 'fcojhormazabalh@gmail.com';
+    const menuItems = getMenuItems(role);
 
     return (
         <aside className={`fixed left-0 top-0 h-screen border-r border-border bg-card-bg flex flex-col z-10 transition-all duration-300 overflow-x-visible ${isCollapsed ? 'w-16' : 'w-64'}`}>
@@ -192,10 +253,10 @@ export function Sidebar() {
 
                         {/* Menu Items */}
                         <div className="py-1">
-                            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-hover-bg transition-colors">
+                            <Link href="/dashboard/perfil" className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-hover-bg transition-colors">
                                 <User size={20} />
                                 <span>Mi perfil</span>
-                            </button>
+                            </Link>
 
                             <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-hover-bg transition-colors">
                                 <Globe size={20} />

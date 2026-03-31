@@ -4,36 +4,65 @@ import { useState, useTransition } from 'react';
 import Image from 'next/image';
 import { ThemeToggle } from '@/components/theme-toggle';
 
+import { useSearchParams, useRouter } from 'next/navigation';
 import { login, signup } from './actions';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 
 export default function LoginPage() {
+    const searchParams = useSearchParams();
+    const inviteId = searchParams.get('invite');
+    const token = searchParams.get('token');
+    const router = useRouter();
+    const modeParam = searchParams.get('mode') as 'login' | 'signup' | null;
+
+    const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [mode, setMode] = useState<'login' | 'signup'>('login');
-    const [error, setError] = useState<string | null>(null);
+
+    // Initial mode priority: mode param > (invite/token) signup > default login
+    const [mode, setMode] = useState<'login' | 'signup'>(
+        modeParam || ((inviteId || token) ? 'signup' : 'login')
+    );
+    const [status, setStatus] = useState<{ type: 'error' | 'success' | 'warning', message: string } | null>(null);
     const [isPending, startTransition] = useTransition();
+
+    const handleToggleMode = (newMode: 'login' | 'signup') => {
+        setMode(newMode);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('mode', newMode);
+        router.push(`/login?${params.toString()}`, { scroll: false });
+    };
 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
+        setStatus(null);
 
         const formData = new FormData();
+        formData.append('name', name);
         formData.append('email', email);
         formData.append('password', password);
 
         startTransition(async () => {
             let result;
             if (mode === 'login') {
-                result = await login(formData);
+                result = await login(formData, inviteId, token);
             } else {
-                result = await signup(formData);
+                result = await signup(formData, inviteId, token);
             }
 
-            if (result?.error) {
-                setError(result.error);
+            const res = result as { error?: string; success?: string } | undefined;
+
+            if (res?.error) {
+                if (res.error.toLowerCase().includes('ya tiene una cuenta')) {
+                    handleToggleMode('login');
+                    setStatus({ type: 'warning', message: res.error });
+                } else {
+                    setStatus({ type: 'error', message: res.error });
+                }
+            } else if (res?.success) {
+                setStatus({ type: 'success', message: res.success });
             }
         });
     };
@@ -76,10 +105,30 @@ export default function LoginPage() {
                         </p>
                     </div>
 
-                    {/* API/Auth Error Alert */}
-                    {error && (
-                        <div className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
-                            {error}
+                    {/* Invitation Banner */}
+                    {inviteId && !status && (
+                        <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/20 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
+                            <div className="p-2 rounded-full bg-primary/20 text-primary">
+                                <Sparkles size={20} />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-primary capitalize">¡Has sido invitado!</p>
+                                <p className="text-xs text-primary/80">Crea tu cuenta o inicia sesión para unirte al bootcamp.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {status && (
+                        <div className={`mb-6 p-4 rounded-xl border text-sm animate-in fade-in slide-in-from-top-2 duration-300 ${status.type === 'error'
+                                ? 'bg-red-500/10 border-red-500/20 text-red-500'
+                                : status.type === 'warning'
+                                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
+                                    : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+                            }`}>
+                            <div className="flex items-center gap-2">
+                                {status.type === 'warning' && <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>}
+                                <span className="leading-relaxed">{status.message}</span>
+                            </div>
                         </div>
                     )}
 
@@ -105,6 +154,22 @@ export default function LoginPage() {
 
                     {/* Login Form */}
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        {mode === 'signup' && (
+                            <div>
+                                <label htmlFor="name" className="block text-xs font-medium text-foreground mb-2">
+                                    Nombre Completo
+                                </label>
+                                <input
+                                    id="name"
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Tu nombre"
+                                    className="w-full rounded-md border border-border bg-background px-3.5 py-2 text-sm text-foreground placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
+                                    required
+                                />
+                            </div>
+                        )}
                         <div>
                             <label htmlFor="email" className="block text-xs font-medium text-foreground mb-2">
                                 Email
@@ -176,7 +241,7 @@ export default function LoginPage() {
                         {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
                         <button
                             type="button"
-                            onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+                            onClick={() => handleToggleMode(mode === 'login' ? 'signup' : 'login')}
                             className="font-medium text-foreground underline hover:text-primary transition-colors"
                         >
                             {mode === 'login' ? 'Sign up' : 'Sign in'}

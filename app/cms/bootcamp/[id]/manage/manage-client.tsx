@@ -10,12 +10,13 @@ import {
     ChevronRight, Plus, FileText, Video, Layout,
     Trash2, Edit2, ChevronDown, ChevronUp, GripVertical, MonitorPlay,
     Headphones, FileUp, Users, Mail, UserMinus, Trophy, Check, X, Circle, HelpCircle, Clock,
-    Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase
+    Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase, Link2, Copy
 } from 'lucide-react';
 import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson } from '@/app/actions/module';
 import { updateBootcamp } from '@/app/actions/bootcamp';
 import { createClient } from '@/utils/supabase/client';
-import { inviteStudent, removeStudent } from '@/app/actions/student'; // Import student actions
+import { inviteStudent, removeStudent, updateStudentStatus } from '@/app/actions/student';
+import { createInvitation } from '@/app/actions/invitation';
 
 interface Lesson {
     id: number;
@@ -96,15 +97,17 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     // Student Management State
     const [inviteEmail, setInviteEmail] = useState('');
     const [isInviting, setIsInviting] = useState(false);
+    const [toast, setToast] = useState<{ show: boolean, message: string } | null>(null);
 
     // Modal State
     const [modalConfig, setModalConfig] = useState<{
         isOpen: boolean;
         title: string;
         message: string;
-        onConfirm: () => Promise<void>;
+        onConfirm: () => Promise<void> | void;
         confirmText?: string;
         variant?: 'danger' | 'primary' | 'success';
+        hideCancel?: boolean;
     }>({
         isOpen: false,
         title: '',
@@ -112,6 +115,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         onConfirm: async () => { },
     });
     const [isActionLoading, setIsActionLoading] = useState(false);
+
+    const showToast = (message: string) => {
+        setToast({ show: true, message });
+        setTimeout(() => setToast(null), 5000);
+    };
 
     // Helpers
     const toggleModule = (id: number) => {
@@ -125,6 +133,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             message,
             confirmText,
             variant,
+            hideCancel: false,
             onConfirm: async () => {
                 setIsActionLoading(true);
                 try {
@@ -289,12 +298,63 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         try {
             await inviteStudent(bootcamp.id, inviteEmail);
             setInviteEmail('');
-            alert('Invitación enviada correctamente (simulado)');
+
+            // Show Success Modal instead of Alert
+            setModalConfig({
+                isOpen: true,
+                title: 'Invitación Enviada',
+                message: 'El registro de invitación fue creado y se ha disparado el correo electrónico con el enlace de acceso al estudiante.',
+                confirmText: 'Entiendo',
+                variant: 'primary',
+                hideCancel: true,
+                onConfirm: () => {
+                    setModalConfig(prev => ({ ...prev, isOpen: false }));
+                }
+            });
         } catch (error: any) {
             alert(error.message);
         } finally {
             setIsInviting(false);
         }
+    };
+
+    const handleToggleStatus = async (studentId: number, currentStatus: string) => {
+        setIsActionLoading(true);
+        try {
+            const newStatus = currentStatus === 'active' ? 'invited' : 'active';
+            await updateStudentStatus(studentId, bootcamp.id, newStatus);
+        } catch (error: any) {
+            alert(error.message);
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const handleCopyInviteLink = () => {
+        const origin = window.location.origin;
+        const inviteUrl = `${origin}/login?invite=${bootcamp.id}`;
+
+        navigator.clipboard.writeText(inviteUrl);
+
+        showToast(`Enlace general copiado al portapapeles`);
+    };
+
+    const handleGenerateUniqueLink = async () => {
+        setIsActionLoading(true);
+        const result = await createInvitation(bootcamp.id);
+        setIsActionLoading(false);
+
+        if ('error' in result) {
+            alert(result.error);
+            return;
+        }
+
+        const origin = window.location.origin;
+        const inviteUrl = `${origin}/login?token=${result.token}`;
+
+        navigator.clipboard.writeText(inviteUrl);
+
+        showToast(`¡Enlace Único generado y copiado! \nEste enlace es de un solo uso.`);
     };
 
     const getLessonIcon = (type: string) => {
@@ -312,6 +372,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         switch (status) {
             case 'active': return <span className="bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full text-xs border border-green-500/20">Activo</span>;
             case 'completed': return <span className="bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-full text-xs border border-blue-500/20">Completado</span>;
+            case 'invited':
+                return <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">Pendiente</span>;
             default: return <span className="bg-orange-500/10 text-orange-500 px-2 py-0.5 rounded-full text-xs border border-orange-500/20">Invitado</span>;
         }
     };
@@ -706,7 +768,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 {/* Header */}
                 <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background border-b border-border flex items-center px-6 justify-between transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
                     <div className="flex items-center gap-2 text-sm text-muted">
-                        <Link href="/cms" className="hover:text-foreground transition-colors">CMS</Link>
+                        <Link href="/cms" className="hover:text-foreground transition-colors">Bootcamp CMS</Link>
                         <ChevronRight size={14} />
                         <span className="text-foreground font-medium">{bootcamp.title}</span>
                     </div>
@@ -825,7 +887,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
                                     >
                                         <Plus size={20} />
-                                        <span>Nuevo Módulo</span>
+                                        <span>Nuevo módulo</span>
                                     </button>
                                 )}
                             </div>
@@ -1052,7 +1114,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         <div className="bg-card-bg border border-border rounded-xl p-6 shadow-sm">
                                             <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                                                 <Users size={20} className="text-primary" />
-                                                Lista de Alumnos
+                                                Lista de alumnos
                                             </h3>
 
                                             {initialStudents.length === 0 ? (
@@ -1080,17 +1142,27 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                         {new Date(student.invitedAt).toLocaleDateString()}
                                                                     </td>
                                                                     <td className="px-4 py-3 text-right">
-                                                                        <button
-                                                                            onClick={() => openConfirmModal(
-                                                                                'Eliminar Alumno',
-                                                                                '¿Estás seguro de eliminar a este alumno? Perderá el acceso al curso.',
-                                                                                () => removeStudent(student.id, bootcamp.id)
-                                                                            )}
-                                                                            className="text-muted hover:text-red-500 transition-colors p-1"
-                                                                            title="Eliminar acceso"
-                                                                        >
-                                                                            <UserMinus size={16} />
-                                                                        </button>
+                                                                        <div className="flex items-center justify-end gap-3">
+                                                                            <button
+                                                                                onClick={() => handleToggleStatus(student.id, student.status)}
+                                                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${student.status === 'active' ? 'bg-green-500' : 'bg-muted'}`}
+                                                                                title={student.status === 'active' ? 'Revocar Acceso' : 'Permitir Acceso'}
+                                                                            >
+                                                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${student.status === 'active' ? 'translate-x-6' : 'translate-x-1'}`} />
+                                                                            </button>
+
+                                                                            <button
+                                                                                onClick={() => openConfirmModal(
+                                                                                    'Eliminar Registro',
+                                                                                    '¿Estás seguro de eliminar este registro? El alumno ya no podrá ingresar.',
+                                                                                    () => removeStudent(student.id, bootcamp.id)
+                                                                                )}
+                                                                                className="text-muted hover:text-red-500 transition-colors p-1"
+                                                                                title="Eliminar registro"
+                                                                            >
+                                                                                <Trash2 size={16} />
+                                                                            </button>
+                                                                        </div>
                                                                     </td>
                                                                 </tr>
                                                             ))}
@@ -1103,30 +1175,42 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
                                     <div>
                                         <div className="bg-card-bg border border-border rounded-xl p-6 shadow-sm sticky top-24">
-                                            <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                                                <Mail size={20} className="text-primary" />
-                                                Invitar Alumnos
+                                            <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 text-primary">
+                                                <Zap size={20} />
+                                                Acceso por enlace único
                                             </h3>
-                                            <p className="text-sm text-muted mb-4">Envía una invitación por correo electrónico para dar acceso al curso.</p>
+                                            <p className="text-sm text-muted mb-8 leading-relaxed">
+                                                Genera una URL exclusiva para una sola inscripción. Al activarse por un alumno, el enlace se autodestruye por seguridad.
+                                            </p>
 
-                                            <div className="space-y-3">
-                                                <div>
-                                                    <label className="block text-sm font-medium mb-1.5">Correo Electrónico</label>
-                                                    <input
-                                                        type="email"
-                                                        value={inviteEmail}
-                                                        onChange={(e) => setInviteEmail(e.target.value)}
-                                                        className="w-full px-4 py-2 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 outline-none"
-                                                        placeholder="alumno@ejemplo.com"
-                                                    />
-                                                </div>
+                                            <div className="space-y-4">
                                                 <button
-                                                    onClick={handleInviteStudent}
-                                                    disabled={!inviteEmail || isInviting}
-                                                    className="w-full py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                                    onClick={handleGenerateUniqueLink}
+                                                    className="w-full py-5 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all font-bold flex flex-col items-center justify-center gap-2 group shadow-xl shadow-primary/30 active:scale-95 border border-white/10"
                                                 >
-                                                    {isInviting ? 'Enviando...' : 'Enviar Invitación'}
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <Plus size={22} className="group-hover:rotate-90 transition-transform" />
+                                                        <span>Generar Nueva Invitación</span>
+                                                    </div>
                                                 </button>
+
+                                                <div className="p-4 bg-muted/20 border border-white/5 rounded-xl">
+                                                    <p className="text-[10px] text-muted text-center uppercase tracking-widest font-bold mb-3">¿Cómo funciona?</p>
+                                                    <ul className="text-xs text-muted-foreground space-y-2">
+                                                        <li className="flex items-start gap-2">
+                                                            <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1 flex-shrink-0" />
+                                                            Copia el enlace al portapapeles.
+                                                        </li>
+                                                        <li className="flex items-start gap-2">
+                                                            <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1 flex-shrink-0" />
+                                                            El alumno se registra y queda inscrito.
+                                                        </li>
+                                                        <li className="flex items-start gap-2">
+                                                            <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1 flex-shrink-0" />
+                                                            Debes activarlo manualmente en la lista.
+                                                        </li>
+                                                    </ul>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1145,8 +1229,30 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 message={modalConfig.message}
                 confirmText={modalConfig.confirmText}
                 variant={modalConfig.variant}
+                hideCancel={modalConfig.hideCancel}
                 isLoading={isActionLoading}
             />
+
+            {/* Premium Toast Notification */}
+            {toast?.show && (
+                <div className="fixed bottom-8 right-8 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    <div className="bg-emerald-500 text-white rounded-xl shadow-2xl shadow-emerald-500/20 py-4 px-6 border border-white/20 flex items-center gap-4 min-w-[320px]">
+                        <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 animate-pulse">
+                            <Check size={20} className="text-white" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="font-bold text-sm">Operación Exitosa</p>
+                            <p className="text-xs opacity-90 leading-relaxed mt-0.5 whitespace-pre-line">{toast.message}</p>
+                        </div>
+                        <button
+                            onClick={() => setToast(null)}
+                            className="p-1 hover:bg-white/10 rounded-md transition-colors"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
