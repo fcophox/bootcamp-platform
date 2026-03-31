@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, Suspense } from 'react';
 import Image from 'next/image';
 import { ThemeToggle } from '@/components/theme-toggle';
-
 import { useSearchParams, useRouter } from 'next/navigation';
 import { login, signup } from './actions';
 import { Loader2, Sparkles } from 'lucide-react';
 
-export default function LoginPage() {
+function LoginContent() {
     const searchParams = useSearchParams();
     const inviteId = searchParams.get('invite');
     const token = searchParams.get('token');
@@ -33,7 +32,6 @@ export default function LoginPage() {
         params.set('mode', newMode);
         router.push(`/login?${params.toString()}`, { scroll: false });
     };
-
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -272,5 +270,17 @@ export default function LoginPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex min-h-screen items-center justify-center bg-background">
+                <Loader2 className="animate-spin text-primary" size={32} />
+            </div>
+        }>
+            <LoginContent />
+        </Suspense>
     );
 }

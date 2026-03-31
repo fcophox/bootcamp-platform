@@ -108,7 +108,7 @@ export async function signup(formData: FormData, inviteId?: string | null, token
     
     const dbUser = data.user;
     const dbRole = dbUser ? await getUserRoleFromDB(dbUser.id) : null;
-    const fallbackRole = getRoleFromEmail(email, (dbUser as any)?.user_metadata);
+    const fallbackRole = getRoleFromEmail(email, dbUser?.user_metadata as unknown);
     const userRole = (dbRole && dbRole !== 'alumno') ? dbRole : fallbackRole;
 
     if (userRole === 'superadmin' || userRole === 'docente') {

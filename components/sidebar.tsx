@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { useSidebar } from './sidebar-context';
-import { Home, BarChart3, ClipboardList, Bell, User, Globe, Moon, Sun, LogOut, ChevronLeft, ChevronRight, Award } from 'lucide-react';
+import { Home, ClipboardList, Bell, User, Globe, Moon, Sun, LogOut, ChevronLeft, ChevronRight, Award } from 'lucide-react';
 import { Tooltip } from './tooltip';
 import { createClient } from '@/utils/supabase/client';
 import { getRoleFromEmail } from '@/utils/roles';
@@ -94,6 +94,12 @@ export function Sidebar() {
     const [userName, setUserName] = useState('');
     const [role, setRole] = useState('alumno');
 
+    // Hydration check
+    useEffect(() => {
+        const frame = requestAnimationFrame(() => setMounted(true));
+        return () => cancelAnimationFrame(frame);
+    }, []);
+
     // Close dropdown when clicking outside
     useEffect(() => {
         async function fetchUser() {
@@ -116,7 +122,6 @@ export function Sidebar() {
         }
         fetchUser();
 
-        setMounted(true);
         function handleClickOutside(event: MouseEvent) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsDropdownOpen(false);

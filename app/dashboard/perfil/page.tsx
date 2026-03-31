@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
-import { User, Mail, MapPin, Briefcase, Calendar, Award, BookOpen, ShieldCheck, CheckCircle2, Save, X, Edit2, Loader2 } from 'lucide-react';
+import { Mail, MapPin, Briefcase, Calendar, Award, BookOpen, ShieldCheck, CheckCircle2, Save, X, Edit2, Loader2 } from 'lucide-react';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
 import { createClient } from '@/utils/supabase/client';
@@ -56,7 +56,7 @@ export default function ProfilePage() {
             }
         }
         fetchUser();
-    }, []);
+    }, [supabase.auth]);
 
     const handleEdit = () => {
         setStatus(null);

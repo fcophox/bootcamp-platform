@@ -7,14 +7,30 @@ import { ArrowLeft, Download, CheckCircle, Share2, Award, Printer } from 'lucide
 import { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function CertificateClient({ bootcamp }: { bootcamp: any }) {
+interface Module {
+    id: number;
+    title: string;
+}
+
+interface Bootcamp {
+    id: number;
+    title: string;
+    modules?: Module[];
+}
+
+export function CertificateClient({ bootcamp }: { bootcamp: Bootcamp }) {
     const { isCollapsed } = useSidebar();
     const [mounted, setMounted] = useState(false);
 
     // Prevent hydration mismatch for sidebar state
     useEffect(() => {
-        setMounted(true);
+        const frame = requestAnimationFrame(() => setMounted(true));
+        return () => cancelAnimationFrame(frame);
+    }, []);
+
+    // Animation Effect
+    useEffect(() => {
+        if (!mounted) return;
 
         const duration = 3 * 1000;
         const animationEnd = Date.now() + duration;
@@ -22,7 +38,7 @@ export function CertificateClient({ bootcamp }: { bootcamp: any }) {
 
         const randomInRange = (min: number, max: number) => {
             return Math.random() * (max - min) + min;
-        }
+        };
 
         const interval: NodeJS.Timeout = setInterval(function () {
             const timeLeft = animationEnd - Date.now();
@@ -32,13 +48,12 @@ export function CertificateClient({ bootcamp }: { bootcamp: any }) {
             }
 
             const particleCount = 50 * (timeLeft / duration);
-            // since particles fall down, start a bit higher than random
             confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
             confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
         }, 250);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [mounted]);
 
     const sidebarWidthClass = !mounted ? 'ml-64' : (isCollapsed ? 'ml-16' : 'ml-64');
 
@@ -52,12 +67,12 @@ export function CertificateClient({ bootcamp }: { bootcamp: any }) {
 
             <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarWidthClass}`}>
                 {/* Header */}
-                <header className="h-[60px] border-b border-border flex items-center px-6 justify-between bg-card-bg/50 backdrop-blur-sm sticky top-0 z-1">
+                <header className="h-[60px] border-b border-border flex items-center px-6 justify-between bg-card-bg/50 backdrop-blur-sm sticky top-0 z-10">
                     <div className="flex items-center gap-4">
                         <Link href={`/dashboard/bootcamp/${bootcamp.id}`} className="text-muted hover:text-foreground transition-colors">
                             <ArrowLeft size={20} />
                         </Link>
-                        <h1 className="text-sm font-medium text-md">Certificación</h1>
+                        <h1 className="text-sm font-medium">Certificación</h1>
                     </div>
                 </header>
 
@@ -87,8 +102,7 @@ export function CertificateClient({ bootcamp }: { bootcamp: any }) {
                                             Este certificado valida que el estudiante ha demostrado dominio en las siguientes áreas:
                                         </p>
                                         <ul className="grid grid-cols-1 gap-3">
-                                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                            {bootcamp.modules?.map((module: any) => (
+                                            {bootcamp.modules?.map((module) => (
                                                 <li key={module.id} className="flex items-start gap-3 text-sm p-3 rounded-lg bg-background border border-border/50">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
                                                     <span className="leading-tight">{module.title}</span>

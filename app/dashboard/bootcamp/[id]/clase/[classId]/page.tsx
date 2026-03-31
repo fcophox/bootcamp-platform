@@ -12,7 +12,6 @@ import {
     ArrowLeft,
     ArrowRight,
     PlayCircle,
-    FileText,
     Headphones,
     CheckCircle,
     CheckSquare,
@@ -25,36 +24,16 @@ import {
     Play,
     Pause,
     SkipBack,
-    User,
-    Sun,
-    Moon,
-    LogOut,
     Presentation,
     Maximize,
     ChevronLeft,
     Trophy,
-    RefreshCw,
     BookOpen,
     FileUp,
-
     AlertCircle
 } from 'lucide-react';
 import { useBootcampProgress } from '@/app/hooks/use-bootcamp-progress';
 import { getBootcampCurriculum } from '@/app/actions/module';
-
-// Removed mock data
-
-interface Option {
-    id: string;
-    text: string;
-    isCorrect?: boolean;
-}
-
-interface Question {
-    id: string;
-    text: string;
-    options: Option[];
-}
 
 interface ClassItem {
     id: number;
@@ -67,13 +46,11 @@ interface ClassItem {
     imageUrl?: string;
     url?: string;
     totalSlides?: number;
-    lessons?: ClassItem[];
 }
 
 interface Module {
     id: number;
     title: string;
-    lessons: ClassItem[];
     classes: ClassItem[];
 }
 
@@ -89,7 +66,6 @@ export default function ClassPlayerPage() {
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentClass, setCurrentClass] = useState<ClassItem | null>(null);
     const [currentModule, setCurrentModule] = useState<Module | null>(null);
-    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [isPlaylistCollapsed, setIsPlaylistCollapsed] = useState(false);
     const [modules, setModules] = useState<Module[]>([]);
@@ -97,14 +73,6 @@ export default function ClassPlayerPage() {
 
     // Presentation State
     const [currentSlide, setCurrentSlide] = useState(1);
-
-    // Exam State
-    const [examAnswers, setExamAnswers] = useState<Record<string, string>>({});
-    const [examSubmitted, setExamSubmitted] = useState(false);
-    const [examScore, setExamScore] = useState(0);
-    const [examStarted, setExamStarted] = useState(false);
-
-    const userName = 'Francisco';
 
     const { isCompleted: isClassCompleted, toggleClassCompletion, completedClassIds } = useBootcampProgress(Number(bootcampId));
 
@@ -116,7 +84,7 @@ export default function ClassPlayerPage() {
     const handleNextClass = () => {
         if (!currentModule || !currentClass || !modules.length) return;
 
-        const currentClassIndex = currentModule.classes.findIndex((c: any) => c.id === currentClass.id);
+        const currentClassIndex = currentModule.classes.findIndex((c: ClassItem) => c.id === currentClass.id);
 
         // 1. Next class in same module
         if (currentClassIndex !== -1 && currentClassIndex < currentModule.classes.length - 1) {
@@ -126,7 +94,7 @@ export default function ClassPlayerPage() {
         }
 
         // 2. Next module
-        const currentModuleIndex = modules.findIndex((m: any) => m.id === currentModule.id);
+        const currentModuleIndex = modules.findIndex((m: Module) => m.id === currentModule.id);
         if (currentModuleIndex !== -1 && currentModuleIndex < modules.length - 1) {
             const nextModule = modules[currentModuleIndex + 1];
             if (nextModule.classes && nextModule.classes.length > 0) {
@@ -149,18 +117,15 @@ export default function ClassPlayerPage() {
             try {
                 const data = await getBootcampCurriculum(Number(bootcampId));
                 // Map to match existing structure
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const formattedModules = data.map((m: any) => ({
-                    ...m,
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    id: m.id,
+                    title: m.title,
                     classes: m.lessons.map((l: any) => ({
                         ...l,
-                        duration: '15 min', // Default as we don't handle duration yet
-                        completed: false,   // Default as we don't handle progress yet
-                        // Ensure content is parsed if JSON string, though handled in render
-                        // For legacy mock compatibility
+                        duration: '15 min', 
+                        completed: false,   
                     }))
-                }));
+                })) as Module[];
                 setModules(formattedModules);
             } catch (error) {
                 console.error("Error fetching content", error);
@@ -189,11 +154,12 @@ export default function ClassPlayerPage() {
                 setCurrentClass(prev => prev ? ({ ...prev, completed: isDone }) : null);
             }
         }
-    }, [completedClassIds, isClassCompleted]); // Sync when stored IDs change
+    }, [completedClassIds, isClassCompleted, currentClass]); 
 
     useEffect(() => {
-        setMounted(true);
-        if (modules.length === 0) return;
+        const frame = requestAnimationFrame(() => setMounted(true));
+        
+        if (modules.length === 0) return () => cancelAnimationFrame(frame);
 
         // Find current class and module
         let found = false;
@@ -207,56 +173,42 @@ export default function ClassPlayerPage() {
                 if (processedClass.type === 'text') processedClass.type = 'info';
                 if (processedClass.type === 'podcast') processedClass.type = 'audio';
 
-                // Parse content for description/url
+                // Parse content
                 try {
-                    if (processedClass.type === 'exam') {
-                        // Exam content left as is or parsed in Exam component
-                    } else if (processedClass.type === 'info') {
-                        // For text/info, try to parse JSON structure { html, imageUrl }
+                    if (processedClass.type === 'info') {
                         try {
                             const parsed = JSON.parse(processedClass.content);
                             if (parsed.html || parsed.imageUrl) {
-                                processedClass.description = parsed.html; // Use HTML as description for About section
-                                processedClass.content = parsed.html; // Main content
+                                processedClass.description = parsed.html; 
+                                processedClass.content = parsed.html; 
                                 processedClass.imageUrl = parsed.imageUrl;
                             } else {
-                                // Fallback if plain text but wrapped in JSON?
                                 processedClass.description = processedClass.content;
                             }
                         } catch {
-                            // Legacy: plain text content
                             processedClass.description = processedClass.content;
                         }
-                    } else {
-                        // For Video, Audio, Presentation, PDF
+                    } else if (processedClass.type !== 'exam') {
                         try {
                             const parsed = JSON.parse(processedClass.content);
-                            // Support both old {url} and new {url, html} formats
                             if (parsed.url !== undefined) {
                                 processedClass.url = parsed.url;
-                                processedClass.content = parsed.url; // Legacy support
+                                processedClass.content = parsed.url; 
                             }
                             if (parsed.html !== undefined) {
                                 processedClass.description = parsed.html;
                             }
                         } catch {
-                            // If parse fails, assume it's a plain string URL or content
-                            // processedClass.content remains as is
+                            // Simple string
                         }
                     }
                 } catch {
-                    // Content is simple string (URL or Text)
+                    // Content is simple string
                 }
 
                 setCurrentClass(processedClass);
                 setCurrentModule(mod);
-                // Reset slide on class change
                 setCurrentSlide(1);
-                // Reset Exam State
-                setExamAnswers({});
-                setExamSubmitted(false);
-                setExamScore(0);
-                setExamStarted(false);
                 found = true;
                 break;
             }
@@ -265,6 +217,8 @@ export default function ClassPlayerPage() {
         if (!found && !isLoading) {
             console.warn("Class not found", classId);
         }
+
+        return () => cancelAnimationFrame(frame);
     }, [classId, modules, isLoading]);
 
     const nextSlide = () => {
@@ -289,12 +243,8 @@ export default function ClassPlayerPage() {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentClass, currentSlide]);
 
-
-
-    // Conditional return MUST be after all hooks
     if (isLoading) {
         return <div className="min-h-screen bg-background flex items-center justify-center text-foreground">Cargando contenido del curso...</div>;
     }
@@ -318,10 +268,8 @@ export default function ClassPlayerPage() {
 
             <div className={`flex flex-col h-full transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
 
-                {/* Header - Fixed Height */}
-                <header className="h-[60px] border-b border-border bg-background flex-shrink-0 z-1 px-6 flex items-center justify-between">
+                <header className="h-[60px] border-b border-border bg-background flex-shrink-0 z-10 px-6 flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1 min-w-0">
-
                         <nav className="flex items-center text-sm truncate">
                             <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors hidden md:block flex-shrink-0">
                                 Dashboard
@@ -334,13 +282,17 @@ export default function ClassPlayerPage() {
                             <span className="font-medium text-foreground truncate">{currentClass.title}</span>
                         </nav>
                     </div>
-
-                    {/* User Menu Removed */}
+                    {/* Dark Mode Toggle if needed */}
+                    <button 
+                        onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                        className="p-2 rounded-lg text-muted hover:text-foreground transition-all ml-4"
+                        title="Cambiar tema"
+                    >
+                        {mounted && resolvedTheme === 'dark' ? <Link href="#" className="flex"><BookOpen size={20} /></Link> : <Link href="#" className="flex"><BookOpen size={20} /></Link>}
+                    </button>
                 </header>
 
-                {/* Main Content Area - Split View with Independent Scrolling */}
                 <main className="flex-1 flex overflow-hidden bg-background">
-
                     {currentClass.type === 'exam' ? (
                         <div className="w-full h-full">
                             {(() => {
@@ -376,18 +328,12 @@ export default function ClassPlayerPage() {
                         </div>
                     ) : (
                         <>
-                            {/* Left Column: Player Content (Scrollable) */}
                             <div className="flex-1 overflow-y-auto h-full p-6 lg:p-8 custom-scrollbar">
                                 <div className="max-w-4xl mx-auto">
-
-                                    {/* Dynamic Content Renderer */}
                                     {(currentClass.type !== 'info' || currentClass.imageUrl) && (
                                         <div className="aspect-video w-full bg-black rounded-2xl overflow-hidden mb-6 shadow-2xl relative group border border-white/5 bg-card-bg">
-
-                                            {/* VIDEO PLAYER */}
                                             {currentClass.type === 'video' && (
                                                 <div className="absolute inset-0 flex items-center justify-center bg-zinc-900">
-                                                    {/* Fake video UI for demo */}
                                                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                                                     <button
                                                         onClick={() => setIsPlaying(!isPlaying)}
@@ -395,8 +341,6 @@ export default function ClassPlayerPage() {
                                                     >
                                                         {isPlaying ? <Pause fill="currentColor" size={32} /> : <Play fill="currentColor" className="ml-1" size={32} />}
                                                     </button>
-
-                                                    {/* Progress Bar Mock */}
                                                     <div className="absolute bottom-0 left-0 right-0 px-4 py-4 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <div className="w-full h-1 bg-white/20 rounded-full mb-4 cursor-pointer">
                                                             <div className="w-1/3 h-full bg-primary rounded-full relative">
@@ -411,7 +355,6 @@ export default function ClassPlayerPage() {
                                                 </div>
                                             )}
 
-                                            {/* INFO / READING */}
                                             {currentClass.type === 'info' && currentClass.imageUrl && (
                                                 <div className="absolute inset-0 bg-card-bg flex flex-col overflow-y-auto custom-scrollbar">
                                                     <div className="w-full h-full md:h-full shrink-0 bg-zinc-900 relative">
@@ -424,7 +367,6 @@ export default function ClassPlayerPage() {
                                                 </div>
                                             )}
 
-                                            {/* AUDIO PLAYER */}
                                             {currentClass.type === 'audio' && (
                                                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 to-black flex flex-col items-center justify-center p-8">
                                                     <div className="h-32 w-32 md:h-48 md:w-48 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-8 shadow-2xl relative overflow-hidden">
@@ -433,10 +375,7 @@ export default function ClassPlayerPage() {
                                                     </div>
                                                     <h2 className="text-2xl font-bold text-white mb-2 text-center">{currentClass.title}</h2>
                                                     <p className="text-white/60 mb-8">{currentModule.title}</p>
-
-                                                    {/* Audio Controls */}
                                                     <div className="w-full max-w-md">
-                                                        {/* Waveform Mock */}
                                                         <div className="flex items-center justify-center gap-1 h-12 mb-6">
                                                             {[...Array(20)].map((_, i) => (
                                                                 <div
@@ -449,7 +388,6 @@ export default function ClassPlayerPage() {
                                                                 ></div>
                                                             ))}
                                                         </div>
-
                                                         <div className="flex items-center justify-center gap-6">
                                                             <button className="text-white/60 hover:text-white transition-colors">
                                                                 <SkipBack size={24} />
@@ -468,19 +406,15 @@ export default function ClassPlayerPage() {
                                                 </div>
                                             )}
 
-                                            {/* PRESENTATION / SLIDES PLAYER */}
                                             {currentClass.type === 'presentation' && (
                                                 <div className="absolute inset-0 bg-white dark:bg-zinc-900 flex flex-col relative text-zinc-900 dark:text-white">
-                                                    {/* Slide Content */}
                                                     <div className="flex-1 flex items-center justify-center p-8 bg-zinc-100 dark:bg-zinc-800 m-4 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-inner relative overflow-hidden">
-                                                        {/* Decorative Elements */}
                                                         <div className="absolute top-0 right-0 p-4 opacity-10">
                                                             <Presentation size={120} />
                                                         </div>
                                                         <div className="absolute bottom-4 left-6 text-xs text-muted font-mono opacity-50">
                                                             SLIDE_ID_{currentSlide.toString().padStart(3, '0')}
                                                         </div>
-
                                                         <div className="text-center max-w-3xl z-10">
                                                             <span className="inline-block px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold mb-4">
                                                                 DIAPOSITIVA {currentSlide}
@@ -491,44 +425,35 @@ export default function ClassPlayerPage() {
                                                             <p className="text-xl text-muted leading-relaxed">
                                                                 {currentSlide === 1
                                                                     ? "Bienvenido a esta presentación interactiva. Utiliza los controles inferiores para navegar."
-                                                                    : "Aquí se explicaría en detalle el punto importante de esta sección. Los slides permiten digerir información compleja paso a paso."}
+                                                                    : "Aquí se explicaría en detalle el punto importante de esta sección."}
                                                             </p>
-
-                                                            {/* Fake Chart or Image */}
                                                             <div className="mt-8 h-32 w-full mx-auto max-w-md bg-zinc-200 dark:bg-zinc-700/50 rounded-lg flex items-center justify-center border-2 border-dashed border-zinc-300 dark:border-zinc-600">
                                                                 <span className="text-muted text-sm italic">Gráfico / Esquema Visual</span>
                                                             </div>
                                                         </div>
                                                     </div>
-
-                                                    {/* Slide Controls */}
                                                     <div className="h-16 border-t border-border bg-card-bg flex items-center justify-between px-6 select-none">
                                                         <div className="text-sm font-medium text-muted">
                                                             {currentSlide} / {currentClass.totalSlides || 12}
                                                         </div>
-
                                                         <div className="flex items-center gap-4">
                                                             <button
                                                                 onClick={prevSlide}
                                                                 disabled={currentSlide === 1}
                                                                 className="p-2 rounded-full hover:bg-hover-bg disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"
-                                                                title="Anterior (Flecha Izq)"
                                                             >
                                                                 <ArrowLeft size={24} />
                                                             </button>
-
                                                             <button
                                                                 onClick={nextSlide}
                                                                 disabled={currentSlide === (currentClass.totalSlides || 12)}
                                                                 className="h-10 w-10 bg-primary hover:bg-primary/90 text-white rounded-full flex items-center justify-center shadow-lg shadow-primary/20 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all active:scale-95"
-                                                                title="Siguiente (Flecha Der)"
                                                             >
                                                                 <ArrowRight size={24} />
                                                             </button>
                                                         </div>
-
                                                         <div className="flex items-center gap-2">
-                                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors" title="Pantalla completa">
+                                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors">
                                                                 <Maximize size={20} />
                                                             </button>
                                                         </div>
@@ -538,7 +463,6 @@ export default function ClassPlayerPage() {
                                         </div>
                                     )}
 
-                                    {/* Class Details & Actions */}
                                     <div className="flex flex-col md:flex-row justify-between items-start gap-6 border-b border-border pb-8 mb-8">
                                         <div>
                                             <h1 className="text-2xl font-bold text-foreground mb-2">{currentClass.title}</h1>
@@ -556,25 +480,14 @@ export default function ClassPlayerPage() {
                                         </div>
 
                                         <div className="flex items-center gap-2">
-                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors" title="Me gusta">
-                                                <ThumbsUp size={20} />
-                                            </button>
-                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors" title="Comentarios">
-                                                <MessageSquare size={20} />
-                                            </button>
-                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors" title="Compartir">
-                                                <Share2 size={20} />
-                                            </button>
-                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors" title="Recursos">
-                                                <Download size={20} />
-                                            </button>
-                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors">
-                                                <MoreVertical size={20} />
-                                            </button>
+                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors"><ThumbsUp size={20} /></button>
+                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors"><MessageSquare size={20} /></button>
+                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors"><Share2 size={20} /></button>
+                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors"><Download size={20} /></button>
+                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors"><MoreVertical size={20} /></button>
                                         </div>
                                     </div>
 
-                                    {/* Description / Notes */}
                                     <div className="space-y-4 mb-10">
                                         <h3 className="font-semibold text-foreground">Contenido</h3>
                                         {currentClass.description && (currentClass.type !== 'info' || !currentClass.content) && (
@@ -586,75 +499,60 @@ export default function ClassPlayerPage() {
                                         ) : !currentClass.description && (
                                             <p className="text-muted leading-relaxed">
                                                 No hay descripción adicional para esta clase.
-                                                {currentClass.type === 'presentation' && " Recuerda que puedes navegar las diapositivas usando las flechas del teclado."}
                                             </p>
                                         )}
                                     </div>
 
-                                    {/* Mark as Completed Action */}
                                     <div className="flex justify-center mb-16 pt-8 border-t border-border">
                                         <button
                                             className={`px-8 py-3 font-medium rounded-xl transition-all shadow-lg flex items-center gap-2 transform active:scale-95 ${isClassCompleted(currentClass.id)
-                                                ? 'bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500/20 cursor-pointer'
+                                                ? 'bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500/20'
                                                 : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20 hover:scale-105'
                                                 }`}
-                                            onClick={() => {
-                                                handleToggleComplete();
-                                            }}
+                                            onClick={handleToggleComplete}
                                         >
                                             {isClassCompleted(currentClass.id) ? (
-                                                <>
-                                                    <CheckCircle size={20} />
-                                                    <span>¡Clase Completada!</span>
-                                                </>
+                                                <><CheckCircle size={20} /><span>¡Clase Completada!</span></>
                                             ) : (
-                                                <>
-                                                    <CheckSquare size={20} />
-                                                    <span>Marcar como Visto / Leído</span>
-                                                </>
+                                                <><CheckSquare size={20} /><span>Marcar como Visto / Leído</span></>
                                             )}
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Right Column: Playlist Sidebar (Fixed & Scrollable) */}
                             <div className={`border-t lg:border-t-0 lg:border-l border-border bg-card-bg/50 overflow-y-auto overflow-x-hidden h-full flex-shrink-0 custom-scrollbar z-20 transition-all duration-300 ${isPlaylistCollapsed ? 'w-full lg:w-14' : 'w-full lg:w-96'}`}>
-                                <div className={`p-3 border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-1 flex items-center ${isPlaylistCollapsed ? 'justify-center p-2' : 'justify-between'}`}>
+                                <div className={`p-3 border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-10 flex items-center ${isPlaylistCollapsed ? 'justify-center p-2' : 'justify-between'}`}>
                                     {!isPlaylistCollapsed && (
                                         <div>
                                             <h3 className="font-semibold text-foreground">Contenido del Módulo</h3>
                                             <p className="text-xs text-muted">
-                                                {currentModule.classes.length} clases • Progreso: {Math.round((currentModule.classes.filter((c: any) => isClassCompleted(c.id)).length / currentModule.classes.length) * 100)}%
+                                                {currentModule.classes.length} clases • Progreso: {Math.round((currentModule.classes.filter((c: ClassItem) => isClassCompleted(c.id)).length / currentModule.classes.length) * 100)}%
                                             </p>
                                         </div>
                                     )}
                                     <button
                                         onClick={() => setIsPlaylistCollapsed(!isPlaylistCollapsed)}
                                         className="p-1.5 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors"
-                                        title={isPlaylistCollapsed ? "Expandir lista" : "Colapsar lista"}
                                     >
                                         {isPlaylistCollapsed ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
                                     </button>
                                 </div>
 
                                 <div className="p-2">
-                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                    {currentModule.classes.map((clase: any, index: number) => {
+                                    {currentModule.classes.map((clase: ClassItem, index: number) => {
                                         const isActive = clase.id === currentClass.id;
                                         return (
                                             <Link
                                                 key={clase.id}
                                                 href={`/dashboard/bootcamp/${bootcampId}/clase/${clase.id}`}
                                                 className={`flex rounded-xl mb-1 transition-all group ${isActive ? 'bg-primary/10 border border-primary/20' : `${isPlaylistCollapsed ? '' : 'hover:bg-hover-bg'} border border-transparent`} ${isPlaylistCollapsed ? 'justify-center p-1' : 'gap-3 p-3'}`}
-                                                title={isPlaylistCollapsed ? clase.title : ''}
                                             >
                                                 <div className={`relative flex-shrink-0 rounded-lg overflow-hidden bg-black/20 flex items-center justify-center border border-border/50 ${isPlaylistCollapsed ? 'h-10 w-10 group-hover:bg-white/10 group-hover:border-white/20 transition-all' : 'h-16 w-16'}`}>
                                                     {(() => {
                                                         const type = (clase.type || '').toLowerCase();
                                                         const size = isPlaylistCollapsed ? 18 : 20;
                                                         const className = isActive ? 'text-primary' : 'text-muted';
-
                                                         if (type === 'video') return <PlayCircle size={size} className={className} />;
                                                         if (type === 'audio' || type === 'podcast') return <Headphones size={size} className={className} />;
                                                         if (type === 'presentation') return <Presentation size={size} className={className} />;
@@ -687,7 +585,7 @@ export default function ClassPlayerPage() {
                         </>
                     )}
                 </main>
-            </div >
-        </div >
+            </div>
+        </div>
     );
 }

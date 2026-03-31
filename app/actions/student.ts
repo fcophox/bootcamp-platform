@@ -84,15 +84,16 @@ export async function inviteStudent(bootcampId: number, email: string) {
 
         if (sendError) {
             console.error('Email sending failed:', sendError);
-            // We throw here if we want the UI to know the email failed
-            throw new Error(`El alumno fue registrado pero no se pudo enviar el correo: ${sendError.message || 'Error de configuración de correo'}`);
+            const errorMessage = sendError instanceof Error ? sendError.message : (typeof sendError === 'string' ? sendError : 'Error de configuración de correo');
+            throw new Error(`El alumno fue registrado pero no se pudo enviar el correo: ${errorMessage}`);
         }
 
         console.log(`Invitation email successfully sent to ${email}`);
 
-    } catch (emailError: any) {
+    } catch (emailError: unknown) {
         console.error('Email action error:', emailError);
-        throw emailError; // Re-throw to show in UI
+        if (emailError instanceof Error) throw emailError;
+        throw new Error('Error de configuración de correo o acción fallida');
     }
 
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);

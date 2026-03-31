@@ -11,7 +11,7 @@ const resendApiKey = process.env.RESEND_API_KEY;
 const resendFrom = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
 export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
-    let lastError: any = null;
+    let lastError: Error | unknown = null;
 
     // 1. Try SMTP if configured and not placeholder
     const isPlaceholder = smtpUser === 'tu-correo@gmail.com' || smtpPass === 'tu-app-password';
@@ -36,7 +36,7 @@ export async function sendEmail({ to, subject, html }: { to: string; subject: st
             });
             console.log('Email sent via SMTP:', info.messageId);
             return { data: info, error: null };
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('SMTP Error:', error);
             lastError = error;
             // Don't return yet, try Resend as fallback
@@ -61,7 +61,7 @@ export async function sendEmail({ to, subject, html }: { to: string; subject: st
                 console.log('Email sent via Resend:', data?.id);
                 return { data, error: null };
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Resend Exception:', error);
             lastError = error;
         }

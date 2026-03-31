@@ -12,12 +12,13 @@ export function useBootcampProgress(bootcampId: number) {
             const saved = localStorage.getItem(`bootcamp_progress_${bootcampId}`);
             if (saved) {
                 try {
-                    setCompletedClassIds(JSON.parse(saved));
+                    const parsed = JSON.parse(saved);
+                    requestAnimationFrame(() => setCompletedClassIds(parsed));
                 } catch (e) {
                     console.error("Failed to parse progress", e);
                 }
             }
-            setIsLoaded(true);
+            requestAnimationFrame(() => setIsLoaded(true));
         }
     }, [bootcampId]);
 

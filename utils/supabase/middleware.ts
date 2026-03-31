@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { getRoleFromEmail } from '@/utils/roles'
+// import { getRoleFromEmail } from '@/utils/roles'
 
 export async function updateSession(request: NextRequest) {
     let response = NextResponse.next({

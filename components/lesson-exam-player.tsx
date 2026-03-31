@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-    ChevronRight, Clock, CheckCircle2, AlertCircle, ArrowRight, ArrowLeft, Send,
+    Clock, CheckCircle2, AlertCircle, ArrowRight, ArrowLeft, Send,
     CheckCircle, Trophy, RefreshCw
 } from 'lucide-react';
 import { ConfirmationModal } from '@/components/confirmation-modal';
