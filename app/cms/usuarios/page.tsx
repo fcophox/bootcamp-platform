@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
-import { User, ShieldCheck, GraduationCap, Mail, Search, Users, ShieldAlert, MoreHorizontal, Trash2, Loader2, Zap, UserPlus, UserMinus, AlertTriangle, X } from 'lucide-react';
+import { User, ShieldCheck, GraduationCap, Mail, Search, Users, ShieldAlert, MoreHorizontal, Trash2, Loader2, UserPlus, UserMinus, AlertTriangle, X } from 'lucide-react';
+
 import { getAllUsersWithRoles } from '@/utils/roles-client';
 import { deleteUser, updateUserRole } from './actions';
 
@@ -74,7 +75,14 @@ function ConfirmModal({ isOpen, onClose, onConfirm, title, description, confirmT
 
 export default function UsuariosCMSPage() {
     const { isCollapsed } = useSidebar();
-    const [users, setUsers] = useState<any[]>([]);
+    interface UserWithRoles {
+        id: string;
+        email: string;
+        role: string;
+        bootcamps?: { name: string; status: string }[];
+    }
+    const [users, setUsers] = useState<UserWithRoles[]>([]);
+
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -116,7 +124,8 @@ export default function UsuariosCMSPage() {
         return usr.email.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
-    const openConfirmModal = (type: 'delete' | 'promote' | 'demote', user: any) => {
+    const openConfirmModal = (type: 'delete' | 'promote' | 'demote', user: UserWithRoles) => {
+
         setModalConfig({
             isOpen: true,
             type,
@@ -237,7 +246,9 @@ export default function UsuariosCMSPage() {
                                                     <td className="px-8 py-5">
                                                         <div className="flex flex-wrap gap-1.5 max-w-[250px]">
                                                             {(usr.bootcamps || []).length > 0 ? (
-                                                                usr.bootcamps.map((bc: any, idx: number) => (
+                                                                usr.bootcamps?.map((bc: { name: string; status: string }, idx: number) => (
+
+
                                                                     <div key={idx} className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm ${
                                                                         bc.status === 'invited' 
                                                                             ? 'border-amber-500/20 bg-amber-500/5 text-amber-500/70' 

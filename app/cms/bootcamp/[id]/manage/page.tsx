@@ -42,16 +42,20 @@ export default async function ManageBootcampPage({
 
     // Sort modules and lessons by 'order' (or id if order is default)
     // Doing it in JS because Supabase nested ordering syntax can be verbose
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const modules = (bootcamp.modules || []).sort((a: any, b: any) => a.order - b.order || a.id - b.id);
+    interface Resource {
+        order: number;
+        id: number;
+        lessons?: Resource[];
+    }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    modules.forEach((mod: any) => {
+    const modules = (bootcamp.modules || []).sort((a: Resource, b: Resource) => a.order - b.order || a.id - b.id);
+
+    modules.forEach((mod: Resource) => {
         if (mod.lessons) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            mod.lessons.sort((a: any, b: any) => a.order - b.order || a.id - b.id);
+            mod.lessons.sort((a: Resource, b: Resource) => a.order - b.order || a.id - b.id);
         }
     });
+
 
     // Fetch students
     const { getStudents } = await import('@/app/actions/student');

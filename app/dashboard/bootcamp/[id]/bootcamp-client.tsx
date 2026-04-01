@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useTheme } from "next-themes";
 import { useSidebar } from '@/components/sidebar-context';
+
 import { Sidebar } from '@/components/sidebar';
 import {
     ChevronRight,
@@ -11,25 +11,21 @@ import {
     Calendar,
     BarChart3,
     PlayCircle,
-    FileText,
     CheckCircle,
     Star,
     Trophy,
     Headphones,
     Presentation,
-    LogOut,
-    Sun,
-    Moon,
-    User,
     Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone,
     FileUp
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+
 import { useBootcampProgress } from '@/app/hooks/use-bootcamp-progress';
 
 // Shared Icon Map (could be in a separate util file)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ICON_MAP: Record<string, any> = {
+const ICON_MAP: Record<string, typeof Code> = {
+
     code: Code,
     database: Database,
     layout: Layout,
@@ -58,7 +54,7 @@ interface BootcampClientProps {
 export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps) {
 
     const { isCollapsed } = useSidebar();
-    const { setTheme, resolvedTheme } = useTheme();
+
 
     // Mock Data to Emulate Rich Content (as requested)
     const MOCK_MODULES_DATA = [
@@ -106,8 +102,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
         : MOCK_MODULES_DATA;
 
     const [activeModule, setActiveModule] = useState<number | null>(modulesToDisplay[0]?.id || null);
-    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-    const userName = 'Francisco';
+
 
     const getTypeIcon = (type: string) => {
         const t = (type || '').toLowerCase();
@@ -125,7 +120,8 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
 
     // Calculate generic stats if not available in DB
     const totalModules = modulesToDisplay?.length || 0;
-    const totalClasses = modulesToDisplay?.reduce((acc: number, m: any) => acc + (m.lessons?.length || 0), 0) || 0; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const totalClasses = modulesToDisplay?.reduce((acc: number, m: { lessons?: { id: number }[] }) => acc + (m.lessons?.length || 0), 0) || 0;
+
 
     // Use Progress Hook
     const { getProgressPercentage, isCompleted, isLoaded } = useBootcampProgress(bootcamp.id);
@@ -260,7 +256,8 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                         {modulesToDisplay && modulesToDisplay.length > 0 ? (
                             <>
                                 <div className="flex items-center gap-8 mb-8 border-b border-border overflow-x-auto">
-                                    {modulesToDisplay.map((module: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
+                                    {modulesToDisplay.map((module: { id: number; title: string }) => (
+
                                         <button
                                             key={module.id}
                                             onClick={() => setActiveModule(module.id)}
@@ -279,10 +276,12 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                 {/* Class List for Active Module */}
                                 <div className="space-y-4">
                                     {modulesToDisplay
-                                        .filter((module: any) => module.id === activeModule) // eslint-disable-line @typescript-eslint/no-explicit-any
-                                        .map((module: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
+                                        .filter((module: { id: number }) => module.id === activeModule)
+                                        .map((module: { id: number; lessons?: { id: number; title: string; type: string; duration: string; content?: string; completed?: boolean }[] }) => (
+
                                             <div key={module.id} className="space-y-4">
-                                                {module.lessons?.map((lesson: any, lessonIndex: number) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+                                                {module.lessons?.map((lesson: { id: number; title: string; type: string; duration: string; content?: string; completed?: boolean }, lessonIndex: number) => {
+
                                                     const index = lessonIndex + 1;
 
                                                     // RENDER EXAM CARD

@@ -70,7 +70,7 @@ export function DashboardClient({ bootcamps, userName = 'Francisco' }: Dashboard
                             <h2 className="text-xl font-semibold text-foreground mb-4">Bootcamps Disponibles</h2>
 
                             {bootcamps.length > 0 ? (
-                                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
                                     {bootcamps.map((bootcamp) => (
                                         <BootcampCard
                                             key={bootcamp.id}

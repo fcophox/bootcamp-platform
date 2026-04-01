@@ -4,14 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-function generateSlug(title: string): string {
-    return title
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/[\s_-]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-}
+
 
 export async function createBootcamp(formData: FormData) {
     const title = formData.get('title') as string;
@@ -74,7 +67,8 @@ export async function deleteBootcamp(id: number) {
     revalidatePath('/cms');
 }
 
-export async function updateBootcamp(id: number, updates: { title?: string; icon?: string; color?: string }) {
+export async function updateBootcamp(id: number, updates: { title?: string; icon?: string; color?: string; description?: string }) {
+
     const supabase = await createClient();
 
     const { error } = await supabase

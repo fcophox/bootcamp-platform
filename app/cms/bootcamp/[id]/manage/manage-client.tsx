@@ -7,15 +7,17 @@ import { useSidebar } from '@/components/sidebar-context';
 import { ConfirmationModal } from '@/components/confirmation-modal';
 import { TiptapEditor } from '@/components/tiptap-editor';
 import {
-    ChevronRight, Plus, FileText, Video, Layout,
+    ChevronRight, Plus, FileText, Layout,
     Trash2, Edit2, ChevronDown, ChevronUp, GripVertical, MonitorPlay,
-    Headphones, FileUp, Users, Mail, UserMinus, Trophy, Check, X, Circle, HelpCircle, Clock,
-    Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase, Link2, Copy
+    Headphones, FileUp, Users, Trophy, Check, X, Clock,
+    Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase
 } from 'lucide-react';
+
 import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson } from '@/app/actions/module';
 import { updateBootcamp } from '@/app/actions/bootcamp';
 import { createClient } from '@/utils/supabase/client';
-import { inviteStudent, removeStudent, updateStudentStatus } from '@/app/actions/student';
+import { removeStudent, updateStudentStatus } from '@/app/actions/student';
+
 import { createInvitation } from '@/app/actions/invitation';
 
 interface Lesson {
@@ -55,9 +57,11 @@ interface ManageBootcampClientProps {
     bootcamp: {
         id: number;
         title: string;
+        description?: string;
         icon?: string;
         color?: string;
     };
+
     modules: Module[];
     initialStudents?: Student[];
 }
@@ -75,7 +79,10 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [activeModuleForContent, setActiveModuleForContent] = useState<number | null>(null);
     const [isEditingBootcampTitle, setIsEditingBootcampTitle] = useState(false);
     const [tempBootcampTitle, setTempBootcampTitle] = useState(bootcamp.title);
+    const [isEditingDescription, setIsEditingDescription] = useState(false);
+    const [tempDescription, setTempDescription] = useState(bootcamp.description || 'Gestiona el contenido y los alumnos de tu curso.');
     const [isEditingIcon, setIsEditingIcon] = useState(false);
+
     const [tempIcon, setTempIcon] = useState(bootcamp.icon || 'code');
     const [tempColor, setTempColor] = useState(bootcamp.color || 'blue');
     const [editingModuleId, setEditingModuleId] = useState<number | null>(null);
@@ -94,10 +101,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     ]);
     const [examDuration, setExamDuration] = useState(15); // Default 15 mins
 
-    // Student Management State
-    const [inviteEmail, setInviteEmail] = useState('');
-    const [isInviting, setIsInviting] = useState(false);
     const [toast, setToast] = useState<{ show: boolean, message: string } | null>(null);
+
 
     // Modal State
     const [modalConfig, setModalConfig] = useState<{
@@ -139,9 +144,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 try {
                     await action();
                     setModalConfig(prev => ({ ...prev, isOpen: false }));
-                } catch (error: any) {
-                    console.error(error);
-                    alert(error.message || 'Error al ejecutar la acción');
+                } catch (error: unknown) {
+                    const e = error as Error;
+                    console.error(e);
+                    alert(e.message || 'Error al ejecutar la acción');
+
                 } finally {
                     setIsActionLoading(false);
                 }
@@ -155,9 +162,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             await createModule(bootcamp.id, newModuleTitle);
             setNewModuleTitle('');
             setIsCreatingModule(false);
-        } catch (error) {
+        } catch {
             alert('Error al crear módulo');
         }
+
+
     };
 
     const handleSaveContent = async () => {
@@ -224,9 +233,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             setResourceContent('');
             setExamQuestions([{ id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }]); // Reset Exam
             setExamDuration(15);
-        } catch (error) {
+        } catch {
             alert('Error al guardar contenido');
         }
+
+
     };
 
     const handleEditLesson = (lesson: Lesson, moduleId: number) => {
@@ -292,52 +303,20 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         }
     };
 
-    const handleInviteStudent = async () => {
-        if (!inviteEmail || !inviteEmail.includes('@')) return;
-        setIsInviting(true);
-        try {
-            await inviteStudent(bootcamp.id, inviteEmail);
-            setInviteEmail('');
-
-            // Show Success Modal instead of Alert
-            setModalConfig({
-                isOpen: true,
-                title: 'Invitación Enviada',
-                message: 'El registro de invitación fue creado y se ha disparado el correo electrónico con el enlace de acceso al estudiante.',
-                confirmText: 'Entiendo',
-                variant: 'primary',
-                hideCancel: true,
-                onConfirm: () => {
-                    setModalConfig(prev => ({ ...prev, isOpen: false }));
-                }
-            });
-        } catch (error: any) {
-            alert(error.message);
-        } finally {
-            setIsInviting(false);
-        }
-    };
-
     const handleToggleStatus = async (studentId: number, currentStatus: string) => {
         setIsActionLoading(true);
         try {
             const newStatus = currentStatus === 'active' ? 'invited' : 'active';
             await updateStudentStatus(studentId, bootcamp.id, newStatus);
-        } catch (error: any) {
-            alert(error.message);
+        } catch (error: unknown) {
+            const e = error as Error;
+            alert(e.message);
         } finally {
             setIsActionLoading(false);
         }
     };
 
-    const handleCopyInviteLink = () => {
-        const origin = window.location.origin;
-        const inviteUrl = `${origin}/login?invite=${bootcamp.id}`;
 
-        navigator.clipboard.writeText(inviteUrl);
-
-        showToast(`Enlace general copiado al portapapeles`);
-    };
 
     const handleGenerateUniqueLink = async () => {
         setIsActionLoading(true);
@@ -409,6 +388,25 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             setIsActionLoading(false);
         }
     };
+
+    const handleUpdateBootcampDescription = async () => {
+
+        if (tempDescription === bootcamp.description) {
+            setIsEditingDescription(false);
+            return;
+        }
+
+        setIsActionLoading(true);
+        try {
+            await updateBootcamp(bootcamp.id, { description: tempDescription });
+            setIsEditingDescription(false);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
 
     const handleUpdateBootcampIcon = async () => {
         setIsActionLoading(true);
@@ -845,7 +843,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         )}
                                     </div>
 
-                                    <div className="flex-1">
+                                    <div className="flex-1 max-w-2xl">
+
                                         {isEditingBootcampTitle ? (
                                             <div className="mb-2">
                                                 <input
@@ -853,6 +852,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     value={tempBootcampTitle}
                                                     onChange={(e) => setTempBootcampTitle(e.target.value)}
                                                     className="text-2xl font-semibold bg-transparent border-b-2 border-primary outline-none text-foreground w-full py-1"
+
+
                                                     autoFocus
                                                     onKeyDown={(e) => {
                                                         if (e.key === 'Enter') handleUpdateBootcampTitle();
@@ -878,7 +879,38 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 </div>
                                             </div>
                                         )}
-                                        <p className="text-muted">Gestiona el contenido y los alumnos de tu curso.</p>
+                                        {isEditingDescription ? (
+                                            <div className="mt-1">
+                                                <input
+                                                    type="text"
+                                                    value={tempDescription}
+                                                    onChange={(e) => setTempDescription(e.target.value)}
+                                                    className="text-sm text-muted bg-transparent border-b border-primary/50 outline-none w-full py-1"
+
+
+                                                    autoFocus
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') handleUpdateBootcampDescription();
+                                                        if (e.key === 'Escape') {
+                                                            setIsEditingDescription(false);
+                                                            setTempDescription(bootcamp.description || 'Gestiona el contenido y los alumnos de tu curso.');
+                                                        }
+                                                    }}
+                                                    onBlur={handleUpdateBootcampDescription}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <p
+                                                className="text-muted text-sm cursor-pointer hover:text-foreground transition-colors mt-1"
+                                                onClick={() => {
+                                                    setTempDescription(bootcamp.description || 'Gestiona el contenido y los alumnos de tu curso.');
+                                                    setIsEditingDescription(true);
+                                                }}
+                                            >
+                                                {bootcamp.description || 'Gestiona el contenido y los alumnos de tu curso.'}
+                                            </p>
+                                        )}
+
                                     </div>
                                 </div>
                                 {activeTab === 'content' && (

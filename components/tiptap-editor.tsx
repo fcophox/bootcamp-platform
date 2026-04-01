@@ -4,7 +4,10 @@ import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
-import { Bold, Italic, List, ListOrdered, Quote, Redo, Strikethrough, Undo, Link as LinkIcon, Image as ImageIcon } from 'lucide-react';
+import { 
+    Bold, Italic, List, ListOrdered, Quote, Redo, Strikethrough, Undo, 
+    Link as LinkIcon, Image as ImageIcon, Heading1, Heading2, Heading3, Pilcrow 
+} from 'lucide-react';
 import { useEffect } from 'react';
 
 interface TiptapEditorProps {
@@ -46,6 +49,35 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
 
     return (
         <div className="flex flex-wrap gap-2 p-2 mb-2 border-b border-border bg-muted/20 rounded-t-lg">
+            <button
+                onClick={() => editor.chain().focus().setParagraph().run()}
+                className={`p-2 rounded hover:bg-background transition-colors ${editor.isActive('paragraph') ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'}`}
+                title="Párrafo Normal"
+            >
+                <Pilcrow size={18} />
+            </button>
+            <button
+                onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                className={`p-2 rounded hover:bg-background transition-colors ${editor.isActive('heading', { level: 1 }) ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'}`}
+                title="Título 1"
+            >
+                <Heading1 size={18} />
+            </button>
+            <button
+                onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                className={`p-2 rounded hover:bg-background transition-colors ${editor.isActive('heading', { level: 2 }) ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'}`}
+                title="Título 2"
+            >
+                <Heading2 size={18} />
+            </button>
+            <button
+                onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+                className={`p-2 rounded hover:bg-background transition-colors ${editor.isActive('heading', { level: 3 }) ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'}`}
+                title="Título 3"
+            >
+                <Heading3 size={18} />
+            </button>
+            <div className="w-px h-8 bg-border mx-1" />
             <button
                 onClick={() => editor.chain().focus().toggleBold().run()}
                 disabled={!editor.can().chain().focus().toggleBold().run()}

@@ -16,11 +16,9 @@ import {
     CheckCircle,
     CheckSquare,
     Clock,
-    MoreVertical,
-    Download,
-    Share2,
     MessageSquare,
     ThumbsUp,
+    ThumbsDown,
     Play,
     Pause,
     SkipBack,
@@ -34,6 +32,8 @@ import {
 } from 'lucide-react';
 import { useBootcampProgress } from '@/app/hooks/use-bootcamp-progress';
 import { getBootcampCurriculum } from '@/app/actions/module';
+import { submitLessonFeedback, getLessonFeedback } from '@/app/actions/feedback';
+import { LessonFeedbackModal } from '@/components/lesson-feedback-modal';
 
 interface ClassItem {
     id: number;
@@ -70,6 +70,9 @@ export default function ClassPlayerPage() {
     const [isPlaylistCollapsed, setIsPlaylistCollapsed] = useState(false);
     const [modules, setModules] = useState<Module[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [userFeedback, setUserFeedback] = useState<{ isLiked: boolean | null, comment: string | null } | null>(null);
+    const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
+    const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
     // Presentation State
     const [currentSlide, setCurrentSlide] = useState(1);
@@ -117,15 +120,17 @@ export default function ClassPlayerPage() {
             try {
                 const data = await getBootcampCurriculum(Number(bootcampId));
                 // Map to match existing structure
-                const formattedModules = data.map((m: any) => ({
+                const formattedModules = data.map((m: { id: number; title: string, lessons: { id: number; title: string; type: string; content: string; order: number }[] }) => ({
                     id: m.id,
                     title: m.title,
-                    classes: m.lessons.map((l: any) => ({
+                    classes: m.lessons.map((l: { id: number; title: string; type: string; content: string; order: number }) => ({
                         ...l,
-                        duration: '15 min', 
-                        completed: false,   
+                        duration: '10 min',
+                        completed: false,
                     }))
+
                 })) as Module[];
+
                 setModules(formattedModules);
             } catch (error) {
                 console.error("Error fetching content", error);
@@ -140,13 +145,21 @@ export default function ClassPlayerPage() {
     useEffect(() => {
         if (completedClassIds.length === 0) return;
 
-        setModules(prev => prev.map(m => ({
-            ...m,
-            classes: m.classes.map(c => ({
-                ...c,
-                completed: isClassCompleted(c.id) || c.completed
-            }))
-        })));
+        setModules(prev => {
+            const needsUpdate = prev.some(m =>
+                m.classes.some(c => (isClassCompleted(c.id) || c.completed) !== c.completed)
+            );
+
+            if (!needsUpdate) return prev;
+
+            return prev.map(m => ({
+                ...m,
+                classes: m.classes.map(c => ({
+                    ...c,
+                    completed: isClassCompleted(c.id) || c.completed
+                }))
+            }));
+        });
 
         if (currentClass) {
             const isDone = isClassCompleted(currentClass.id);
@@ -154,15 +167,14 @@ export default function ClassPlayerPage() {
                 setCurrentClass(prev => prev ? ({ ...prev, completed: isDone }) : null);
             }
         }
-    }, [completedClassIds, isClassCompleted, currentClass]); 
+    }, [completedClassIds, isClassCompleted, currentClass]);
 
     useEffect(() => {
         const frame = requestAnimationFrame(() => setMounted(true));
-        
+
         if (modules.length === 0) return () => cancelAnimationFrame(frame);
 
         // Find current class and module
-        let found = false;
         for (const mod of modules) {
             const foundClass = mod.classes.find((c: ClassItem) => c.id === classId);
             if (foundClass) {
@@ -179,8 +191,8 @@ export default function ClassPlayerPage() {
                         try {
                             const parsed = JSON.parse(processedClass.content);
                             if (parsed.html || parsed.imageUrl) {
-                                processedClass.description = parsed.html; 
-                                processedClass.content = parsed.html; 
+                                processedClass.description = parsed.html;
+                                processedClass.content = parsed.html;
                                 processedClass.imageUrl = parsed.imageUrl;
                             } else {
                                 processedClass.description = processedClass.content;
@@ -193,7 +205,7 @@ export default function ClassPlayerPage() {
                             const parsed = JSON.parse(processedClass.content);
                             if (parsed.url !== undefined) {
                                 processedClass.url = parsed.url;
-                                processedClass.content = parsed.url; 
+                                processedClass.content = parsed.url;
                             }
                             if (parsed.html !== undefined) {
                                 processedClass.description = parsed.html;
@@ -209,17 +221,82 @@ export default function ClassPlayerPage() {
                 setCurrentClass(processedClass);
                 setCurrentModule(mod);
                 setCurrentSlide(1);
-                found = true;
                 break;
             }
         }
 
-        if (!found && !isLoading) {
-            console.warn("Class not found", classId);
-        }
+
+        // Fetch user feedback
+        const fetchFeedback = async () => {
+            if (!classId) return;
+            try {
+                const feedback = await getLessonFeedback(classId);
+                if (feedback) {
+                    setUserFeedback({
+                        isLiked: feedback.isLiked,
+                        comment: feedback.comment
+                    });
+                } else {
+                    setUserFeedback(null);
+                }
+            } catch (error) {
+                console.error("Error fetching feedback", error);
+            }
+        };
+
+        fetchFeedback();
+
 
         return () => cancelAnimationFrame(frame);
     }, [classId, modules, isLoading]);
+
+    const handleVote = async (isLiked: boolean) => {
+        if (!currentClass || isSubmittingFeedback) return;
+
+        setIsSubmittingFeedback(true);
+        // Optimistic update
+        const newValue = userFeedback?.isLiked === isLiked ? null : isLiked;
+
+        try {
+            await submitLessonFeedback({
+                lessonId: currentClass.id,
+                bootcampId: Number(bootcampId),
+                isLiked: newValue,
+                comment: userFeedback?.comment
+            });
+            setUserFeedback(prev => ({
+                isLiked: newValue,
+                comment: prev?.comment || null
+            }));
+        } catch (error) {
+            console.error("Error submitting vote", error);
+        } finally {
+            setIsSubmittingFeedback(false);
+        }
+    };
+
+    const handleCommentSubmit = async (comment: string) => {
+        if (!currentClass || isSubmittingFeedback) return;
+
+        setIsSubmittingFeedback(true);
+        try {
+            await submitLessonFeedback({
+                lessonId: currentClass.id,
+                bootcampId: Number(bootcampId),
+                isLiked: userFeedback?.isLiked,
+                comment: comment
+            });
+            setUserFeedback(prev => ({
+                isLiked: prev?.isLiked || null,
+                comment: comment
+            }));
+        } catch (error) {
+            console.error("Error submitting comment", error);
+            throw error;
+        } finally {
+            setIsSubmittingFeedback(false);
+        }
+    };
 
     const nextSlide = () => {
         if (currentClass && currentSlide < (currentClass.totalSlides || 10)) {
@@ -237,13 +314,22 @@ export default function ClassPlayerPage() {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (currentClass?.type === 'presentation') {
-                if (e.key === 'ArrowRight') nextSlide();
-                if (e.key === 'ArrowLeft') prevSlide();
+                if (e.key === 'ArrowRight') {
+                    if (currentClass && currentSlide < (currentClass.totalSlides || 10)) {
+                        setCurrentSlide(prev => prev + 1);
+                    }
+                }
+                if (e.key === 'ArrowLeft') {
+                    if (currentClass && currentSlide > 1) {
+                        setCurrentSlide(prev => prev - 1);
+                    }
+                }
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [currentClass, currentSlide]);
+
 
     if (isLoading) {
         return <div className="min-h-screen bg-background flex items-center justify-center text-foreground">Cargando contenido del curso...</div>;
@@ -283,7 +369,7 @@ export default function ClassPlayerPage() {
                         </nav>
                     </div>
                     {/* Dark Mode Toggle if needed */}
-                    <button 
+                    <button
                         onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
                         className="p-2 rounded-lg text-muted hover:text-foreground transition-all ml-4"
                         title="Cambiar tema"
@@ -363,6 +449,7 @@ export default function ClassPlayerPage() {
                                                             alt={currentClass.title}
                                                             className="w-full h-full object-contain md:object-cover"
                                                         />
+
                                                     </div>
                                                 </div>
                                             )}
@@ -480,22 +567,40 @@ export default function ClassPlayerPage() {
                                         </div>
 
                                         <div className="flex items-center gap-2">
-                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors"><ThumbsUp size={20} /></button>
-                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors"><MessageSquare size={20} /></button>
-                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors"><Share2 size={20} /></button>
-                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors"><Download size={20} /></button>
-                                            <button className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors"><MoreVertical size={20} /></button>
+                                            <button
+                                                onClick={() => handleVote(true)}
+                                                disabled={isSubmittingFeedback}
+                                                className={`p-2 rounded-lg transition-all active:scale-90 ${userFeedback?.isLiked === true ? 'text-primary bg-primary/10 shadow-sm shadow-primary/5' : 'text-muted hover:text-foreground hover:bg-hover-bg'}`}
+                                                title="Me gusta"
+                                            >
+                                                <ThumbsUp size={20} fill={userFeedback?.isLiked === true ? 'currentColor' : 'none'} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleVote(false)}
+                                                disabled={isSubmittingFeedback}
+                                                className={`p-2 rounded-lg transition-all active:scale-90 ${userFeedback?.isLiked === false ? 'text-red-500 bg-red-500/10 shadow-sm shadow-red-500/5' : 'text-muted hover:text-foreground hover:bg-hover-bg'}`}
+                                                title="No me gusta"
+                                            >
+                                                <ThumbsDown size={20} fill={userFeedback?.isLiked === false ? 'currentColor' : 'none'} />
+                                            </button>
+                                            <button
+                                                onClick={() => setIsCommentModalOpen(true)}
+                                                className={`p-2 rounded-lg transition-all active:scale-90 ${userFeedback?.comment ? 'text-violet-500 bg-violet-500/10 shadow-sm shadow-violet-500/5' : 'text-muted hover:text-foreground hover:bg-hover-bg'}`}
+                                                title="Añadir comentario"
+                                            >
+                                                <MessageSquare size={20} fill={userFeedback?.comment ? 'currentColor' : 'none'} />
+                                            </button>
                                         </div>
                                     </div>
 
                                     <div className="space-y-4 mb-10">
-                                        <h3 className="font-semibold text-foreground">Contenido</h3>
+                                        {/* <h3 className="font-semibold text-foreground">Contenido</h3> */}
                                         {currentClass.description && (currentClass.type !== 'info' || !currentClass.content) && (
-                                            <div className="prose prose-sm max-w-none text-muted dark:prose-invert mb-8" dangerouslySetInnerHTML={{ __html: currentClass.description }} />
+                                            <div className="tiptap-content max-w-none text-muted mb-8" dangerouslySetInnerHTML={{ __html: currentClass.description }} />
                                         )}
 
                                         {currentClass.content ? (
-                                            <div className="prose prose-sm max-w-none text-muted dark:prose-invert" dangerouslySetInnerHTML={{ __html: currentClass.content }} />
+                                            <div className="tiptap-content max-w-none text-muted" dangerouslySetInnerHTML={{ __html: currentClass.content }} />
                                         ) : !currentClass.description && (
                                             <p className="text-muted leading-relaxed">
                                                 No hay descripción adicional para esta clase.
@@ -586,6 +691,14 @@ export default function ClassPlayerPage() {
                     )}
                 </main>
             </div>
+
+            <LessonFeedbackModal
+                isOpen={isCommentModalOpen}
+                onClose={() => setIsCommentModalOpen(false)}
+                onSubmit={handleCommentSubmit}
+                isLoading={isSubmittingFeedback}
+                initialComment={userFeedback?.comment || ''}
+            />
         </div>
     );
 }

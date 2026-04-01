@@ -135,10 +135,11 @@ export async function getBootcampCurriculum(bootcampId: number) {
     // Sort lessons by ID or Order if avail
     modules.forEach(m => {
         if (m.lessons) {
-            // @ts-ignore
-            m.lessons.sort((a, b) => a.id - b.id);
+            (m.lessons as { id: number }[]).sort((a, b) => a.id - b.id);
         }
     });
+
+
 
     return modules;
 }

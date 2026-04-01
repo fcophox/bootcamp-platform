@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { useSidebar } from './sidebar-context';
-import { Home, ClipboardList, Bell, User, Globe, Moon, Sun, LogOut, ChevronLeft, ChevronRight, Award } from 'lucide-react';
+import { Home, ClipboardList, Bell, User, Globe, Moon, Sun, LogOut, ChevronLeft, ChevronRight, Award, MessageSquare } from 'lucide-react';
 import { Tooltip } from './tooltip';
 import { createClient } from '@/utils/supabase/client';
 import { getRoleFromEmail } from '@/utils/roles';
@@ -50,6 +50,11 @@ const getMenuItems = (currentRole: string) => {
                 name: 'Gestión de Usuarios',
                 href: '/cms/usuarios',
                 icon: User
+            },
+            {
+                name: 'Feedback Alumnos',
+                href: '/cms/feedback',
+                icon: MessageSquare
             },
 
             {
@@ -143,7 +148,8 @@ export function Sidebar() {
     const menuItems = getMenuItems(role);
 
     return (
-        <aside className={`fixed left-0 top-0 h-screen border-r border-border bg-card-bg flex flex-col z-10 transition-all duration-300 overflow-x-visible ${isCollapsed ? 'w-16' : 'w-64'}`}>
+        <aside className={`fixed left-0 top-0 h-screen border-r border-border bg-card-bg flex flex-col z-40 transition-all duration-300 overflow-x-visible ${isCollapsed ? 'w-16' : 'w-64'}`}>
+
             {/* Logo */}
             <div className="h-[60px] border-b border-border relative flex items-center px-4 md:px-4">
                 {!isCollapsed && (
