@@ -106,6 +106,8 @@ export async function getBootcamp(id: number) {
             )
         `)
         .eq('id', id)
+        .order('order', { foreignTable: 'Module', ascending: true })
+        .order('order', { foreignTable: 'Module.Lesson', ascending: true })
         .single();
 
     if (error) {

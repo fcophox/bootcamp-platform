@@ -148,7 +148,18 @@ export function ExamClient({ exam, questions }: ExamClientProps) {
 
                     {/* INTRO STEP */}
                     {status === 'intro' && (
-                        <div className="max-w-2xl w-full bg-card-bg border border-border rounded-2xl p-8 shadow-sm text-center animate-in fade-in zoom-in-95">
+                        <div className="relative w-full flex flex-col items-center justify-center min-h-[calc(100vh-100px)]">
+                            {/* Top Banner Image as per screenshot */}
+                            <div className="absolute top-0 left-0 right-0 h-[420px] z-0 overflow-hidden">
+                                <img 
+                                    src="/complements/quiz.png" 
+                                    className="w-full h-full object-cover" 
+                                    alt="Quiz Banner" 
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+                            </div>
+
+                            <div className="max-w-2xl w-full bg-card-bg/95 backdrop-blur-2xl border border-white/10 rounded-3xl p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] text-center animate-in fade-in zoom-in-95 relative z-10 mt-20">
                             <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
                                 <CheckCircle2 size={32} />
                             </div>
@@ -177,6 +188,7 @@ export function ExamClient({ exam, questions }: ExamClientProps) {
                                 Comenzar Examen
                             </button>
                         </div>
+                    </div>
                     )}
 
                     {/* ACTIVE QUIZ STEP */}

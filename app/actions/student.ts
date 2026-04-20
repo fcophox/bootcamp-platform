@@ -19,6 +19,35 @@ export async function getStudents(bootcampId: number) {
     return data;
 }
 
+export async function getStudentById(studentId: number) {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+        .from('BootcampStudent')
+        .select('*')
+        .eq('id', studentId)
+        .single();
+
+    if (error) {
+        console.error('Error fetching student:', error);
+        return null;
+    }
+    return data;
+}
+
+export async function getStudentCompletions(studentId: number) {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+        .from('LessonCompletion')
+        .select('lessonId, completedAt')
+        .eq('studentId', studentId);
+
+    if (error) {
+        console.error('Error fetching completions:', error);
+        return [];
+    }
+    return data;
+}
+
 export async function inviteStudent(bootcampId: number, email: string) {
     const supabase = await createClient();
 
@@ -69,46 +98,25 @@ export async function inviteStudent(bootcampId: number, email: string) {
             subject: `Te han invitado al curso: ${bootcampTitle}`,
             html: `
                 <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 8px; padding: 20px;">
-                    <h2 style="color: #333;">¡Hola!</h2>
-                    <p>Has sido invitado a unirte y cursar el bootcamp: <strong>${bootcampTitle}</strong>.</p>
-                    <p>Para aceptar la invitación y comenzar a aprender, por favor haz clic en el botón a continuación para registrarte (o iniciar sesión si ya tienes cuenta) usando este mismo correo (<strong>${email}</strong>):</p>
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="${inviteUrl}" style="background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Acceder a la plataforma</a>
+                    <h1 style="color: #6366f1; margin-bottom: 24px;">¡Hola! 👋</h1>
+                    <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+                        Se te ha invitado a participar en el bootcamp: <strong>${bootcampTitle}</strong>.
+                    </p>
+                    <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+                        Estamos muy emocionados de tenerte con nosotros. Haz clic en el botón de abajo para ir a la plataforma y comenzar tu aprendizaje.
+                    </p>
+                    <div style="text-align: center; margin-top: 32px; margin-bottom: 32px;">
+                        <a href="${inviteUrl}" style="background-color: #6366f1; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 16px;">Ir a la plataforma</a>
                     </div>
-                    <p style="color: #666; font-size: 14px;">Si el botón no funciona, copia y pega este enlace en tu navegador: <br>${inviteUrl}</p>
-                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                    <p style="color: #999; font-size: 12px;">Este es un correo automático, por favor no lo respondas.</p>
                 </div>
-            `
+            `,
         });
 
         if (sendError) {
-            console.error('Email sending failed:', sendError);
-            const errorMessage = sendError instanceof Error ? sendError.message : (typeof sendError === 'string' ? sendError : 'Error de configuración de correo');
-            throw new Error(`El alumno fue registrado pero no se pudo enviar el correo: ${errorMessage}`);
+            console.warn('Student invited in DB but email failed:', sendError);
         }
-
-        console.log(`Invitation email successfully sent to ${email}`);
-
-    } catch (emailError: unknown) {
-        console.error('Email action error:', emailError);
-        if (emailError instanceof Error) throw emailError;
-        throw new Error('Error de configuración de correo o acción fallida');
-    }
-
-    revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
-}
-
-export async function updateStudentStatus(studentId: number, bootcampId: number, status: 'invited' | 'active' | 'completed') {
-    const supabase = await createClient();
-    const { error } = await supabase
-        .from('BootcampStudent')
-        .update({ status })
-        .eq('id', studentId);
-
-    if (error) {
-        console.error('Error updating status:', error);
-        throw new Error('Error al actualizar el estado del alumno.');
+    } catch (e) {
+        console.error('Error in secondary invitation email logic:', e);
     }
 
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
@@ -127,4 +135,108 @@ export async function removeStudent(studentId: number, bootcampId: number) {
     }
 
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
+}
+
+export async function updateStudentStatus(studentId: number, bootcampId: number, status: 'invited' | 'active' | 'completed') {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from('BootcampStudent')
+        .update({ status })
+        .eq('id', studentId);
+
+    if (error) throw error;
+    revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
+}
+
+export async function toggleLessonCompletion(bootcampId: number, lessonId: number) {
+    const supabase = await createClient();
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) throw new Error('No autenticado');
+
+    // Find student record for this user and bootcamp
+    const { data: student, error: studentError } = await supabase
+        .from('BootcampStudent')
+        .select('id')
+        .ilike('email', user.email || '')
+        .eq('bootcampId', bootcampId)
+        .maybeSingle();
+
+    if (studentError || !student) {
+        console.error('SERVER ACTION ERROR: Student record not found for email:', user.email, 'and bootcampId:', bootcampId);
+        throw new Error(`No estás registrado en este bootcamp con este correo (${user.email})`);
+    }
+
+    // Check if already completed
+    const { data: existing } = await supabase
+        .from('LessonCompletion')
+        .select('id')
+        .eq('studentId', student.id)
+        .eq('lessonId', lessonId)
+        .maybeSingle();
+
+    if (existing) {
+        // Remove completion
+        await supabase
+            .from('LessonCompletion')
+            .delete()
+            .eq('id', existing.id);
+    } else {
+        // Add completion
+        await supabase
+            .from('LessonCompletion')
+            .insert({
+                studentId: student.id,
+                lessonId: lessonId,
+                completedAt: new Date().toISOString()
+            });
+    }
+
+    revalidatePath(`/dashboard/bootcamp/${bootcampId}`);
+    revalidatePath(`/cms/bootcamp/${bootcampId}/student/${student.id}`);
+}
+
+export async function getMyCompletions(bootcampId: number) {
+    const supabase = await createClient();
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data: student } = await supabase
+        .from('BootcampStudent')
+        .select('id')
+        .ilike('email', user.email || '')
+        .eq('bootcampId', bootcampId)
+        .maybeSingle();
+
+    if (!student) return [];
+
+    const { data } = await supabase
+        .from('LessonCompletion')
+        .select('lessonId')
+        .eq('studentId', student.id);
+
+    return data?.map(c => c.lessonId) || [];
+}
+
+export async function getStudentExamAttempts(userId: string) {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+        .from('ExamAttempt')
+        .select(`
+            *,
+            exam:Exam (
+                title,
+                timeLimitSeconds
+            )
+        `)
+        .eq('userId', userId)
+        .order('finishedAt', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching student attempts:', error);
+        return [];
+    }
+    return data;
 }

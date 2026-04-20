@@ -108,6 +108,37 @@ export async function deleteLesson(id: number, bootcampId: number) {
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
 }
 
+export async function reorderLessons(bootcampId: number, lessonOrders: { id: number, order: number }[]) {
+    const supabase = await createClient();
+    
+    // Since we want to update only the 'order' column for multiple rows,
+    // we can use multiple update calls. For a small number of lessons, this is fine.
+    // If it becomes a bottleneck, a custom RPC would be better.
+    for (const item of lessonOrders) {
+        await supabase
+            .from('Lesson')
+            .update({ order: item.order })
+            .eq('id', item.id);
+    }
+
+    revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
+    revalidatePath(`/dashboard/bootcamp/${bootcampId}`);
+}
+
+export async function reorderModules(bootcampId: number, moduleOrders: { id: number, order: number }[]) {
+    const supabase = await createClient();
+    
+    for (const item of moduleOrders) {
+        await supabase
+            .from('Module')
+            .update({ order: item.order })
+            .eq('id', item.id);
+    }
+
+    revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
+    revalidatePath(`/dashboard/bootcamp/${bootcampId}`);
+}
+
 export async function getBootcampCurriculum(bootcampId: number) {
     const supabase = await createClient();
 
@@ -116,6 +147,7 @@ export async function getBootcampCurriculum(bootcampId: number) {
         .select(`
             id,
             title,
+            order,
             lessons:Lesson (
                 id,
                 title,
@@ -125,21 +157,19 @@ export async function getBootcampCurriculum(bootcampId: number) {
             )
         `)
         .eq('bootcampId', bootcampId)
-        .order('id', { ascending: true }); // Should ideally order by 'order' column
+        .order('order', { ascending: true });
 
     if (error) {
         console.error('Error fetching curriculum:', error);
         return [];
     }
 
-    // Sort lessons by ID or Order if avail
+    // Sort lessons by Order
     modules.forEach(m => {
         if (m.lessons) {
-            (m.lessons as { id: number }[]).sort((a, b) => a.id - b.id);
+            (m.lessons as any[]).sort((a, b) => (a.order || 0) - (b.order || 0));
         }
     });
-
-
 
     return modules;
 }

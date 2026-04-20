@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
@@ -9,11 +9,12 @@ import { TiptapEditor } from '@/components/tiptap-editor';
 import {
     ChevronRight, Plus, FileText, Layout,
     Trash2, Edit2, ChevronDown, ChevronUp, GripVertical, MonitorPlay,
-    Headphones, FileUp, Users, Trophy, Check, X, Clock,
-    Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase
+    Headphones, FileUp, Users, Trophy, Check, X, Clock, Loader2,
+    Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase,
+    MoreHorizontal, BarChart3, Radio
 } from 'lucide-react';
 
-import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson } from '@/app/actions/module';
+import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson, reorderLessons, reorderModules } from '@/app/actions/module';
 import { updateBootcamp } from '@/app/actions/bootcamp';
 import { createClient } from '@/utils/supabase/client';
 import { removeStudent, updateStudentStatus } from '@/app/actions/student';
@@ -71,6 +72,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
     // UI State
     const [activeTab, setActiveTab] = useState<'content' | 'students'>('content');
+    const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
 
     // Content Management State
     const [expandedModule, setExpandedModule] = useState<number | null>(null);
@@ -102,6 +105,26 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [examDuration, setExamDuration] = useState(15); // Default 15 mins
 
     const [toast, setToast] = useState<{ show: boolean, message: string } | null>(null);
+
+    // Drag and Drop State
+    const [localModules, setLocalModules] = useState(modules);
+    const [draggedLessonId, setDraggedLessonId] = useState<number | null>(null);
+    const [draggedModuleId, setDraggedModuleId] = useState<number | null>(null);
+
+    // Sync local modules when props change
+    useEffect(() => {
+        setLocalModules(modules);
+    }, [modules]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setOpenMenuId(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
 
     // Modal State
@@ -420,6 +443,88 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         }
     };
 
+    // DRAG AND DROP HANDLERS
+    const handleLessonDragStart = (lessonId: number) => {
+        setDraggedLessonId(lessonId);
+    };
+
+    const handleLessonDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleLessonDrop = async (targetLessonId: number, moduleId: number) => {
+        if (draggedLessonId === null || draggedLessonId === targetLessonId) return;
+
+        const targetModule = localModules.find(m => m.id === moduleId);
+        if (!targetModule) return;
+
+        const newLessons = [...targetModule.lessons];
+        const draggedIndex = newLessons.findIndex(l => l.id === draggedLessonId);
+        const targetIndex = newLessons.findIndex(l => l.id === targetLessonId);
+
+        if (draggedIndex === -1 || targetIndex === -1) return;
+
+        // Reorder locally for immediate UI feedback
+        const [movedLesson] = newLessons.splice(draggedIndex, 1);
+        newLessons.splice(targetIndex, 0, movedLesson);
+
+        // Update local state
+        setLocalModules(prev => prev.map(m => 
+            m.id === moduleId ? { ...m, lessons: newLessons } : m
+        ));
+
+        // Save to server
+        try {
+            const lessonOrders = newLessons.map((l, index) => ({ id: l.id, order: index }));
+            await reorderLessons(bootcamp.id, lessonOrders);
+            showToast('¡Orden de lecciones actualizado con éxito!');
+        } catch (error) {
+            console.error('Error reordering lessons:', error);
+            // Fallback to original order if failed
+            setLocalModules(modules);
+            alert('Error al guardar el nuevo orden de las lecciones');
+        } finally {
+            setDraggedLessonId(null);
+        }
+    };
+
+    const handleModuleDragStart = (moduleId: number) => {
+        setDraggedModuleId(moduleId);
+    };
+
+    const handleModuleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+    };
+
+    const handleModuleDrop = async (targetModuleId: number) => {
+        if (draggedModuleId === null || draggedModuleId === targetModuleId) return;
+
+        const newModules = [...localModules];
+        const draggedIndex = newModules.findIndex(m => m.id === draggedModuleId);
+        const targetIndex = newModules.findIndex(m => m.id === targetModuleId);
+
+        if (draggedIndex === -1 || targetIndex === -1) return;
+
+        // Reorder locally
+        const [movedModule] = newModules.splice(draggedIndex, 1);
+        newModules.splice(targetIndex, 0, movedModule);
+        setLocalModules(newModules);
+
+        // Save to server
+        try {
+            const moduleOrders = newModules.map((m, index) => ({ id: m.id, order: index }));
+            await reorderModules(bootcamp.id, moduleOrders);
+            showToast('¡Orden de módulos actualizado con éxito!');
+        } catch (error) {
+            console.error('Error reordering modules:', error);
+            setLocalModules(modules);
+            alert('Error al guardar el nuevo orden de los módulos');
+        } finally {
+            setDraggedModuleId(null);
+        }
+    };
+
     const AVAILABLE_ICONS = [
         { id: 'code', icon: Code },
         { id: 'terminal', icon: Terminal },
@@ -451,7 +556,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         return colorInfo || AVAILABLE_COLORS[0];
     };
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'audio' | 'pdf') => {
         if (!e.target.files || e.target.files.length === 0) return;
         const file = e.target.files[0];
         const supabase = createClient();
@@ -459,11 +564,15 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `article-covers/${fileName}`;
+        
+        let filePath = '';
+        if (type === 'image') filePath = `article-covers/${fileName}`;
+        else if (type === 'audio') filePath = `podcasts/${fileName}`;
+        else if (type === 'pdf') filePath = `documents/${fileName}`;
 
         try {
             const { error: uploadError } = await supabase.storage
-                .from('media') // Using 'media' bucket
+                .from('media') // Same bucket for all media types
                 .upload(filePath, file);
 
             if (uploadError) throw uploadError;
@@ -472,7 +581,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             setResourceContent(data.publicUrl);
         } catch (error) {
             console.error('Upload error:', error);
-            alert('Error subiendo imagen. Asegúrate de tener configurado el bucket "media" en Supabase.');
+            alert(`Error subiendo el archivo. Asegúrate de tener configurado el bucket "media" en Supabase.`);
         } finally {
             setIsUploading(false);
         }
@@ -561,7 +670,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         <input
                                             type="file"
                                             accept="image/*"
-                                            onChange={handleImageUpload}
+                                            onChange={(e) => handleFileUpload(e, 'image')}
                                             className="hidden"
                                             id="cover-upload"
                                             disabled={isUploading}
@@ -725,6 +834,82 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                 </div>
                             ) : (
                                 <div>
+                                    {(contentType === 'podcast' || contentType === 'pdf') && (
+                                        <div className="mb-6 p-4 border border-dashed border-primary/30 rounded-xl bg-primary/5">
+                                            <label className="block text-sm font-semibold mb-3 flex items-center gap-2">
+                                                <FileUp size={18} className="text-primary" />
+                                                {contentType === 'podcast' ? 'Subir Podcast desde PC' : 'Subir PDF desde PC'}
+                                            </label>
+                                            
+                                            <div className="flex flex-col gap-4">
+                                                {resourceContent && (
+                                                    <div className="flex items-center justify-between p-3 bg-card-bg border border-border rounded-lg group animate-in slide-in-from-top-2">
+                                                        <div className="flex items-center gap-3 overflow-hidden">
+                                                            <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                                                                {contentType === 'podcast' ? <Headphones size={20} /> : <FileUp size={20} />}
+                                                            </div>
+                                                            <div className="truncate">
+                                                                <p className="text-sm font-medium truncate">{resourceContent.split('/').pop()}</p>
+                                                                <p className="text-[10px] text-muted uppercase tracking-wider">Archivo subido correctamente</p>
+                                                            </div>
+                                                        </div>
+                                                        <button 
+                                                            onClick={() => setResourceContent('')}
+                                                            className="p-2 text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                                            title="Eliminar archivo"
+                                                        >
+                                                            <X size={18} />
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                <input
+                                                    type="file"
+                                                    accept={contentType === 'podcast' ? 'audio/*' : 'application/pdf'}
+                                                    onChange={(e) => handleFileUpload(e, contentType === 'podcast' ? 'audio' : 'pdf')}
+                                                    className="hidden"
+                                                    id="media-upload"
+                                                    disabled={isUploading}
+                                                />
+                                                <label
+                                                    htmlFor="media-upload"
+                                                    className={`
+                                                        relative flex flex-col items-center justify-center gap-3 px-4 py-8 
+                                                        border-2 border-dashed border-border rounded-xl cursor-pointer 
+                                                        hover:border-primary hover:bg-primary/5 transition-all group
+                                                        ${isUploading ? 'opacity-50 cursor-not-allowed border-primary animate-pulse' : ''}
+                                                        ${resourceContent ? 'hidden' : 'flex'}
+                                                    `}
+                                                >
+                                                    {isUploading ? (
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                                            <span className="text-sm font-medium text-primary">Subiendo recurso...</span>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <div className="p-3 bg-muted rounded-full group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                                                <FileUp size={32} />
+                                                            </div>
+                                                            <div className="text-center">
+                                                                <p className="text-sm font-semibold mb-1">Examinar en mi PC</p>
+                                                                <p className="text-xs text-muted">
+                                                                    {contentType === 'podcast' ? 'MP3, WAV, M4A' : 'Solo archivos PDF'}
+                                                                </p>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </label>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-3 my-4">
+                                                <div className="h-px bg-border flex-1"></div>
+                                                <span className="text-[10px] text-muted font-bold uppercase tracking-widest">o usa un enlace externo</span>
+                                                <div className="h-px bg-border flex-1"></div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <label className="block text-sm font-medium mb-1.5">
                                         {contentType === 'pdf' ? 'URL del archivo PDF' : 'URL del recurso'}
                                     </label>
@@ -736,9 +921,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         placeholder="https://..."
                                     />
                                     <p className="text-xs text-muted mt-1 mb-4">
-                                        {contentType === 'pdf'
-                                            ? 'Ingresa la URL del PDF alojado (Google Drive, Dropbox, etc.)'
-                                            : 'Pega el enlace directo al recurso.'}
+                                        {contentType === 'podcast'
+                                            ? 'Pega el enlace de Spotify, Soundcloud o archivo externo.'
+                                            : contentType === 'pdf'
+                                                ? 'Ingresa la URL del PDF alojado (Google Drive, Dropbox, etc.)'
+                                                : 'Pega el enlace directo al recurso.'}
                                     </p>
 
                                     <label className="block text-sm font-medium mb-1.5">Contenido / Descripción</label>
@@ -988,17 +1175,37 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         </div>
                                     )}
 
-                                    {modules.map((module) => (
-                                        <div key={module.id} className="border border-border rounded-xl bg-card-bg overflow-hidden shadow-sm">
-                                            {/* Module Header */}
-                                            <div
-                                                className="flex items-center justify-between p-4 bg-card-bg hover:bg-hover-bg transition-colors cursor-pointer"
-                                                onClick={() => toggleModule(module.id)}
+                                    {localModules.map((module) => {
+                                        const isDraggingThis = draggedModuleId === module.id;
+                                        return (
+                                            <div 
+                                                key={module.id} 
+                                                className={`border border-border rounded-xl bg-card-bg overflow-hidden shadow-sm transition-all ${isDraggingThis ? 'border-primary/50' : ''}`}
+                                                draggable
+                                                onDragStart={(e) => {
+                                                    // Only allow drag from the module handle or if not clicking interactive elements
+                                                    const target = e.target as HTMLElement;
+                                                    if (target.closest('button') || target.closest('.lesson-item')) {
+                                                        e.preventDefault();
+                                                        return;
+                                                    }
+                                                    handleModuleDragStart(module.id);
+                                                }}
+                                                onDragOver={handleModuleDragOver}
+                                                onDrop={() => handleModuleDrop(module.id)}
                                             >
-                                                <div className="flex items-center gap-3 flex-1 mr-4">
-                                                    <div className="p-1.5 rounded-md bg-primary/10 text-primary flex-shrink-0">
-                                                        <Layout size={20} />
-                                                    </div>
+                                                {/* Module Header */}
+                                                <div
+                                                    className="flex items-center justify-between p-4 bg-card-bg hover:bg-hover-bg transition-colors cursor-pointer"
+                                                    onClick={() => toggleModule(module.id)}
+                                                >
+                                                    <div className="flex items-center gap-3 flex-1 mr-4">
+                                                        <div className="p-1.5 rounded-md bg-primary/10 text-primary flex-shrink-0 cursor-grab active:cursor-grabbing">
+                                                            <GripVertical size={16} className="text-muted/50" />
+                                                        </div>
+                                                        <div className="p-1.5 rounded-md bg-primary/10 text-primary flex-shrink-0">
+                                                            <Layout size={20} />
+                                                        </div>
 
                                                     {editingModuleId === module.id ? (
                                                         <div className="flex items-center gap-2 flex-1" onClick={(e) => e.stopPropagation()}>
@@ -1078,13 +1285,26 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 <div className="border-t border-border bg-background/50 p-4">
                                                     <div className="space-y-2 mb-6">
                                                         {module.lessons?.map((lesson) => (
-                                                            <div key={lesson.id}>
+                                                            <div 
+                                                                key={lesson.id}
+                                                                draggable
+                                                                onDragStart={(e) => {
+                                                                    e.stopPropagation(); // VERY IMPORTANT: Prevent module drag
+                                                                    handleLessonDragStart(lesson.id);
+                                                                }}
+                                                                onDragOver={handleLessonDragOver}
+                                                                onDrop={(e) => {
+                                                                    e.stopPropagation(); // VERY IMPORTANT: Prevent module drop
+                                                                    handleLessonDrop(lesson.id, module.id);
+                                                                }}
+                                                                className={`lesson-item transition-all ${draggedLessonId === lesson.id ? 'border-primary/50 ring-1 ring-primary/20' : ''}`}
+                                                            >
                                                                 {editingLessonId === lesson.id ? (
                                                                     renderContentForm()
                                                                 ) : (
-                                                                    <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card-bg hover:border-primary/30 transition-all group">
+                                                                    <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card-bg hover:border-primary/30 transition-all group shadow-sm active:shadow-none">
                                                                         <div className="flex items-center gap-3">
-                                                                            <GripVertical size={16} className="text-muted cursor-move opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                            <GripVertical size={16} className="text-muted cursor-grab active:cursor-grabbing hover:text-primary transition-colors" />
                                                                             {getLessonIcon(lesson.type)}
                                                                             <span className="text-sm font-medium">{lesson.title}</span>
                                                                         </div>
@@ -1133,7 +1353,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 </div>
                                             )}
                                         </div>
-                                    ))}
+                                    );
+                                })}
                                 </div>
                             </div>
                         )}
@@ -1155,7 +1376,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     <p>Aún no has invitado a ningún alumno.</p>
                                                 </div>
                                             ) : (
-                                                <div className="overflow-hidden rounded-lg border border-border">
+                                                <div className="overflow-visible rounded-lg border border-border">
                                                     <table className="w-full text-sm text-left">
                                                         <thead className="bg-secondary/30 text-muted uppercase text-xs font-semibold">
                                                             <tr>
@@ -1173,27 +1394,70 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                     <td className="px-4 py-3 text-muted">
                                                                         {new Date(student.invitedAt).toLocaleDateString()}
                                                                     </td>
-                                                                    <td className="px-4 py-3 text-right">
-                                                                        <div className="flex items-center justify-end gap-3">
+                                                                    <td className="px-4 py-3 text-right relative">
+                                                                        <div className="flex justify-end items-center gap-2">
                                                                             <button
-                                                                                onClick={() => handleToggleStatus(student.id, student.status)}
-                                                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${student.status === 'active' ? 'bg-green-500' : 'bg-muted'}`}
-                                                                                title={student.status === 'active' ? 'Revocar Acceso' : 'Permitir Acceso'}
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setOpenMenuId(openMenuId === student.id ? null : student.id);
+                                                                                }}
+                                                                                className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-muted hover:text-foreground transition-all"
                                                                             >
-                                                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${student.status === 'active' ? 'translate-x-6' : 'translate-x-1'}`} />
+                                                                                {isActionLoading && openMenuId === student.id ? <Loader2 size={16} className="animate-spin text-primary" /> : <MoreHorizontal size={18} />}
                                                                             </button>
 
-                                                                            <button
-                                                                                onClick={() => openConfirmModal(
-                                                                                    'Eliminar Registro',
-                                                                                    '¿Estás seguro de eliminar este registro? El alumno ya no podrá ingresar.',
-                                                                                    () => removeStudent(student.id, bootcamp.id)
-                                                                                )}
-                                                                                className="text-muted hover:text-red-500 transition-colors p-1"
-                                                                                title="Eliminar registro"
-                                                                            >
-                                                                                <Trash2 size={16} />
-                                                                            </button>
+                                                                            {openMenuId === student.id && (
+                                                                                <div
+                                                                                    ref={menuRef}
+                                                                                    className="absolute right-4 top-10 w-48 bg-card-bg/95 backdrop-blur-md border border-white/10 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[100] py-1.5 animate-in fade-in zoom-in-95 duration-200 text-left"
+                                                                                >
+                                                                                    <Link
+                                                                                        href={`/cms/bootcamp/${bootcamp.id}/student/${student.id}`}
+                                                                                        onClick={() => setOpenMenuId(null)}
+                                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-foreground hover:bg-white/5 transition-colors"
+                                                                                    >
+                                                                                        <BarChart3 size={14} className="text-primary" />
+                                                                                        Ver progreso
+                                                                                    </Link>
+
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            setOpenMenuId(null);
+                                                                                            handleToggleStatus(student.id, student.status);
+                                                                                        }}
+                                                                                        className={`w-full flex items-center gap-2 px-4 py-2.5 text-xs transition-colors ${student.status === 'active' ? 'text-amber-500 hover:bg-amber-500/10' : 'text-green-500 hover:bg-green-500/10'}`}
+                                                                                    >
+                                                                                        {student.status === 'active' ? (
+                                                                                            <>
+                                                                                                <X size={14} />
+                                                                                                Desactivar alumno
+                                                                                            </>
+                                                                                        ) : (
+                                                                                            <>
+                                                                                                <Check size={14} />
+                                                                                                Activar alumno
+                                                                                            </>
+                                                                                        )}
+                                                                                    </button>
+
+                                                                                    <div className="h-px bg-white/5 my-1" />
+
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            setOpenMenuId(null);
+                                                                                            openConfirmModal(
+                                                                                                'Eliminar Registro',
+                                                                                                '¿Estás seguro de eliminar este registro? El alumno ya no podrá ingresar.',
+                                                                                                () => removeStudent(student.id, bootcamp.id)
+                                                                                            );
+                                                                                        }}
+                                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-red-500 hover:bg-red-500/10 transition-colors font-medium"
+                                                                                    >
+                                                                                        <Trash2 size={14} />
+                                                                                        Borrar registro
+                                                                                    </button>
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                     </td>
                                                                 </tr>
@@ -1274,7 +1538,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                         </div>
                         <div className="flex-1">
                             <p className="font-bold text-sm">Operación Exitosa</p>
-                            <p className="text-xs opacity-90 leading-relaxed mt-0.5 whitespace-pre-line">{toast.message}</p>
+                            <p className="text-xs opacity-90 leading-relaxed mt-0.5 whitespace-pre-line">{toast?.message}</p>
                         </div>
                         <button
                             onClick={() => setToast(null)}

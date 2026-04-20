@@ -136,7 +136,7 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
 
     // RENDER
     return (
-        <div className="w-full h-full flex flex-col bg-background">
+        <div className="w-full h-full flex flex-col bg-background relative overflow-hidden">
             {/* Header / Top Bar for Exam Context */}
             {status === 'active' && (
                 <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card-bg/50">
@@ -156,37 +156,49 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
 
                 {/* INTRO STEP */}
                 {status === 'intro' && (
-                    <div className="max-w-2xl w-full bg-card-bg border border-border rounded-2xl p-8 shadow-sm text-center animate-in fade-in zoom-in-95">
-                        <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6 shadow-none">
-                            <Trophy size={32} />
-                        </div>
-                        <h1 className="text-3xl font-bold mb-4">{title}</h1>
-                        <p className="text-muted mb-8 text-lg leading-relaxed">
-                            Este examen evaluará tus conocimientos. <br />
-                            Tienes <span className="font-semibold text-foreground">{durationMinutes} minutos</span> para responder <span className="font-semibold text-foreground">{questions.length} preguntas</span>.
-                        </p>
-
-                        <div className="grid grid-cols-3 gap-4 mb-8 text-sm">
-                            <div className="p-4 rounded-lg bg-background border border-border">
-                                <span className="block text-muted mb-1">Preguntas</span>
-                                <span className="font-semibold text-lg">{questions.length}</span>
-                            </div>
-                            <div className="p-4 rounded-lg bg-background border border-border">
-                                <span className="block text-muted mb-1">Tiempo</span>
-                                <span className="font-semibold text-lg">{durationMinutes} min</span>
-                            </div>
-                            <div className="p-4 rounded-lg bg-background border border-border">
-                                <span className="block text-muted mb-1">Aprobación</span>
-                                <span className="font-semibold text-lg">{passingScore}%</span>
-                            </div>
+                    <div className="relative w-full flex flex-col items-center justify-center min-h-[500px]">
+                        {/* Top Banner Image as per screenshot */}
+                        <div className="absolute top-0 left-0 right-0 h-[380px] z-0 overflow-hidden">
+                            <img
+                                src="/complements/quiz.png"
+                                className="w-full h-full object-cover"
+                                alt="Quiz Banner"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
                         </div>
 
-                        <button
-                            onClick={handleStart}
-                            className="w-full md:w-auto px-10 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 hover:scale-105"
-                        >
-                            Comenzar Examen
-                        </button>
+                        <div className="max-w-2xl w-full bg-card-bg/95 backdrop-blur-2xl border border-white/10 rounded-3xl p-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] text-center animate-in fade-in zoom-in-95 relative z-10 mt-10">
+                            <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6 shadow-none">
+                                <Trophy size={32} />
+                            </div>
+                            <h1 className="text-3xl font-bold mb-4">{title}</h1>
+                            <p className="text-muted mb-8 text-lg leading-relaxed">
+                                Este examen evaluará tus conocimientos. <br />
+                                Tienes <span className="font-semibold text-foreground">{durationMinutes} minutos</span> para responder <span className="font-semibold text-foreground">{questions.length} preguntas</span>.
+                            </p>
+
+                            <div className="grid grid-cols-3 gap-4 mb-8 text-sm">
+                                <div className="p-4 rounded-lg bg-background border border-border">
+                                    <span className="block text-muted mb-1">Preguntas</span>
+                                    <span className="font-semibold text-lg">{questions.length}</span>
+                                </div>
+                                <div className="p-4 rounded-lg bg-background border border-border">
+                                    <span className="block text-muted mb-1">Tiempo</span>
+                                    <span className="font-semibold text-lg">{durationMinutes} min</span>
+                                </div>
+                                <div className="p-4 rounded-lg bg-background border border-border">
+                                    <span className="block text-muted mb-1">Aprobación</span>
+                                    <span className="font-semibold text-lg">{passingScore}%</span>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleStart}
+                                className="w-full md:w-auto px-10 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 hover:scale-105"
+                            >
+                                Comenzar Examen
+                            </button>
+                        </div>
                     </div>
                 )}
 

@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useTheme } from "next-themes";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSidebar } from '@/components/sidebar-context';
 import { Sidebar } from '@/components/sidebar';
 import { LessonExamPlayer } from '@/components/lesson-exam-player';
@@ -76,13 +76,32 @@ export default function ClassPlayerPage() {
 
     // Presentation State
     const [currentSlide, setCurrentSlide] = useState(1);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+
+    const formatTime = (time: number) => {
+        const mins = Math.floor(time / 60);
+        const secs = Math.floor(time % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
 
     const { isCompleted: isClassCompleted, toggleClassCompletion, completedClassIds } = useBootcampProgress(Number(bootcampId));
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     const handleToggleComplete = () => {
         if (!currentClass) return;
         toggleClassCompletion(currentClass.id);
     };
+
+    // Audio Sync
+    useEffect(() => {
+        if (!audioRef.current) return;
+        if (isPlaying) {
+            audioRef.current.play().catch(e => console.error("Audio play failed", e));
+        } else {
+            audioRef.current.pause();
+        }
+    }, [isPlaying]);
 
     const handleNextClass = () => {
         if (!currentModule || !currentClass || !modules.length) return;
@@ -203,9 +222,9 @@ export default function ClassPlayerPage() {
                     } else if (processedClass.type !== 'exam') {
                         try {
                             const parsed = JSON.parse(processedClass.content);
-                            if (parsed.url !== undefined) {
+                             if (parsed.url !== undefined) {
                                 processedClass.url = parsed.url;
-                                processedClass.content = parsed.url;
+                                processedClass.content = ''; // Hide URL from rendered content
                             }
                             if (parsed.html !== undefined) {
                                 processedClass.description = parsed.html;
@@ -462,33 +481,69 @@ export default function ClassPlayerPage() {
                                                     </div>
                                                     <h2 className="text-2xl font-bold text-white mb-2 text-center">{currentClass.title}</h2>
                                                     <p className="text-white/60 mb-8">{currentModule.title}</p>
-                                                    <div className="w-full max-w-md">
-                                                        <div className="flex items-center justify-center gap-1 h-12 mb-6">
-                                                            {[...Array(20)].map((_, i) => (
-                                                                <div
-                                                                    key={i}
-                                                                    className="w-1.5 bg-primary rounded-full animate-pulse"
-                                                                    style={{
-                                                                        height: `${(Math.sin(i * 1324) + 1) * 50}%`,
-                                                                        animationDelay: `${i * 0.05}s`
+                                                        <div className="w-full max-w-md">
+                                                            <div className="w-full flex flex-col gap-2 mb-6">
+                                                                <div className="flex justify-between text-[10px] font-mono text-white/40">
+                                                                    <span>{formatTime(currentTime)}</span>
+                                                                    <span>{formatTime(duration)}</span>
+                                                                </div>
+                                                                <div 
+                                                                    className="h-1.5 w-full bg-white/10 rounded-full cursor-pointer relative group"
+                                                                    onClick={(e) => {
+                                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                                        const percent = (e.clientX - rect.left) / rect.width;
+                                                                        if (audioRef.current) {
+                                                                            audioRef.current.currentTime = percent * duration;
+                                                                        }
                                                                     }}
-                                                                ></div>
-                                                            ))}
-                                                        </div>
-                                                        <div className="flex items-center justify-center gap-6">
-                                                            <button className="text-white/60 hover:text-white transition-colors">
-                                                                <SkipBack size={24} />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setIsPlaying(!isPlaying)}
-                                                                className="h-14 w-14 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 transition-transform"
-                                                            >
-                                                                {isPlaying ? <Pause fill="currentColor" size={24} /> : <Play fill="currentColor" className="ml-1" size={24} />}
-                                                            </button>
-                                                            <button className="text-white/60 hover:text-white transition-colors rotate-180">
-                                                                <SkipBack size={24} />
-                                                            </button>
-                                                        </div>
+                                                                >
+                                                                    <div 
+                                                                        className="h-full bg-primary rounded-full transition-all"
+                                                                        style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+                                                                    ></div>
+                                                                    <div className="absolute -top-1.5 -bottom-1.5 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center justify-center gap-1 h-12 mb-6">
+                                                                {[...Array(20)].map((_, i) => (
+                                                                    <div
+                                                                        key={i}
+                                                                        className="w-1.5 bg-primary rounded-full"
+                                                                        style={{
+                                                                            height: isPlaying ? `${(Math.sin(i * 1324 + currentTime * 10) + 1) * 50}%` : '10%',
+                                                                            opacity: isPlaying ? 1 : 0.4,
+                                                                            transition: 'height 0.1s ease',
+                                                                        }}
+                                                                    ></div>
+                                                                ))}
+                                                            </div>
+                                                    <div className="flex items-center justify-center gap-6">
+                                                        {currentClass.url && (
+                                                            <audio 
+                                                                ref={audioRef} 
+                                                                src={currentClass.url} 
+                                                                onPlay={() => setIsPlaying(true)}
+                                                                onPause={() => setIsPlaying(false)}
+                                                                onEnded={() => setIsPlaying(false)}
+                                                                onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
+                                                                onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
+                                                                className="hidden" 
+                                                            />
+                                                        )}
+                                                        <button className="text-white/60 hover:text-white transition-colors">
+                                                            <SkipBack size={24} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setIsPlaying(!isPlaying)}
+                                                            className="h-14 w-14 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 transition-transform shadow-xl shadow-white/10"
+                                                        >
+                                                            {isPlaying ? <Pause fill="currentColor" size={24} /> : <Play fill="currentColor" className="ml-1" size={24} />}
+                                                        </button>
+                                                        <button className="text-white/60 hover:text-white transition-colors rotate-180">
+                                                            <SkipBack size={24} />
+                                                        </button>
+                                                    </div>
                                                     </div>
                                                 </div>
                                             )}
@@ -556,7 +611,10 @@ export default function ClassPlayerPage() {
                                             <div className="flex items-center gap-4 text-sm text-muted">
                                                 <span>{currentModule.title}</span>
                                                 <span className="w-1 h-1 rounded-full bg-border"></span>
-                                                <span className="flex items-center gap-1"><Clock size={14} /> {currentClass.duration}</span>
+                                                <span className="flex items-center gap-1">
+                                                    <Clock size={14} /> 
+                                                    {currentClass.type === 'audio' && duration > 0 ? formatTime(duration) : currentClass.duration}
+                                                </span>
                                                 {currentClass.completed && (
                                                     <>
                                                         <span className="w-1 h-1 rounded-full bg-border"></span>
@@ -677,7 +735,7 @@ export default function ClassPlayerPage() {
                                                             {index + 1}. {clase.title}
                                                         </h4>
                                                         <div className="flex items-center gap-2 text-xs text-muted">
-                                                            <span>{clase.duration}</span>
+                                                            <span>{clase.id === currentClass.id && clase.type === 'audio' && duration > 0 ? formatTime(duration) : clase.duration}</span>
                                                             {(isClassCompleted(clase.id) || clase.completed) && <CheckCircle size={10} className="text-green-500" />}
                                                         </div>
                                                     </div>
