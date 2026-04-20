@@ -351,16 +351,26 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
                                         onClick={onNext}
                                         className="w-full px-8 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
                                     >
-                                        Siguiente Clase <ArrowRight size={18} />
+                                        Pasar a la siguiente <ArrowRight size={18} />
                                     </button>
                                 )
                             ) : (
-                                <button
-                                    onClick={handleRetry}
-                                    className="w-full px-8 py-3 bg-secondary text-secondary-foreground rounded-xl font-medium hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                                >
-                                    <RefreshCw size={18} /> Reintentar
-                                </button>
+                                <>
+                                    {onNext && (
+                                        <button
+                                            onClick={onNext}
+                                            className="w-full px-8 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                                        >
+                                            Pasar a la siguiente <ArrowRight size={18} />
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={handleRetry}
+                                        className="w-full px-8 py-3 bg-secondary text-secondary-foreground rounded-xl font-medium hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <RefreshCw size={18} /> Volver a realizar examen
+                                    </button>
+                                </>
                             )}
                         </div>
                     </div>
