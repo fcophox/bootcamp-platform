@@ -188,8 +188,7 @@ export default function UsuariosCMSPage() {
             <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
                 <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background/80 backdrop-blur-md transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
                     <div className="px-6 h-full border-b border-border flex items-center justify-between">
-                        <h2 className="text-sm font-light text-foreground flex items-center gap-2">
-                            <Users size={16} className="text-primary" />
+                        <h2 className="text-sm font-light text-foreground">
                             Gestión de Usuarios
                         </h2>
                     </div>

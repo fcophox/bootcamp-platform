@@ -68,10 +68,6 @@ export async function getAllLessonFeedback() {
                         title
                     )
                 )
-            ),
-            User:userId (
-                email,
-                id
             )
         `)
         .order('createdAt', { ascending: false });
@@ -81,7 +77,31 @@ export async function getAllLessonFeedback() {
         return [];
     }
 
-    return data;
+    // Obtener los emails de los usuarios desde UserRole para evitar el error de relación directa
+    const userIds = [...new Set((data || []).map(f => f.userId))];
+    let userMap: Record<string, { email: string }> = {};
+    
+    if (userIds.length > 0) {
+        const { data: users } = await supabase
+            .from('UserRole')
+            .select('id, email')
+            .in('id', userIds);
+            
+        if (users) {
+            userMap = users.reduce((acc, u) => {
+                acc[u.id] = { email: u.email };
+                return acc;
+            }, {} as Record<string, { email: string }>);
+        }
+    }
+
+    return (data || []).map(f => ({
+        ...f,
+        User: {
+            email: userMap[f.userId]?.email || 'Usuario Oculto',
+            id: f.userId
+        }
+    }));
 }
 
 export async function getLessonFeedback(lessonId: number) {

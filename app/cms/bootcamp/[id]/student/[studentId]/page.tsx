@@ -82,8 +82,7 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
                         <ChevronLeft size={20} />
                     </Link>
                     <div className="h-6 w-px bg-border mx-1" />
-                    <h1 className="text-sm font-medium flex items-center gap-2">
-                        <BarChart3 size={16} className="text-primary" />
+                    <h1 className="text-sm font-medium">
                         Progreso del Alumno
                     </h1>
                 </header>
@@ -157,7 +156,7 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
                         <div className="flex items-center justify-between">
                             <h3 className="text-lg font-bold flex items-center gap-2">
                                 <BookOpen size={20} className="text-primary" />
-                                Detalle por Módulo
+                                Detalle por módulo
                             </h3>
                         </div>
 

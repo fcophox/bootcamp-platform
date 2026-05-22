@@ -63,7 +63,6 @@ export default function CreateBootcampPage() {
     };
 
 
-
     return (
         <div className="min-h-screen bg-background text-foreground">
             <Sidebar />

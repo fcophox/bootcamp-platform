@@ -75,7 +75,7 @@ export function BootcampCard({
 
     return (
         <div
-            className={`relative group rounded-lg border border-border bg-card-bg p-6 transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 ${className || ''}`}
+            className={`relative group rounded-3xl border border-border bg-card-bg p-6 transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 ${className || ''}`}
         >
             {/* Dots Menu */}
             {onDelete && (
