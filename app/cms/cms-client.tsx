@@ -78,7 +78,7 @@ export function CmsClient({ bootcamps }: CmsClientProps) {
                     <div className="px-6 h-full border-b border-border">
                         <div className="flex items-center justify-between h-full">
                             <h2 className="text-sm font-light text-foreground">
-                                Bootcamp CMS
+                                Bootcamp
                             </h2>
                             <div className="flex items-center gap-4">
                                 {/* User Avatar Removed */}
@@ -93,10 +93,10 @@ export function CmsClient({ bootcamps }: CmsClientProps) {
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                             <div>
                                 <h1 className="text-2xl font-semibold text-foreground mb-2">
-                                    Gestión de contenido
+                                    Bootcamps
                                 </h1>
                                 <p className="text-muted">
-                                    Administra los recursos, lecciones y materiales del bootcamp.
+                                    Administra y gestiona los recursos, lecciones y materiales del bootcamp.
                                 </p>
                             </div>
                             <Link

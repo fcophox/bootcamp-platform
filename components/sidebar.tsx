@@ -42,7 +42,7 @@ const getMenuItems = (currentRole: string) => {
     if (currentRole === 'superadmin') {
         return [
             {
-                name: 'Cursos CMS',
+                name: 'Bootcamps',
                 href: '/cms',
                 icon: Globe
             },
@@ -80,7 +80,7 @@ const getMenuItems = (currentRole: string) => {
         ];
     } else if (currentRole === 'docente') {
         return [
-            { name: 'Cursos CMS', href: '/cms', icon: Globe },
+            { name: 'Bootcamps', href: '/cms', icon: Globe },
         ];
     }
 

@@ -72,7 +72,7 @@ export default function CreateBootcampPage() {
                 {/* Header */}
                 <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background border-b border-border transition-all duration-300 flex items-center px-6 justify-between ${isCollapsed ? 'left-16' : 'left-64'}`}>
                     <div className="flex items-center gap-2 text-sm text-muted">
-                        <Link href="/cms" className="hover:text-foreground transition-colors">Bootcamp CMS</Link>                        <ChevronRight size={14} />
+                        <Link href="/cms" className="hover:text-foreground transition-colors">Bootcamp</Link>                        <ChevronRight size={14} />
                         <span className="text-foreground font-medium">Crear Nuevo</span>
                     </div>
                 </header>

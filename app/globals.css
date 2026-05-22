@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* DESIGN-TOKENS-DARK-START */
 :root {
   color-scheme: dark;
   --background: #191919;
@@ -11,7 +12,9 @@
   --muted: #9b9b9b;
   --primary: #4f46e5;
 }
+/* DESIGN-TOKENS-DARK-END */
 
+/* DESIGN-TOKENS-LIGHT-START */
 [data-theme='light'] {
   color-scheme: light;
   --background: #ffffff;
@@ -23,6 +26,7 @@
   --muted: #71717a;
   --primary: #4f46e5;
 }
+/* DESIGN-TOKENS-LIGHT-END */
 
 @theme inline {
   --color-background: var(--background);
@@ -33,14 +37,14 @@
   --color-hover-bg: var(--hover-bg);
   --color-muted: var(--muted);
   --color-primary: var(--primary);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sansation), sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sansation), Arial, Helvetica, sans-serif;
 }
 
 /* Custom Tiptap Editor Styles since @tailwindcss/typography is invalid */

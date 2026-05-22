@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
 import { User, ShieldCheck, GraduationCap, Mail, Search, Users, ShieldAlert, MoreHorizontal, Trash2, Loader2, UserPlus, UserMinus, AlertTriangle, X } from 'lucide-react';
@@ -82,6 +83,8 @@ export default function UsuariosCMSPage() {
         bootcamps?: { name: string; status: string }[];
     }
     const [users, setUsers] = useState<UserWithRoles[]>([]);
+    const [mounted, setMounted] = useState(false);
+    const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -103,6 +106,7 @@ export default function UsuariosCMSPage() {
     });
 
     useEffect(() => {
+        setMounted(true);
         async function fetchUsers() {
             setLoading(true);
             const data = await getAllUsersWithRoles();
@@ -116,8 +120,24 @@ export default function UsuariosCMSPage() {
                 setOpenMenuId(null);
             }
         };
+
+        const handleScroll = () => {
+            setOpenMenuId(null);
+        };
+
+        const handleResize = () => {
+            setOpenMenuId(null);
+        };
+
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', handleScroll, true);
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('scroll', handleScroll, true);
+            window.removeEventListener('resize', handleResize);
+        };
     }, []);
 
     const filteredUsers = users.filter(usr => {
@@ -268,49 +288,22 @@ export default function UsuariosCMSPage() {
                                                             <button 
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setOpenMenuId(openMenuId === usr.id ? null : usr.id);
+                                                                    if (openMenuId === usr.id) {
+                                                                        setOpenMenuId(null);
+                                                                        setMenuPosition(null);
+                                                                    } else {
+                                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                                        setMenuPosition({
+                                                                            top: rect.bottom + 8,
+                                                                            left: Math.max(8, rect.right - 176)
+                                                                        });
+                                                                        setOpenMenuId(usr.id);
+                                                                    }
                                                                 }}
                                                                 className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-muted hover:text-foreground transition-all"
                                                             >
                                                                 {isProcessing === usr.id ? <Loader2 size={16} className="animate-spin text-primary" /> : <MoreHorizontal size={18} />}
                                                             </button>
-
-                                                            {openMenuId === usr.id && (
-                                                                <div 
-                                                                    ref={menuRef}
-                                                                    className="absolute right-8 top-12 w-44 bg-card-bg border border-white/10 rounded-xl shadow-2xl z-50 py-1.5 animate-in fade-in zoom-in-95 duration-200"
-                                                                >
-                                                                    {usr.role === 'alumno' ? (
-                                                                        <button 
-                                                                            onClick={() => openConfirmModal('promote', usr)}
-                                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-blue-400 hover:bg-blue-500/10 transition-colors text-left"
-                                                                        >
-                                                                            <UserPlus size={14} />
-                                                                            Convertir en Docente
-                                                                        </button>
-                                                                    ) : usr.role === 'docente' ? (
-                                                                        <button 
-                                                                            onClick={() => openConfirmModal('demote', usr)}
-                                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-gray-400 hover:bg-white/10 transition-colors text-left"
-                                                                        >
-                                                                            <UserMinus size={14} />
-                                                                            Convertir en Alumno
-                                                                        </button>
-                                                                    ) : null}
-
-                                                                    {usr.role !== 'superadmin' && (
-                                                                        <div className="h-px bg-white/5 my-1" />
-                                                                    )}
-
-                                                                    <button 
-                                                                        onClick={() => openConfirmModal('delete', usr)}
-                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-red-500 hover:bg-red-500/10 transition-colors text-left font-medium"
-                                                                    >
-                                                                        <Trash2 size={14} />
-                                                                        Eliminar usuario
-                                                                    </button>
-                                                                </div>
-                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -357,6 +350,53 @@ export default function UsuariosCMSPage() {
                 }
                 confirmVariant={modalConfig.type === 'delete' ? 'danger' : 'primary'}
             />
+
+            {/* Floating Portal Menu */}
+            {mounted && openMenuId && (() => {
+                const usr = users.find(u => u.id === openMenuId);
+                if (!usr) return null;
+                return createPortal(
+                    <div 
+                        ref={menuRef}
+                        className="fixed w-44 bg-card-bg border border-white/10 rounded-xl shadow-2xl z-[9999] py-1.5 animate-in fade-in zoom-in-95 duration-200"
+                        style={{
+                            top: menuPosition ? `${menuPosition.top}px` : undefined,
+                            left: menuPosition ? `${menuPosition.left}px` : undefined,
+                        }}
+                    >
+                        {usr.role === 'alumno' ? (
+                            <button 
+                                onClick={() => openConfirmModal('promote', usr)}
+                                className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-blue-400 hover:bg-blue-500/10 transition-colors text-left"
+                            >
+                                <UserPlus size={14} />
+                                Convertir en Docente
+                            </button>
+                        ) : usr.role === 'docente' ? (
+                            <button 
+                                onClick={() => openConfirmModal('demote', usr)}
+                                className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-gray-400 hover:bg-white/10 transition-colors text-left"
+                            >
+                                <UserMinus size={14} />
+                                Convertir en Alumno
+                            </button>
+                        ) : null}
+
+                        {usr.role !== 'superadmin' && (
+                            <div className="h-px bg-white/5 my-1" />
+                        )}
+
+                        <button 
+                            onClick={() => openConfirmModal('delete', usr)}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-red-500 hover:bg-red-500/10 transition-colors text-left font-medium"
+                        >
+                            <Trash2 size={14} />
+                            Eliminar usuario
+                        </button>
+                    </div>,
+                    document.body
+                );
+            })()}
         </div>
     );
 }

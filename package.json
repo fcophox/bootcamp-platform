@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync-design": "node scripts/sync-design.js",
+    "watch-design": "node scripts/sync-design.js --watch"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.5",
