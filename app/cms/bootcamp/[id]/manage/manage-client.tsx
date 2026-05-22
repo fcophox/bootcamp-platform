@@ -634,7 +634,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                     </button>
                     <button onClick={() => setContentType('exam')} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-all text-center group">
                         <div className="p-2 rounded-full bg-yellow-500/10 text-yellow-500 group-hover:scale-110 transition-transform"><Trophy size={24} /></div>
-                        <span className="text-sm font-medium">Crear Examen</span>
+                        <span className="text-sm font-medium">Crear Cuestionario</span>
                     </button>
                 </div>
             ) : (
@@ -702,7 +702,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                 <div className="space-y-6 border border-border rounded-lg p-6 bg-background/50">
                                     <div className="flex items-center gap-2 mb-4 text-primary">
                                         <Trophy size={20} />
-                                        <h4 className="font-semibold">Constructor de Examen</h4>
+                                        <h4 className="font-semibold">Constructor de Cuestionario</h4>
                                     </div>
 
                                     <div className="mb-6 p-4 bg-secondary/20 rounded-lg border border-border flex items-center gap-4">

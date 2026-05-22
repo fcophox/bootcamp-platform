@@ -116,7 +116,7 @@ export function ExamClient({ exam, questions }: ExamClientProps) {
             setIsConfirmModalOpen(false);
         } catch (error) {
             console.error(error);
-            alert('Hubo un error al enviar el examen. Por favor intenta nuevamente.');
+            alert('Hubo un error al enviar el cuestionario. Por favor intenta nuevamente.');
         } finally {
             setIsSubmitting(false);
         }
@@ -132,7 +132,7 @@ export function ExamClient({ exam, questions }: ExamClientProps) {
                 {/* Header (Simplified for Exam) */}
                 <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background/80 backdrop-blur-md border-b border-border flex items-center px-6 justify-between transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
                     <div className="flex items-center gap-2 text-sm text-foreground font-medium">
-                        <span>Examen</span>
+                        <span>Cuestionario</span>
                         <ChevronRight size={14} className="text-muted" />
                         <span className="text-primary">{exam.title}</span>
                     </div>
@@ -164,7 +164,7 @@ export function ExamClient({ exam, questions }: ExamClientProps) {
                                 <CheckCircle2 size={32} />
                             </div>
                             <h1 className="text-3xl font-bold mb-4">{exam.title}</h1>
-                            <p className="text-muted mb-8 text-lg leading-relaxed">{exam.description || 'Este examen evaluará tus conocimientos sobre el módulo. Tienes un tiempo límite para completarlo.'}</p>
+                            <p className="text-muted mb-8 text-lg leading-relaxed">{exam.description || 'Este cuestionario evaluará tus conocimientos sobre el módulo. Tienes un tiempo límite para completarlo.'}</p>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 text-sm">
                                 <div className="p-4 rounded-lg bg-background border border-border">
@@ -185,7 +185,7 @@ export function ExamClient({ exam, questions }: ExamClientProps) {
                                 onClick={handleStart}
                                 className="w-full md:w-auto px-8 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
                             >
-                                Comenzar Examen
+                                Comenzar Cuestionario
                             </button>
                         </div>
                     </div>
@@ -306,7 +306,7 @@ export function ExamClient({ exam, questions }: ExamClientProps) {
                                     disabled={isSubmitting}
                                     className="flex items-center gap-2 px-8 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-all shadow-lg shadow-primary/20"
                                 >
-                                    {isSubmitting ? 'Enviando...' : 'Enviar Examen'}
+                                    {isSubmitting ? 'Enviando...' : 'Enviar Cuestionario'}
                                     <Send size={18} />
                                 </button>
                             </div>
@@ -324,7 +324,7 @@ export function ExamClient({ exam, questions }: ExamClientProps) {
                                 {result.score / result.total >= 0.7 ? '¡Felicitaciones!' : 'Sigue intentando'}
                             </h2>
                             <p className="text-muted mb-8">
-                                Has completado el examen. Aquí está tu resultado:
+                                Has completado el cuestionario. Aquí está tu resultado:
                             </p>
 
                             <div className="py-8 border-y border-border mb-8">
@@ -352,7 +352,7 @@ export function ExamClient({ exam, questions }: ExamClientProps) {
                 onClose={() => setIsConfirmModalOpen(false)}
                 onConfirm={handleConfirmSubmit}
                 title="¿Estás seguro?"
-                message="¿Estás seguro de enviar tu examen? No podrás cambiar tus respuestas."
+                message="¿Estás seguro de enviar tu cuestionario? No podrás cambiar tus respuestas."
                 isLoading={isSubmitting}
                 confirmText="Enviar"
                 cancelText="Cancelar"

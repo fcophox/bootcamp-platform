@@ -229,7 +229,7 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
                                                                         
                                                                         {lesson.type === 'exam' && attemptsList.length > 0 && (
                                                                             <div className="absolute bottom-full right-0 mb-2 w-48 bg-background border border-white/10 rounded-xl shadow-2xl p-3 z-50 opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all pointer-events-none translate-y-1 group-hover/tooltip:translate-y-0">
-                                                                                <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Intentos del Examen</p>
+                                                                                <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Intentos del Cuestionario</p>
                                                                                 <div className="space-y-2 max-h-40 overflow-y-auto">
                                                                                     {attemptsList.map((att, idx) => (
                                                                                         <div key={att.id} className="flex items-center justify-between text-[11px] border-b border-white/5 pb-1">

@@ -335,7 +335,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                     <div className="self-center px-4 opacity-100">
                                                                         <Link href={`/dashboard/bootcamp/${bootcamp.id}/clase/${lesson.id}`}>
                                                                             <button className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg transition-all shadow-lg shadow-violet-900/20 hover:shadow-violet-600/30 transform hover:-translate-y-0.5">
-                                                                                Rendir Examen
+                                                                                Realizar Cuestionario
                                                                             </button>
                                                                         </Link>
                                                                     </div>

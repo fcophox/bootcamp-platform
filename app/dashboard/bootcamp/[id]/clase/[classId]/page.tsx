@@ -412,7 +412,7 @@ export default function ClassPlayerPage() {
                                         settings = { ...settings, ...parsed.settings };
                                     }
                                 } catch {
-                                    return <div className="p-10 text-center text-red-500">Error cargando el examen</div>;
+                                    return <div className="p-10 text-center text-red-500">Error cargando el cuestionario</div>;
                                 }
 
                                 return (

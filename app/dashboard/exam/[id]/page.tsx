@@ -19,7 +19,7 @@ export default async function ExamPage({ params }: { params: { id: string } }) {
             <div className="flex items-center justify-center min-h-screen text-muted-foreground">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold mb-2">Error</h1>
-                    <p>No se pudo cargar el examen o no existe.</p>
+                    <p>No se pudo cargar el cuestionario o no existe.</p>
                 </div>
             </div>
         );
