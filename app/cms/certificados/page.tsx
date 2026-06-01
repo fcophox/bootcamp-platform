@@ -1,13 +1,11 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
-import { getAllLessonFeedback } from '@/app/actions/feedback';
-import { FeedbackClient } from '../feedback-client';
+import { getAllCertificates } from '@/app/actions/certificate';
+import { CertificadosClient } from './certificados-client';
 
 export const dynamic = 'force-dynamic';
 
-export default async function FeedbackSlugPage({ params }: { params: Promise<{ slug: string }> }) {
-    const { slug } = await params;
-    
+export default async function CertificadosPage() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return redirect('/login');
@@ -22,7 +20,13 @@ export default async function FeedbackSlugPage({ params }: { params: Promise<{ s
         return redirect('/cms');
     }
 
-    const feedbacks = await getAllLessonFeedback();
+    // Get all bootcamps for the select dropdown
+    const { data: bootcamps } = await supabase
+        .from('Bootcamp')
+        .select('id, title, icon, color')
+        .order('title', { ascending: true });
 
-    return <FeedbackClient initialFeedbacks={feedbacks} slug={slug} />;
+    const certificates = await getAllCertificates();
+
+    return <CertificadosClient certificates={certificates} bootcamps={bootcamps || []} />;
 }

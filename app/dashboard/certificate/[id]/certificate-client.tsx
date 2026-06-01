@@ -3,9 +3,11 @@
 import { useSidebar } from '@/components/sidebar-context';
 import { Sidebar } from '@/components/sidebar';
 import Link from 'next/link';
-import { ArrowLeft, Download, CheckCircle, Share2, Award, Printer } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { ArrowLeft, Download, CheckCircle, Award, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 interface Module {
     id: number;
@@ -18,9 +20,30 @@ interface Bootcamp {
     modules?: Module[];
 }
 
-export function CertificateClient({ bootcamp }: { bootcamp: Bootcamp }) {
+interface CustomCertificate {
+    id: number;
+    title: string;
+    backgroundImageUrl: string | null;
+    textColor: string;
+    instructorName: string | null;
+    directorName: string | null;
+    instructorSignatureUrl: string | null;
+    directorSignatureUrl: string | null;
+    showInstructorSignature: boolean;
+    showDirectorSignature: boolean;
+}
+
+interface CertificateClientProps {
+    bootcamp: Bootcamp;
+    userName: string;
+    customCertificate?: CustomCertificate | null;
+}
+
+export function CertificateClient({ bootcamp, userName, customCertificate }: CertificateClientProps) {
     const { isCollapsed } = useSidebar();
     const [mounted, setMounted] = useState(false);
+    const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+    const certificateRef = useRef<HTMLDivElement>(null);
 
     // Prevent hydration mismatch for sidebar state
     useEffect(() => {
@@ -57,9 +80,74 @@ export function CertificateClient({ bootcamp }: { bootcamp: Bootcamp }) {
 
     const sidebarWidthClass = !mounted ? 'ml-64' : (isCollapsed ? 'ml-16' : 'ml-64');
 
-    // Mock User Data
-    const userName = "Francisco";
+    // Completion date
     const completionDate = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    // Generate PDF function
+    const handleDownloadPDF = async () => {
+        if (!certificateRef.current) {
+            console.error('Certificate ref not found');
+            alert('Error: No se encontró el certificado.');
+            return;
+        }
+        
+        setIsGeneratingPDF(true);
+        
+        try {
+            // Wait for images to load
+            const images = certificateRef.current.querySelectorAll('img');
+            await Promise.all(
+                Array.from(images).map((img) => {
+                    if (img.complete) return Promise.resolve();
+                    return new Promise((resolve) => {
+                        img.onload = resolve;
+                        img.onerror = resolve;
+                    });
+                })
+            );
+
+            const canvas = await html2canvas(certificateRef.current, {
+                scale: 2,
+                backgroundColor: '#ffffff',
+                logging: false,
+                useCORS: true,
+                allowTaint: true,
+                imageTimeout: 15000,
+            });
+            
+            const imgData = canvas.toDataURL('image/png', 1.0);
+            
+            // A4 landscape dimensions in mm
+            const pdf = new jsPDF({
+                orientation: 'landscape',
+                unit: 'mm',
+                format: 'a4'
+            });
+            
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            
+            // Calculate dimensions to fit the certificate
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+            
+            const imgX = (pdfWidth - imgWidth * ratio) / 2;
+            const imgY = (pdfHeight - imgHeight * ratio) / 2;
+            
+            pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+            
+            // Generate filename
+            const sanitizedTitle = bootcamp.title.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ\s]/g, '').replace(/\s+/g, '_');
+            const sanitizedName = userName.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ\s]/g, '').replace(/\s+/g, '_');
+            pdf.save(`Certificado_${sanitizedTitle}_${sanitizedName}.pdf`);
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert(`Error al generar el PDF: ${(error as Error).message}`);
+        } finally {
+            setIsGeneratingPDF(false);
+        }
+    };
 
     return (
         <div className="flex min-h-screen bg-background">
@@ -113,70 +201,151 @@ export function CertificateClient({ bootcamp }: { bootcamp: Bootcamp }) {
                                 </div>
 
                                 <div className="flex flex-col gap-4">
-                                    <button className="w-full py-4 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
-                                        <Download size={20} />
-                                        Descargar Certificado (PDF)
+                                    <button 
+                                        onClick={handleDownloadPDF}
+                                        disabled={isGeneratingPDF}
+                                        className="w-full py-4 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                    >
+                                        {isGeneratingPDF ? (
+                                            <>
+                                                <Loader2 size={20} className="animate-spin" />
+                                                Generando PDF...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Download size={20} />
+                                                Descargar Certificado (PDF)
+                                            </>
+                                        )}
                                     </button>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <button className="py-3 bg-secondary text-secondary-foreground rounded-xl font-medium hover:opacity-80 transition-all flex items-center justify-center gap-2 border border-border">
-                                            <Share2 size={18} /> Compartir
-                                        </button>
-                                        <button className="py-3 bg-secondary text-secondary-foreground rounded-xl font-medium hover:opacity-80 transition-all flex items-center justify-center gap-2 border border-border">
-                                            <Printer size={18} /> Imprimir
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
 
-                            {/* Right Column: Certificate Preview */}
+                            {/* Right Column: Certificate Preview (Visible - larger fonts) */}
                             <div className="relative animate-in slide-in-from-right-4 duration-500 delay-100">
-                                <div className="relative aspect-[1.414/1] w-full bg-white text-black p-8 shadow-2xl rounded-sm overflow-hidden border-8 border-double border-slate-200 group">
-                                    {/* Decorative Background */}
-                                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                                    <div className="absolute inset-0 border-[20px] border-slate-100 pointer-events-none"></div>
+                                <div 
+                                    style={{
+                                        position: 'relative',
+                                        aspectRatio: '1.414/1',
+                                        width: '100%',
+                                        backgroundColor: '#ffffff',
+                                        color: customCertificate?.textColor || '#000000',
+                                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                                        borderRadius: '2px',
+                                        overflow: 'hidden',
+                                    }}
+                                >
+                                    {/* Background - Custom or Default */}
+                                    {customCertificate?.backgroundImageUrl ? (
+                                        <img
+                                            src={customCertificate.backgroundImageUrl}
+                                            alt="Certificate Background"
+                                            style={{
+                                                position: 'absolute',
+                                                inset: 0,
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover',
+                                            }}
+                                        />
+                                    ) : (
+                                        <>
+                                            {/* Default decorative background */}
+                                            <div style={{
+                                                position: 'absolute',
+                                                inset: 0,
+                                                border: '8px double #e2e8f0',
+                                            }}></div>
+                                            <div style={{
+                                                position: 'absolute',
+                                                inset: 0,
+                                                opacity: 0.03,
+                                                backgroundImage: `repeating-linear-gradient(45deg, #000 0, #000 1px, transparent 0, transparent 50%), repeating-linear-gradient(-45deg, #000 0, #000 1px, transparent 0, transparent 50%)`,
+                                                backgroundSize: '20px 20px'
+                                            }}></div>
+                                            <div style={{
+                                                position: 'absolute',
+                                                inset: '32px',
+                                                border: '4px solid #1e293b',
+                                                pointerEvents: 'none'
+                                            }}></div>
+                                        </>
+                                    )}
 
-                                    {/* Certificate Content */}
-                                    <div className="relative h-full flex flex-col items-center justify-center text-center p-4 border-4 border-slate-800">
+                                    {/* Certificate Content - Visible version with larger fonts */}
+                                    <div style={{
+                                        position: 'relative',
+                                        height: '100%',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        textAlign: 'center',
+                                        padding: '48px',
+                                    }}>
 
                                         {/* Header */}
-                                        <div className="">
-                                            <div className="text-2xl font-serif text-slate-800 uppercase tracking-widest">Certificado</div>
-                                            <div className="text-xl font-serif text-slate-600 italic">de finalización</div>
+                                        <div>
+                                            <div style={{ fontSize: '14px', fontFamily: 'serif', textTransform: 'uppercase', letterSpacing: '0.2em' }}>Certificado</div>
+                                            <div style={{ fontSize: '16px', fontFamily: 'serif', fontStyle: 'italic', opacity: 0.8 }}>de finalización</div>
                                         </div>
 
                                         {/* Content */}
-                                        <div className="space-y-1 flex-1 flex flex-col justify-center w-full">
-                                            <p className="text-slate-500 font-serif italic text-sm">Se otorga el presente documento a:</p>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', width: '100%', gap: '4px' }}>
+                                            <p style={{ fontFamily: 'serif', fontStyle: 'italic', fontSize: '14px', opacity: 0.7 }}>Se otorga el presente documento a:</p>
 
-                                            <div className="border-b-1 border-slate-300 pb-1 w-3/4 mx-auto">
-                                                <h2 className="text-lg font-serif font-bold text-slate-900 font-script">{userName}</h2>
+                                            <div style={{ borderBottom: `1px solid ${customCertificate?.textColor || '#cbd5e1'}40`, paddingBottom: '4px', width: '75%', margin: '0 auto' }}>
+                                                <h2 style={{ fontSize: '20px', fontFamily: 'serif', fontWeight: 'bold' }}>{userName}</h2>
                                             </div>
 
-                                            <p className="text-slate-500 font-serif italic text-sm">Por haber completado satisfactoriamente el programa:</p>
+                                            <p style={{ fontFamily: 'serif', fontStyle: 'italic', fontSize: '12px', opacity: 0.7 }}>Por haber completado satisfactoriamente el programa:</p>
 
-                                            <div className="border-b-1 border-slate-300 pb-1 w-3/4 mx-auto">
-                                                <h3 className="text-lg font-serif text-amber-600 font-bold">{bootcamp.title}</h3>
-                                            </div>
+                                            <h3 style={{ fontSize: '18px', fontFamily: 'serif', fontWeight: 'bold', color: '#d97706' }}>{bootcamp.title}</h3>
 
-                                            <p className="text-[10px] font-semibold text-slate-400">{completionDate}</p>
+                                            <p style={{ fontSize: '12px', fontWeight: '600', opacity: 0.6, marginTop: '8px' }}>{completionDate}</p>
                                         </div>
 
                                         {/* Footer / Signatures */}
-                                        <div className="w-full flex justify-between items-end px-16">
-                                            <div className="text-center">
-                                                <div className="w-32 border-t border-slate-500 pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Instructor</div>
-                                            </div>
-                                            <div className="h-8 w-8 bg-amber-600 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-inner ring-4 ring-amber-100">
-                                                <Award size={15} />
-                                            </div>
-                                            <div className="text-center">
-                                                <div className="w-32 border-t border-slate-500 pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Director</div>
-                                            </div>
+                                        <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: '80px' }}>
+                                            {(customCertificate?.showInstructorSignature !== false) && (
+                                                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                    {customCertificate?.instructorSignatureUrl && (
+                                                        <img 
+                                                            src={customCertificate.instructorSignatureUrl} 
+                                                            alt="Firma instructor"
+                                                            style={{ 
+                                                                height: '48px', 
+                                                                objectFit: 'contain',
+                                                                marginBottom: '4px'
+                                                            }}
+                                                        />
+                                                    )}
+                                                    <div style={{ width: '128px', borderTop: `1px solid ${customCertificate?.textColor || '#64748b'}60`, paddingTop: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.7 }}>
+                                                        {customCertificate?.instructorName || 'Instructor'}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {(customCertificate?.showDirectorSignature !== false) && (
+                                                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                    {customCertificate?.directorSignatureUrl && (
+                                                        <img 
+                                                            src={customCertificate.directorSignatureUrl} 
+                                                            alt="Firma director"
+                                                            style={{ 
+                                                                height: '48px', 
+                                                                objectFit: 'contain',
+                                                                marginBottom: '4px'
+                                                            }}
+                                                        />
+                                                    )}
+                                                    <div style={{ width: '128px', borderTop: `1px solid ${customCertificate?.textColor || '#64748b'}60`, paddingTop: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.7 }}>
+                                                        {customCertificate?.directorName || 'Director'}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-
-                                    {/* "Preview" Overlay */}
-                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none"></div>
                                 </div>
 
                                 {/* Shadow Effect underneath */}
@@ -185,6 +354,136 @@ export function CertificateClient({ bootcamp }: { bootcamp: Bootcamp }) {
                         </div>
                     </div>
                 </main>
+
+                {/* Hidden Certificate for PDF (smaller fonts) */}
+                <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+                    <div 
+                        ref={certificateRef}
+                        style={{
+                            position: 'relative',
+                            width: '1000px',
+                            height: '707px',
+                            backgroundColor: '#ffffff',
+                            color: customCertificate?.textColor || '#000000',
+                            overflow: 'hidden',
+                        }}
+                    >
+                        {/* Background - Custom or Default */}
+                        {customCertificate?.backgroundImageUrl ? (
+                            <img
+                                src={customCertificate.backgroundImageUrl}
+                                alt="Certificate Background"
+                                crossOrigin="anonymous"
+                                style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover',
+                                }}
+                            />
+                        ) : (
+                            <>
+                                {/* Default decorative background */}
+                                <div style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    border: '8px double #e2e8f0',
+                                }}></div>
+                                <div style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    opacity: 0.03,
+                                    backgroundImage: `repeating-linear-gradient(45deg, #000 0, #000 1px, transparent 0, transparent 50%), repeating-linear-gradient(-45deg, #000 0, #000 1px, transparent 0, transparent 50%)`,
+                                    backgroundSize: '20px 20px'
+                                }}></div>
+                                <div style={{
+                                    position: 'absolute',
+                                    inset: '32px',
+                                    border: '4px solid #1e293b',
+                                    pointerEvents: 'none'
+                                }}></div>
+                            </>
+                        )}
+
+                        {/* Certificate Content - PDF version with smaller fonts */}
+                        <div style={{
+                            position: 'relative',
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            padding: '40px',
+                        }}>
+
+                            {/* Header */}
+                            <div>
+                                <div style={{ fontSize: '18px', fontFamily: 'serif', textTransform: 'uppercase', letterSpacing: '0.2em' }}>Certificado</div>
+                                <div style={{ fontSize: '16px', fontFamily: 'serif', fontStyle: 'italic', opacity: 0.8 }}>de finalización</div>
+                            </div>
+
+                            {/* Content */}
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', width: '100%', gap: '8px' }}>
+                                <p style={{ fontFamily: 'serif', fontStyle: 'italic', fontSize: '14px', opacity: 0.7 }}>Se otorga el presente documento a:</p>
+
+                                <div style={{ borderBottom: `1px solid ${customCertificate?.textColor || '#cbd5e1'}40`, paddingBottom: '12px', width: '70%', margin: '0 auto' }}>
+                                    <h2 style={{ fontSize: '28px', fontFamily: 'serif', fontWeight: 'bold', marginBottom: '0' }}>{userName}</h2>
+                                </div>
+
+                                <p style={{ fontFamily: 'serif', fontStyle: 'italic', fontSize: '14px', opacity: 0.7 }}>Por haber completado satisfactoriamente el programa:</p>
+
+                                <h3 style={{ fontSize: '24px', fontFamily: 'serif', fontWeight: 'bold', color: '#d97706' }}>{bootcamp.title}</h3>
+
+                                <p style={{ fontSize: '14px', fontWeight: '600', opacity: 0.6, marginTop: '8px' }}>{completionDate}</p>
+                            </div>
+
+                            {/* Footer / Signatures */}
+                            <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: '120px' }}>
+                                {(customCertificate?.showInstructorSignature !== false) && (
+                                    <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                        {customCertificate?.instructorSignatureUrl && (
+                                            <img 
+                                                src={customCertificate.instructorSignatureUrl} 
+                                                alt="Firma instructor"
+                                                crossOrigin="anonymous"
+                                                style={{ 
+                                                    height: '60px', 
+                                                    objectFit: 'contain',
+                                                    marginBottom: '4px'
+                                                }}
+                                            />
+                                        )}
+                                        <div style={{ width: '150px', borderTop: `1px solid ${customCertificate?.textColor || '#64748b'}60`, paddingTop: '4px', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.7 }}>
+                                            {customCertificate?.instructorName || 'Instructor'}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {(customCertificate?.showDirectorSignature !== false) && (
+                                    <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                        {customCertificate?.directorSignatureUrl && (
+                                            <img 
+                                                src={customCertificate.directorSignatureUrl} 
+                                                alt="Firma director"
+                                                crossOrigin="anonymous"
+                                                style={{ 
+                                                    height: '60px', 
+                                                    objectFit: 'contain',
+                                                    marginBottom: '4px'
+                                                }}
+                                            />
+                                        )}
+                                        <div style={{ width: '150px', borderTop: `1px solid ${customCertificate?.textColor || '#64748b'}60`, paddingTop: '4px', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.7 }}>
+                                            {customCertificate?.directorName || 'Director'}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

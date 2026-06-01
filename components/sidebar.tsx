@@ -56,6 +56,11 @@ const getMenuItems = (currentRole: string) => {
                 href: '/cms/feedback',
                 icon: MessageSquare
             },
+            {
+                name: 'Certificados',
+                href: '/cms/certificados',
+                icon: Award
+            },
 
             {
                 name: 'Tareas',
@@ -67,12 +72,6 @@ const getMenuItems = (currentRole: string) => {
                 name: 'Notificaciones',
                 href: '/dashboard/notificaciones',
                 icon: Bell,
-                disabled: true,
-            },
-            {
-                name: 'Certificación',
-                href: '/dashboard/certificacion',
-                icon: Award,
                 disabled: true,
             },
 
@@ -94,6 +93,7 @@ export function Sidebar() {
     const { setTheme, resolvedTheme } = useTheme();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [isHoveringBorder, setIsHoveringBorder] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [userEmail, setUserEmail] = useState('');
     const [userName, setUserName] = useState('');
@@ -148,7 +148,30 @@ export function Sidebar() {
     const menuItems = getMenuItems(role);
 
     return (
-        <aside className={`fixed left-0 top-0 h-screen border-r border-border bg-card-bg flex flex-col z-40 transition-all duration-300 overflow-x-visible ${isCollapsed ? 'w-16' : 'w-64'}`}>
+        <aside className={`fixed left-0 top-0 h-screen border-r border-border bg-background flex flex-col z-40 transition-all duration-300 overflow-x-visible ${isCollapsed ? 'w-16' : 'w-64'}`}>
+
+            {/* Interactive Right Border - Full Height */}
+            <div
+                className="absolute right-0 top-0 h-full w-3 cursor-pointer z-[999] group"
+                onMouseEnter={() => setIsHoveringBorder(true)}
+                onMouseLeave={() => setIsHoveringBorder(false)}
+                onClick={toggleSidebar}
+            >
+                {/* Hover indicator line */}
+                <div className={`absolute right-0 top-0 h-full w-0.5 transition-all duration-200 ${isHoveringBorder ? 'bg-foreground/20' : 'bg-transparent'}`} />
+                
+                {/* Chevron button - appears on hover, centered vertically */}
+                <div
+                    className={`absolute -right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full border border-border bg-hover-bg hover:bg-background transition-all duration-200 flex items-center justify-center shadow-sm ${isHoveringBorder ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}
+                    title={isCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
+                >
+                    {isCollapsed ? (
+                        <ChevronRight size={14} className="text-foreground" />
+                    ) : (
+                        <ChevronLeft size={14} className="text-foreground" />
+                    )}
+                </div>
+            </div>
 
             {/* Logo */}
             <div className="h-[60px] border-b border-border relative flex items-center px-4 md:px-4">
@@ -180,19 +203,6 @@ export function Sidebar() {
                         </div>
                     </div>
                 )}
-
-                {/* Toggle Button - Positioned exactly on the border line */}
-                <button
-                    onClick={toggleSidebar}
-                    className="absolute -right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full border border-border bg-hover-bg hover:bg-background transition-colors flex items-center justify-center shadow-sm z-[999]"
-                    title={isCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
-                >
-                    {isCollapsed ? (
-                        <ChevronRight size={14} className="text-foreground" />
-                    ) : (
-                        <ChevronLeft size={14} className="text-foreground" />
-                    )}
-                </button>
             </div>
 
             {/* Navigation */}
@@ -255,7 +265,7 @@ export function Sidebar() {
 
                 {/* Dropdown Menu */}
                 {isDropdownOpen && (
-                    <div className={`absolute bottom-full mb-2 rounded-lg border border-border bg-card-bg shadow-lg overflow-hidden z-50 ${isCollapsed ? 'left-full ml-2 w-56' : 'left-4 right-4'}`}>
+                    <div className={`absolute bottom-full mb-2 rounded-lg border border-border bg-background shadow-lg overflow-hidden z-50 ${isCollapsed ? 'left-full ml-2 w-56' : 'left-4 right-4'}`}>
                         {/* User Info Header */}
                         <div className="px-4 py-3 border-b border-border">
                             <p className="text-base font-medium text-foreground">{userName}</p>

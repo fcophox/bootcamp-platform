@@ -80,6 +80,7 @@ export function FeedbackClient({ initialFeedbacks, slug }: { initialFeedbacks: F
 
     const [selectedModule, setSelectedModule] = useState<string | null>(null);
     const [curriculum, setCurriculum] = useState<any[] | null>(null);
+    const [isLoadingCurriculum, setIsLoadingCurriculum] = useState(false);
     const [drawerLesson, setDrawerLesson] = useState<{ id: number; title: string } | null>(null);
     
 
@@ -164,7 +165,10 @@ export function FeedbackClient({ initialFeedbacks, slug }: { initialFeedbacks: F
 
     useEffect(() => {
         if (selectedBootcampId) {
-            getBootcampCurriculum(selectedBootcampId).then(data => setCurriculum(data));
+            setIsLoadingCurriculum(true);
+            getBootcampCurriculum(selectedBootcampId)
+                .then(data => setCurriculum(data))
+                .finally(() => setIsLoadingCurriculum(false));
         } else {
             setCurriculum(null);
             setSelectedModule(null);
@@ -234,9 +238,9 @@ export function FeedbackClient({ initialFeedbacks, slug }: { initialFeedbacks: F
 
                         {/* Curriculum & Feedback List */}
                         <div className="space-y-8">
-                            {selectedBootcampId && curriculum ? (
+                            {selectedBootcampId ? (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    {/* Stats Overview */}
+                                    {/* Stats Overview - Always show when bootcamp is selected */}
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
                                         <div className="bg-card-bg border border-border p-6 rounded-2xl shadow-sm hover:border-primary/30 transition-all group">
                                             <div className="flex items-center gap-4">
@@ -284,75 +288,87 @@ export function FeedbackClient({ initialFeedbacks, slug }: { initialFeedbacks: F
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <div className="w-1 h-6 bg-primary rounded-full"></div>
-                                        <h2 className="text-xl font-bold text-foreground">Detalle por módulo</h2>
-                                    </div>
-                                    
-                                    {curriculum.map((moduleItem, index) => {
-                                        const moduleLessons = moduleItem.lessons || [];
-                                        
-                                        return (
-                                            <div key={moduleItem.id} className="bg-card-bg border border-border rounded-2xl overflow-hidden shadow-sm">
-                                                <div className="p-6 border-b border-border bg-background/30 flex items-center gap-4">
-                                                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
-                                                        {index + 1}
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="text-lg font-bold text-foreground">
-                                                            Módulo {index + 1}: {moduleItem.title}
-                                                        </h3>
-                                                        <p className="text-sm text-muted">
-                                                            {moduleLessons.length} {moduleLessons.length === 1 ? 'CLASE' : 'CLASES'}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div className="divide-y divide-border/50">
-                                                    {moduleLessons.map((lesson: any, lIndex: number) => {
-                                                        const lessonFeedbacks = feedbacks.filter(f => f.lessonId === lesson.id);
-                                                        const likes = lessonFeedbacks.filter(f => f.isLiked === true).length;
-                                                        const dislikes = lessonFeedbacks.filter(f => f.isLiked === false).length;
-                                                        const commentsCount = lessonFeedbacks.filter(f => !!f.comment).length;
-                                                        
-                                                        return (
-                                                            <div 
-                                                                key={lesson.id} 
-                                                                onClick={() => setDrawerLesson({ id: lesson.id, title: lesson.title })}
-                                                                className="p-4 flex items-center justify-between hover:bg-hover-bg/30 transition-colors group cursor-pointer"
-                                                            >
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="w-2 h-2 rounded-full bg-primary/50 group-hover:bg-primary transition-colors"></div>
-                                                                    <p className="text-sm font-medium text-foreground">
-                                                                        Clase {lIndex + 1}: {lesson.title}
-                                                                    </p>
-                                                                </div>
-                                                                
-                                                                <div className="flex items-center gap-3 opacity-80 group-hover:opacity-100 transition-opacity">
-                                                                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-green-500/10 text-green-500 border border-green-500/20 text-xs font-bold">
-                                                                        <ThumbsUp size={12} /> {likes}
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 text-xs font-bold">
-                                                                        <ThumbsDown size={12} /> {dislikes}
-                                                                    </div>
-                                                                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-violet-500/10 text-violet-500 border border-violet-500/20 text-xs font-bold">
-                                                                        <MessageSquare size={12} /> {commentsCount}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    {moduleLessons.length === 0 && (
-                                                        <div className="p-4 text-sm text-muted italic text-center">
-                                                            No hay clases en este módulo
-                                                        </div>
-                                                    )}
-                                                </div>
+                                    {/* Module Details - Show loading or curriculum */}
+                                    {isLoadingCurriculum ? (
+                                        <div className="flex flex-col items-center justify-center py-12">
+                                            <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                                            <p className="text-sm text-muted">Cargando curriculum...</p>
+                                        </div>
+                                    ) : curriculum && curriculum.length > 0 ? (
+                                        <>
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <div className="w-1 h-6 bg-primary rounded-full"></div>
+                                                <h2 className="text-xl font-bold text-foreground">Detalle por módulo</h2>
                                             </div>
-                                        );
-                                    })}
-                                    
-
+                                            
+                                            {curriculum.map((moduleItem, index) => {
+                                                const moduleLessons = moduleItem.lessons || [];
+                                                
+                                                return (
+                                                    <div key={moduleItem.id} className="bg-card-bg border border-border rounded-2xl overflow-hidden shadow-sm">
+                                                        <div className="p-6 border-b border-border bg-background/30 flex items-center gap-4">
+                                                            <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
+                                                                {index + 1}
+                                                            </div>
+                                                            <div>
+                                                                <h3 className="text-lg font-bold text-foreground">
+                                                                    Módulo {index + 1}: {moduleItem.title}
+                                                                </h3>
+                                                                <p className="text-sm text-muted">
+                                                                    {moduleLessons.length} {moduleLessons.length === 1 ? 'CLASE' : 'CLASES'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div className="divide-y divide-border/50">
+                                                            {moduleLessons.map((lesson: any, lIndex: number) => {
+                                                                const lessonFeedbacks = feedbacks.filter(f => f.lessonId === lesson.id);
+                                                                const likes = lessonFeedbacks.filter(f => f.isLiked === true).length;
+                                                                const dislikes = lessonFeedbacks.filter(f => f.isLiked === false).length;
+                                                                const commentsCount = lessonFeedbacks.filter(f => !!f.comment).length;
+                                                                
+                                                                return (
+                                                                    <div 
+                                                                        key={lesson.id} 
+                                                                        onClick={() => setDrawerLesson({ id: lesson.id, title: lesson.title })}
+                                                                        className="p-4 flex items-center justify-between hover:bg-hover-bg/30 transition-colors group cursor-pointer"
+                                                                    >
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="w-2 h-2 rounded-full bg-primary/50 group-hover:bg-primary transition-colors"></div>
+                                                                            <p className="text-sm font-medium text-foreground">
+                                                                                Clase {lIndex + 1}: {lesson.title}
+                                                                            </p>
+                                                                        </div>
+                                                                        
+                                                                        <div className="flex items-center gap-3 opacity-80 group-hover:opacity-100 transition-opacity">
+                                                                            <div className="flex items-center justify-center gap-1.5 min-w-[52px] px-3 py-1 rounded-lg bg-green-500/10 text-green-500 border border-green-500/20 text-xs font-bold">
+                                                                                <ThumbsUp size={12} /> {likes}
+                                                                            </div>
+                                                                            <div className="flex items-center justify-center gap-1.5 min-w-[52px] px-3 py-1 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 text-xs font-bold">
+                                                                                <ThumbsDown size={12} /> {dislikes}
+                                                                            </div>
+                                                                            <div className="flex items-center justify-center gap-1.5 min-w-[52px] px-3 py-1 rounded-lg bg-violet-500/10 text-violet-500 border border-violet-500/20 text-xs font-bold">
+                                                                                <MessageSquare size={12} /> {commentsCount}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                            {moduleLessons.length === 0 && (
+                                                                <div className="p-4 text-sm text-muted italic text-center">
+                                                                    No hay clases en este módulo
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </>
+                                    ) : curriculum && curriculum.length === 0 ? (
+                                        <div className="p-12 text-center bg-card-bg border-2 border-dashed border-border rounded-3xl">
+                                            <p className="text-muted">Este bootcamp no tiene módulos o clases aún.</p>
+                                        </div>
+                                    ) : null}
                                 </div>
                             ) : (
                                 <div className="space-y-6 animate-in fade-in duration-500">

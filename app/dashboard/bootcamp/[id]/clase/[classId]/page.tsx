@@ -422,7 +422,7 @@ export default function ClassPlayerPage() {
                                         durationMinutes={settings.duration}
                                         passingScore={settings.passingScore}
                                         onComplete={(score: number, passed: boolean) => {
-                                            if (passed && !isClassCompleted(currentClass.id)) {
+                                            if (!isClassCompleted(currentClass.id)) {
                                                 handleToggleComplete();
                                             }
                                         }}
