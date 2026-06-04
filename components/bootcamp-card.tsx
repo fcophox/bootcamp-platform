@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, MoreVertical, Trash2 } from 'lucide-react';
+import { Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, MoreVertical, Trash2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -11,7 +11,15 @@ const ICON_MAP: Record<string, any> = {
     server: Server,
     cloud: Cloud,
     cpu: Cpu,
-    smartphone: Smartphone
+    smartphone: Smartphone,
+    bot: Bot,
+    brain: BrainCircuit,
+    sparkles: Sparkles,
+    network: Network,
+    terminal: Terminal,
+    microscope: Microscope,
+    rocket: Rocket,
+    binary: Binary
 };
 
 const COLOR_MAP: Record<string, string> = {
@@ -111,7 +119,7 @@ export function BootcampCard({
                     </div>
                 )}
                 <div className="pr-8">
-                    <h3 className="text-lg font-semibold text-foreground mb-1 line-clamp-1">
+                    <h3 className="text-base font-semibold text-foreground mb-1 line-clamp-1">
                         {title}
                     </h3>
                     <div 

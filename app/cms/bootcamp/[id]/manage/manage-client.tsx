@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
 import { ConfirmationModal } from '@/components/confirmation-modal';
 import { TiptapEditor } from '@/components/tiptap-editor';
+import { RichTextEditor } from '@/components/rich-text-editor';
 import {
     ChevronRight, Plus, FileText, Layout,
     Trash2, Edit2, ChevronDown, ChevronUp, GripVertical, MonitorPlay,
@@ -80,10 +81,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [isCreatingModule, setIsCreatingModule] = useState(false);
     const [newModuleTitle, setNewModuleTitle] = useState('');
     const [activeModuleForContent, setActiveModuleForContent] = useState<number | null>(null);
-    const [isEditingBootcampTitle, setIsEditingBootcampTitle] = useState(false);
+    const [isEditingBootcampModalOpen, setIsEditingBootcampModalOpen] = useState(false);
     const [tempBootcampTitle, setTempBootcampTitle] = useState(bootcamp.title);
-    const [isEditingDescription, setIsEditingDescription] = useState(false);
-    const [tempDescription, setTempDescription] = useState(bootcamp.description || 'Gestiona el contenido y los alumnos de tu curso.');
+    const [tempDescription, setTempDescription] = useState(bootcamp.description || '');
     const [isEditingIcon, setIsEditingIcon] = useState(false);
 
     const [tempIcon, setTempIcon] = useState(bootcamp.icon || 'code');
@@ -407,42 +407,29 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         }
     };
 
-    const handleUpdateBootcampTitle = async () => {
-        if (!tempBootcampTitle.trim() || tempBootcampTitle === bootcamp.title) {
-            setIsEditingBootcampTitle(false);
-            setTempBootcampTitle(bootcamp.title);
+    const handleUpdateBootcampInfo = async () => {
+        if (!tempBootcampTitle.trim()) {
+            return;
+        }
+
+        if (tempBootcampTitle === bootcamp.title && tempDescription === bootcamp.description) {
+            setIsEditingBootcampModalOpen(false);
             return;
         }
 
         setIsActionLoading(true);
         try {
-            await updateBootcamp(bootcamp.id, { title: tempBootcampTitle });
-            setIsEditingBootcampTitle(false);
+            await updateBootcamp(bootcamp.id, { 
+                title: tempBootcampTitle,
+                description: tempDescription
+            });
+            setIsEditingBootcampModalOpen(false);
         } catch (error) {
             console.error(error);
         } finally {
             setIsActionLoading(false);
         }
     };
-
-    const handleUpdateBootcampDescription = async () => {
-
-        if (tempDescription === bootcamp.description) {
-            setIsEditingDescription(false);
-            return;
-        }
-
-        setIsActionLoading(true);
-        try {
-            await updateBootcamp(bootcamp.id, { description: tempDescription });
-            setIsEditingDescription(false);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsActionLoading(false);
-        }
-    };
-
 
     const handleUpdateBootcampIcon = async () => {
         setIsActionLoading(true);
@@ -1072,71 +1059,25 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
                                     <div className="flex-1 max-w-2xl">
 
-                                        {isEditingBootcampTitle ? (
-                                            <div className="mb-2">
-                                                <input
-                                                    type="text"
-                                                    value={tempBootcampTitle}
-                                                    onChange={(e) => setTempBootcampTitle(e.target.value)}
-                                                    className="text-2xl font-semibold bg-transparent border-b-2 border-primary outline-none text-foreground w-full py-1"
-
-
-                                                    autoFocus
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') handleUpdateBootcampTitle();
-                                                        if (e.key === 'Escape') {
-                                                            setIsEditingBootcampTitle(false);
-                                                            setTempBootcampTitle(bootcamp.title);
-                                                        }
-                                                    }}
-                                                    onBlur={handleUpdateBootcampTitle}
-                                                />
-                                            </div>
-                                        ) : (
-                                            <div
-                                                className="group flex items-center gap-3 mb-1 cursor-pointer w-fit"
-                                                onClick={() => {
-                                                    setTempBootcampTitle(bootcamp.title);
-                                                    setIsEditingBootcampTitle(true);
-                                                }}
-                                            >
+                                        <div
+                                            className="group flex flex-col mb-1 cursor-pointer w-fit"
+                                            onClick={() => {
+                                                setTempBootcampTitle(bootcamp.title);
+                                                setTempDescription(bootcamp.description || '');
+                                                setIsEditingBootcampModalOpen(true);
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-3">
                                                 <h1 className="text-2xl font-semibold">{bootcamp.title}</h1>
                                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground p-1 rounded hover:bg-muted/10">
                                                     <Edit2 size={18} />
                                                 </div>
                                             </div>
-                                        )}
-                                        {isEditingDescription ? (
-                                            <div className="mt-1">
-                                                <input
-                                                    type="text"
-                                                    value={tempDescription}
-                                                    onChange={(e) => setTempDescription(e.target.value)}
-                                                    className="text-sm text-muted bg-transparent border-b border-primary/50 outline-none w-full py-1"
-
-
-                                                    autoFocus
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') handleUpdateBootcampDescription();
-                                                        if (e.key === 'Escape') {
-                                                            setIsEditingDescription(false);
-                                                            setTempDescription(bootcamp.description || 'Gestiona el contenido y los alumnos de tu curso.');
-                                                        }
-                                                    }}
-                                                    onBlur={handleUpdateBootcampDescription}
-                                                />
-                                            </div>
-                                        ) : (
-                                            <p
-                                                className="text-muted text-sm cursor-pointer hover:text-foreground transition-colors mt-1"
-                                                onClick={() => {
-                                                    setTempDescription(bootcamp.description || 'Gestiona el contenido y los alumnos de tu curso.');
-                                                    setIsEditingDescription(true);
-                                                }}
-                                            >
-                                                {bootcamp.description || 'Gestiona el contenido y los alumnos de tu curso.'}
-                                            </p>
-                                        )}
+                                            <div 
+                                                className="text-muted text-sm mt-1 prose prose-sm dark:prose-invert max-w-none line-clamp-3"
+                                                dangerouslySetInnerHTML={{ __html: bootcamp.description || 'Gestiona el contenido y los alumnos de tu curso.' }}
+                                            />
+                                        </div>
 
                                     </div>
                                 </div>
@@ -1568,6 +1509,69 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 hideCancel={modalConfig.hideCancel}
                 isLoading={isActionLoading}
             />
+
+            {/* Edit Bootcamp Info Modal */}
+            {isEditingBootcampModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    {/* Backdrop */}
+                    <div 
+                        className="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity"
+                        onClick={() => setIsEditingBootcampModalOpen(false)}
+                    />
+                    
+                    {/* Modal Content */}
+                    <div className="relative w-full max-w-2xl bg-card-bg border border-border rounded-xl shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between p-6 border-b border-border">
+                            <h2 className="text-xl font-bold text-foreground">Editar Información del Bootcamp</h2>
+                            <button 
+                                onClick={() => setIsEditingBootcampModalOpen(false)}
+                                className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                            <div>
+                                <label className="block text-sm font-medium mb-1.5 text-foreground">Título</label>
+                                <input
+                                    type="text"
+                                    value={tempBootcampTitle}
+                                    onChange={(e) => setTempBootcampTitle(e.target.value)}
+                                    className="w-full px-4 py-2 bg-background border border-border rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-foreground"
+                                    placeholder="Ej: Full Stack Development"
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium mb-1.5 text-foreground">Descripción</label>
+                                <RichTextEditor
+                                    value={tempDescription}
+                                    onChange={(val) => setTempDescription(val)}
+                                    minHeight="min-h-[200px]"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-end gap-3 p-6 border-t border-border bg-background/50 rounded-b-xl">
+                            <button
+                                onClick={() => setIsEditingBootcampModalOpen(false)}
+                                className="px-5 py-2 text-sm font-medium text-muted hover:text-foreground bg-transparent hover:bg-hover-bg rounded-lg transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleUpdateBootcampInfo}
+                                disabled={isActionLoading || !tempBootcampTitle.trim()}
+                                className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isActionLoading && <Loader2 size={16} className="animate-spin" />}
+                                Guardar Cambios
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Premium Toast Notification */}
             {toast?.show && (

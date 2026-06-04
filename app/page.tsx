@@ -67,8 +67,8 @@ export default async function Home() {
           {/* Background Gradient Orbs */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-violet-600/20 to-cyan-400/20 rounded-full blur-[100px] pointer-events-none -z-10"></div>
           
-          <div className="mb-8 p-5 rounded-3xl bg-card-bg/50 backdrop-blur-sm border border-white/5 shadow-[0_0_40px_rgba(139,92,246,0.1)] flex items-center justify-center">
-             <div className="relative h-16 w-16">
+          <div className="mb-2 p-2 rounded-3xl flex items-center justify-center">
+             <div className="relative h-40 w-40">
                <Image
                  src="/brand/logotipoacademy.png"
                  alt="Logo"

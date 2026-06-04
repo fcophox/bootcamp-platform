@@ -10,9 +10,10 @@ interface RichTextEditorProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  minHeight?: string;
 }
 
-export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
+export function RichTextEditor({ value, onChange, placeholder, minHeight }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -27,7 +28,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: 'prose prose-sm dark:prose-invert max-w-none w-full px-4 py-3 min-h-[150px] bg-background focus:outline-none',
+        class: 'prose prose-sm dark:prose-invert max-w-none w-full px-4 py-3 bg-background focus:outline-none',
       },
     },
     onUpdate: ({ editor }) => {
@@ -119,7 +120,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
         </button>
       </div>
       
-      <EditorContent editor={editor} />
+      <EditorContent editor={editor} className={`w-full ${minHeight || 'min-h-[150px]'} cursor-text`} onClick={() => editor?.commands.focus()} />
     </div>
   );
 }

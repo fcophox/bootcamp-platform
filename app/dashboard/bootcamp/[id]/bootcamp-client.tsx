@@ -16,7 +16,7 @@ import {
     Trophy,
     Headphones,
     Presentation,
-    Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone,
+    Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary,
     FileUp
 } from 'lucide-react';
 import { useState } from 'react';
@@ -24,8 +24,7 @@ import { useState } from 'react';
 import { useBootcampProgress } from '@/app/hooks/use-bootcamp-progress';
 
 // Shared Icon Map (could be in a separate util file)
-const ICON_MAP: Record<string, typeof Code> = {
-
+const ICON_MAP: Record<string, any> = {
     code: Code,
     database: Database,
     layout: Layout,
@@ -33,7 +32,15 @@ const ICON_MAP: Record<string, typeof Code> = {
     server: Server,
     cloud: Cloud,
     cpu: Cpu,
-    smartphone: Smartphone
+    smartphone: Smartphone,
+    bot: Bot,
+    brain: BrainCircuit,
+    sparkles: Sparkles,
+    network: Network,
+    terminal: Terminal,
+    microscope: Microscope,
+    rocket: Rocket,
+    binary: Binary
 };
 
 const COLOR_MAP: Record<string, string> = {
@@ -221,9 +228,10 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                         </div>
                                     </div>
 
-                                    <p className="text-muted text-base leading-relaxed max-w-3xl">
-                                        {bootcamp.description}
-                                    </p>
+                                    <div 
+                                        className="text-muted text-base leading-relaxed max-w-3xl prose prose-sm dark:prose-invert"
+                                        dangerouslySetInnerHTML={{ __html: bootcamp.description }}
+                                    />
                                 </div>
 
                                 {/* Progress Section - Top Right */}

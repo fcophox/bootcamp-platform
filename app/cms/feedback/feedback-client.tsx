@@ -6,7 +6,7 @@ import { useSidebar } from '@/components/sidebar-context';
 import {
     ThumbsUp, ThumbsDown, MessageSquare, User,
     Calendar, Search, Filter, ChevronRight, ChevronDown, X, GraduationCap,
-    Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone
+    Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary
 } from 'lucide-react';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -18,7 +18,15 @@ const ICON_MAP: Record<string, any> = {
     server: Server,
     cloud: Cloud,
     cpu: Cpu,
-    smartphone: Smartphone
+    smartphone: Smartphone,
+    bot: Bot,
+    brain: BrainCircuit,
+    sparkles: Sparkles,
+    network: Network,
+    terminal: Terminal,
+    microscope: Microscope,
+    rocket: Rocket,
+    binary: Binary
 };
 
 const COLOR_MAP: Record<string, string> = {

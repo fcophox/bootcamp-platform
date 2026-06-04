@@ -5,7 +5,7 @@ import { BootcampCard } from '@/components/bootcamp-card';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
 import { RichTextEditor } from '@/components/rich-text-editor';
-import { ChevronRight, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone } from 'lucide-react';
+import { ChevronRight, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary } from 'lucide-react';
 import { createBootcamp } from '@/app/actions/bootcamp';
 import Link from 'next/link';
 
@@ -19,7 +19,15 @@ const ICON_MAP: Record<string, any> = {
     server: Server,
     cloud: Cloud,
     cpu: Cpu,
-    smartphone: Smartphone
+    smartphone: Smartphone,
+    bot: Bot,
+    brain: BrainCircuit,
+    sparkles: Sparkles,
+    network: Network,
+    terminal: Terminal,
+    microscope: Microscope,
+    rocket: Rocket,
+    binary: Binary
 };
 
 // Map of colors
@@ -93,7 +101,7 @@ export default function CreateBootcampPage() {
                                     <input type="hidden" name="color" value={formData.color} />
 
                                     <div className="space-y-6 bg-card-bg p-6 rounded-lg border border-border">
-                                        <h2 className="text-lg font-medium border-b border-border pb-4 mb-4">Información General</h2>
+                                        <h2 className="text-sm font-medium border-b border-border pb-4 mb-4">Información General</h2>
 
                                         <div className="space-y-4">
                                             <div>
@@ -114,6 +122,7 @@ export default function CreateBootcampPage() {
                                                 <RichTextEditor
                                                     value={formData.description}
                                                     onChange={(val) => setFormData(prev => ({ ...prev, description: val }))}
+                                                    minHeight="min-h-[280px]"
                                                 />
                                                 <input type="hidden" name="description" value={formData.description} />
                                             </div>
@@ -121,7 +130,7 @@ export default function CreateBootcampPage() {
                                     </div>
 
                                     <div className="space-y-6 bg-card-bg p-6 rounded-lg border border-border">
-                                        <h2 className="text-lg font-medium border-b border-border pb-4 mb-4">Apariencia</h2>
+                                        <h2 className="text-sm font-medium border-b border-border pb-4 mb-4">Apariencia</h2>
 
                                         <div>
                                             <label className="block text-sm font-medium mb-3">Icono Representativo</label>
@@ -160,7 +169,7 @@ export default function CreateBootcampPage() {
                                     </div>
 
                                     <div className="space-y-6 bg-card-bg p-6 rounded-lg border border-border">
-                                        <h2 className="text-lg font-medium border-b border-border pb-4 mb-4">Detalles del Curso</h2>
+                                        <h2 className="text-sm font-medium border-b border-border pb-4 mb-4">Detalles del Curso</h2>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div>
