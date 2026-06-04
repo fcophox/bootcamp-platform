@@ -77,18 +77,14 @@ function LoginContent() {
                 <div className="mx-auto w-full max-w-sm">
                     {/* Logo */}
                     <div className="mb-16">
-                        <div className="flex items-center gap-3">
-                            <div className="relative h-10 w-10 overflow-hidden rounded-lg">
+                        <div className="flex items-center">
+                            <div className="relative h-10 w-64 overflow-hidden">
                                 <Image
-                                    src="/brand/logotipoacademy.png"
-                                    alt="CleverX Academy"
+                                    src="/brand/logotipo-synaptia-vertical.png"
+                                    alt="Synaptia"
                                     fill
-                                    className="object-cover"
+                                    className="object-contain object-left"
                                 />
-                            </div>
-                            <div className="flex flex-col -space-y-1">
-                                <span className="text-2xl font-bold text-foreground tracking-tight">CleverX</span>
-                                <span className="text-[10px] font-medium text-muted uppercase tracking-[0.2em] ml-0.5">Academy</span>
                             </div>
                         </div>
                     </div>

@@ -6,7 +6,7 @@ import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import { 
     Bold, Italic, List, ListOrdered, Quote, Redo, Strikethrough, Undo, 
-    Link as LinkIcon, Image as ImageIcon, Heading1, Heading2, Heading3, Pilcrow 
+    Link as LinkIcon, Image as ImageIcon, Heading1, Heading2, Heading3, Pilcrow, Code
 } from 'lucide-react';
 import { useEffect } from 'react';
 
@@ -130,6 +130,13 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
                 className={`p-2 rounded hover:bg-background transition-colors ${editor.isActive('blockquote') ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'}`}
             >
                 <Quote size={18} />
+            </button>
+            <button
+                onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+                className={`p-2 rounded hover:bg-background transition-colors ${editor.isActive('codeBlock') ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'}`}
+                title="Bloque de código"
+            >
+                <Code size={18} />
             </button>
             <div className="w-px h-8 bg-border mx-1" />
             <button

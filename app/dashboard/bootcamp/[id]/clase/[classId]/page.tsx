@@ -438,25 +438,32 @@ export default function ClassPlayerPage() {
                                     {(currentClass.type !== 'info' || currentClass.imageUrl) && (
                                         <div className="aspect-video w-full bg-black rounded-2xl overflow-hidden mb-6 shadow-2xl relative group border border-white/5 bg-card-bg">
                                             {currentClass.type === 'video' && (
-                                                <div className="absolute inset-0 flex items-center justify-center bg-zinc-900">
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                                                    <button
-                                                        onClick={() => setIsPlaying(!isPlaying)}
-                                                        className="h-20 w-20 bg-primary/90 hover:bg-primary text-white rounded-full flex items-center justify-center transition-all transform group-hover:scale-110 shadow-lg shadow-primary/20 z-10"
-                                                    >
-                                                        {isPlaying ? <Pause fill="currentColor" size={32} /> : <Play fill="currentColor" className="ml-1" size={32} />}
-                                                    </button>
-                                                    <div className="absolute bottom-0 left-0 right-0 px-4 py-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <div className="w-full h-1 bg-white/20 rounded-full mb-4 cursor-pointer">
-                                                            <div className="w-1/3 h-full bg-primary rounded-full relative">
-                                                                <div className="absolute right-0 top-1/2 -translate-y-1/2 h-3 w-3 bg-white rounded-full shadow-md transform scale-0 group-hover:scale-100 transition-transform"></div>
-                                                            </div>
+                                                <div className="absolute inset-0 flex items-center justify-center bg-black">
+                                                    {currentClass.url ? (
+                                                        currentClass.url.includes('youtube') || currentClass.url.includes('youtu.be') || currentClass.url.includes('vimeo') ? (
+                                                            <iframe
+                                                                src={
+                                                                    currentClass.url.includes('vimeo') 
+                                                                        ? `https://player.vimeo.com/video/${currentClass.url.match(/vimeo\.com\/(?:video\/)?([0-9]+)/)?.[1] || ''}` 
+                                                                        : `https://www.youtube.com/embed/${currentClass.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/)?.[1] || ''}`
+                                                                }
+                                                                className="w-full h-full"
+                                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                allowFullScreen
+                                                            ></iframe>
+                                                        ) : (
+                                                            <video
+                                                                controls
+                                                                className="w-full h-full object-contain"
+                                                                src={currentClass.url}
+                                                            />
+                                                        )
+                                                    ) : (
+                                                        <div className="text-white/50 flex flex-col items-center gap-2">
+                                                            <Play size={48} className="opacity-50" />
+                                                            <span>No hay video disponible</span>
                                                         </div>
-                                                        <div className="flex justify-between text-white text-xs font-medium">
-                                                            <span>12:30 / {currentClass.duration.replace(' min', ':00')}</span>
-                                                            <span>HD 1080p</span>
-                                                        </div>
-                                                    </div>
+                                                    )}
                                                 </div>
                                             )}
 

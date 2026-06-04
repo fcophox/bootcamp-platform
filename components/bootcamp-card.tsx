@@ -114,9 +114,10 @@ export function BootcampCard({
                     <h3 className="text-lg font-semibold text-foreground mb-1 line-clamp-1">
                         {title}
                     </h3>
-                    <p className="text-sm text-muted line-clamp-2 leading-relaxed">
-                        {description}
-                    </p>
+                    <div 
+                        className="text-sm text-muted line-clamp-2 leading-relaxed prose prose-sm dark:prose-invert max-w-none"
+                        dangerouslySetInnerHTML={{ __html: description }}
+                    />
                 </div>
             </div>
 

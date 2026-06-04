@@ -176,29 +176,25 @@ export function Sidebar() {
             {/* Logo */}
             <div className="h-[60px] border-b border-border relative flex items-center px-4 md:px-4">
                 {!isCollapsed && (
-                    <div className="flex items-center gap-3">
-                        <div className="relative h-9 w-9 overflow-hidden rounded-lg">
+                    <div className="flex items-center">
+                        <div className="relative h-9 w-32 overflow-hidden">
                             <Image
-                                src="/brand/logotipoacademy.png"
-                                alt="CleverX Academy"
+                                src="/brand/logotipo-synaptia-vertical.png"
+                                alt="Synaptia"
                                 fill
-                                className="object-cover"
+                                className="object-contain object-left"
                             />
-                        </div>
-                        <div className="flex flex-col -space-y-1">
-                            <span className="text-xl font-bold text-foreground tracking-tight">CleverX</span>
-                            <span className="text-[10px] font-medium text-muted uppercase tracking-[0.2em] ml-0.5">Academy</span>
                         </div>
                     </div>
                 )}
                 {isCollapsed && (
                     <div className="w-full flex items-center justify-center">
-                        <div className="relative h-8 w-8 overflow-hidden rounded-lg">
+                        <div className="relative h-8 w-8 overflow-hidden">
                             <Image
-                                src="/brand/logotipoacademy.png"
-                                alt="CleverX Academy"
+                                src="/brand/favicon.png"
+                                alt="Synaptia"
                                 fill
-                                className="object-cover"
+                                className="object-contain"
                             />
                         </div>
                     </div>

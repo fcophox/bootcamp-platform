@@ -91,12 +91,14 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [editingModuleId, setEditingModuleId] = useState<number | null>(null);
     const [editingModuleTitle, setEditingModuleTitle] = useState('');
     const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
-    const [contentType, setContentType] = useState<'text' | 'video' | 'presentation' | 'podcast' | 'pdf' | 'exam' | null>(null);
+    const [contentType, setContentType] = useState<'text' | 'video' | 'presentation' | 'podcast' | 'pdf' | 'exam' | 'exam_formal' | null>(null);
     const [contentTitle, setContentTitle] = useState('');
 
     const [editorContent, setEditorContent] = useState('');
     const [resourceContent, setResourceContent] = useState(''); // Valid for Video, PDF, Presentation, etc. URL
     const [isUploading, setIsUploading] = useState(false);
+    const [isTypeSelectorOpen, setIsTypeSelectorOpen] = useState(false);
+    const typeSelectorRef = useRef<HTMLDivElement>(null);
 
     // Exam Builder State
     const [examQuestions, setExamQuestions] = useState<ExamQuestion[]>([
@@ -124,6 +126,17 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Close type selector dropdown on outside click
+    useEffect(() => {
+        const handleClickOutsideTypeSelector = (event: MouseEvent) => {
+            if (typeSelectorRef.current && !typeSelectorRef.current.contains(event.target as Node)) {
+                setIsTypeSelectorOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutsideTypeSelector);
+        return () => document.removeEventListener('mousedown', handleClickOutsideTypeSelector);
     }, []);
 
 
@@ -609,47 +622,48 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 </button>
             </div>
 
-            {!contentType ? (
-                <div className="grid grid-cols-3 gap-4">
-                    {/* Content Type Buttons */}
-                    <button onClick={() => setContentType('text')} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-all text-center group">
-                        <div className="p-2 rounded-full bg-green-500/10 text-green-500 group-hover:scale-110 transition-transform"><FileText size={24} /></div>
-                        <span className="text-sm font-medium">Texto / Artículo</span>
-                    </button>
-                    <button onClick={() => setContentType('video')} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-all text-center group">
-                        <div className="p-2 rounded-full bg-blue-500/10 text-blue-500 group-hover:scale-110 transition-transform"><MonitorPlay size={24} /></div>
-                        <span className="text-sm font-medium">Video</span>
-                    </button>
-                    <button onClick={() => setContentType('presentation')} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-all text-center group">
-                        <div className="p-2 rounded-full bg-orange-500/10 text-orange-500 group-hover:scale-110 transition-transform"><Layout size={24} /></div>
-                        <span className="text-sm font-medium">Presentación</span>
-                    </button>
-                    <button onClick={() => setContentType('podcast')} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-all text-center group">
-                        <div className="p-2 rounded-full bg-violet-500/10 text-violet-500 group-hover:scale-110 transition-transform"><Headphones size={24} /></div>
-                        <span className="text-sm font-medium">Podcast</span>
-                    </button>
-                    <button onClick={() => setContentType('pdf')} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-all text-center group">
-                        <div className="p-2 rounded-full bg-red-500/10 text-red-500 group-hover:scale-110 transition-transform"><FileUp size={24} /></div>
-                        <span className="text-sm font-medium">Subir PDF</span>
-                    </button>
-                    <button onClick={() => setContentType('exam')} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-all text-center group">
-                        <div className="p-2 rounded-full bg-yellow-500/10 text-yellow-500 group-hover:scale-110 transition-transform"><Trophy size={24} /></div>
-                        <span className="text-sm font-medium">Crear Cuestionario</span>
-                    </button>
+            <div className="space-y-4">
+                {/* Title */}
+                <div>
+                    <label className="block text-sm font-medium mb-1.5">Título de la lección</label>
+                    <input
+                        type="text"
+                        value={contentTitle}
+                        onChange={(e) => setContentTitle(e.target.value)}
+                        className="w-full px-4 py-2 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 outline-none"
+                        placeholder="Ej: Conceptos Básicos"
+                        autoFocus
+                    />
                 </div>
-            ) : (
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1.5">Título de la lección</label>
-                        <input
-                            type="text"
-                            value={contentTitle}
-                            onChange={(e) => setContentTitle(e.target.value)}
-                            className="w-full px-4 py-2 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 outline-none"
-                            placeholder="Ej: Conceptos Básicos"
-                            autoFocus
-                        />
+
+                {/* Category Tabs */}
+                <div>
+                    <label className="block text-sm font-medium mb-1.5">Tipo de contenido</label>
+                    <div className="flex flex-wrap gap-2">
+                        {[
+                            { id: 'text' as const, label: 'Texto', icon: <FileText size={14} />, color: 'green' },
+                            { id: 'video' as const, label: 'Video', icon: <MonitorPlay size={14} />, color: 'blue' },
+                            { id: 'presentation' as const, label: 'Slides', icon: <Layout size={14} />, color: 'orange' },
+                            { id: 'podcast' as const, label: 'Podcast', icon: <Headphones size={14} />, color: 'violet' },
+                            { id: 'pdf' as const, label: 'PDF', icon: <FileUp size={14} />, color: 'red' },
+                            { id: 'exam' as const, label: 'Quiz', icon: <Trophy size={14} />, color: 'yellow' },
+                            { id: 'exam_formal' as const, label: 'Examen', icon: <BarChart3 size={14} />, color: 'emerald' },
+                        ].map((cat) => (
+                            <button
+                                key={cat.id}
+                                onClick={() => setContentType(cat.id)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                                    contentType === cat.id
+                                        ? `bg-${cat.color}-500/10 text-${cat.color}-500 border-${cat.color}-500/30`
+                                        : 'border-border text-muted hover:text-foreground hover:border-foreground/20 hover:bg-hover-bg'
+                                }`}
+                            >
+                                {cat.icon}
+                                {cat.label}
+                            </button>
+                        ))}
                     </div>
+                </div>
                     {contentType === 'text' && (
                         <div>
                             <div className="mb-4">
@@ -696,7 +710,22 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                             <TiptapEditor content={editorContent} onChange={setEditorContent} />
                         </div>
                     )}
-                    {contentType !== 'text' && (
+                    {contentType === 'exam_formal' && (
+                        <div className="flex flex-col items-center justify-center py-12 px-6 border border-dashed border-emerald-500/30 rounded-xl bg-emerald-500/5">
+                            <div className="p-4 rounded-full bg-emerald-500/10 text-emerald-500 mb-4">
+                                <BarChart3 size={32} />
+                            </div>
+                            <h4 className="text-lg font-semibold text-foreground mb-2">Examen Formal</h4>
+                            <p className="text-sm text-muted text-center max-w-sm mb-4">
+                                Los exámenes formales con calificación, tiempo límite estricto y certificación están en desarrollo.
+                            </p>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-semibold border border-emerald-500/20">
+                                <Loader2 size={12} className="animate-spin" />
+                                Pronto...
+                            </span>
+                        </div>
+                    )}
+                    {contentType !== 'text' && contentType !== 'exam_formal' && (
                         <div>
                             {contentType === 'exam' ? (
                                 <div className="space-y-6 border border-border rounded-lg p-6 bg-background/50">
@@ -935,13 +964,24 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                         </div>
                     )}
                     <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
-                        <button onClick={() => setContentType(null)} className="px-4 py-2 text-sm text-foreground hover:bg-hover-bg rounded-lg">Atrás</button>
-                        <button onClick={handleSaveContent} disabled={!contentTitle || (contentType !== 'exam' && !editorContent)} className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button
+                            onClick={() => {
+                                setActiveModuleForContent(null);
+                                setEditingLessonId(null);
+                                setContentType(null);
+                                setContentTitle('');
+                                setEditorContent('');
+                                setResourceContent('');
+                            }}
+                            className="px-4 py-2 text-sm text-foreground hover:bg-hover-bg rounded-lg"
+                        >
+                            Cancelar
+                        </button>
+                        <button onClick={handleSaveContent} disabled={!contentTitle || (contentType !== 'exam' && contentType !== 'exam_formal' && !editorContent)} className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
                             {editingLessonId ? 'Actualizar Lección' : 'Guardar Lección'}
                         </button>
                     </div>
                 </div>
-            )}
         </div>
     );
 
@@ -1342,7 +1382,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                             renderContentForm()
                                                         ) : (
                                                             <button
-                                                                onClick={() => setActiveModuleForContent(module.id)}
+                                                                onClick={() => { setActiveModuleForContent(module.id); setContentType('text'); }}
                                                                 className="w-full py-3 border border-dashed border-border rounded-lg text-sm text-muted hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
                                                             >
                                                                 <Plus size={16} />

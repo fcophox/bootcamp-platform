@@ -10,10 +10,10 @@ const sansation = Sansation({
 });
 
 export const metadata: Metadata = {
-  title: "ClevereX Academy",
+  title: "Synaptia",
   description: "Plataforma de gestión del conocimiento",
   icons: {
-    icon: "/icon.png",
+    icon: "/brand/favicon.png",
   },
 };
 

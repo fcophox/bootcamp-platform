@@ -41,7 +41,7 @@ La plataforma soporta nativamente **Modo Oscuro** (predeterminado) y **Modo Clar
 | `--border`     | `#2f2f2f`          | `#e4e4e7`          | Bordes finos, separadores y divisores.                              |
 | `--hover-bg`   | `#2c2c2c`          | `#f4f4f5`          | Estado de fondo al hacer _hover_ sobre filas y botones.             |
 | `--muted`      | `#9b9b9b`          | `#71717a`          | Texto secundario o deshabilitado.                                   |
-| `--primary`    | `#4f46e5`          | `#4f46e5`          | Color de acento de marca (Indigo) para botones primarios y enlaces. |
+| `--primary`    | `#5215CD`          | `#5215CD`          | Color de acento de marca (Indigo) para botones primarios y enlaces. |
 
 ---
 

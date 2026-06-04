@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 /* DESIGN-TOKENS-DARK-START */
 :root {
@@ -10,7 +11,7 @@
   --border: #2f2f2f;
   --hover-bg: #2c2c2c;
   --muted: #9b9b9b;
-  --primary: #4f46e5;
+  --primary: #5215CD;
 }
 /* DESIGN-TOKENS-DARK-END */
 
@@ -24,7 +25,7 @@
   --border: #e4e4e7;
   --hover-bg: #f4f4f5;
   --muted: #71717a;
-  --primary: #4f46e5;
+  --primary: #5215CD;
 }
 /* DESIGN-TOKENS-LIGHT-END */
 
@@ -37,6 +38,7 @@
   --color-hover-bg: var(--hover-bg);
   --color-muted: var(--muted);
   --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
   --font-sans: var(--font-sansation), sans-serif;
   --font-mono: var(--font-geist-mono);
 }
@@ -148,4 +150,54 @@ body {
 * {
   scrollbar-width: auto;
   scrollbar-color: var(--border) var(--background);
+}
+
+/* Custom styles for Code Blocks */
+.tiptap-content pre,
+.ProseMirror pre {
+  background: #111111;
+  color: #e5e5e5;
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  overflow-x: auto;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
+  border: 1px solid #2f2f2f;
+  position: relative;
+}
+
+/* Mac-like header for code blocks */
+.tiptap-content pre::before,
+.ProseMirror pre::before {
+  content: "";
+  display: block;
+  height: 10px;
+  width: 10px;
+  border-radius: 50%;
+  background: #ed6a5e; /* Red dot */
+  box-shadow: 18px 0 0 #f5bf4f, 36px 0 0 #61c554; /* Yellow and Green dots */
+  margin-bottom: 1.25rem;
+}
+
+/* Inline code styles */
+.tiptap-content code,
+.ProseMirror code {
+  background: var(--hover-bg);
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.875em;
+  color: var(--primary);
+}
+
+/* Remove inline code styles inside pre blocks */
+.tiptap-content pre code,
+.ProseMirror pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
 }

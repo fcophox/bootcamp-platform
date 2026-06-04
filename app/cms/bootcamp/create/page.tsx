@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { BootcampCard } from '@/components/bootcamp-card';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
+import { RichTextEditor } from '@/components/rich-text-editor';
 import { ChevronRight, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone } from 'lucide-react';
 import { createBootcamp } from '@/app/actions/bootcamp';
 import Link from 'next/link';
@@ -87,7 +88,7 @@ export default function CreateBootcampPage() {
                                     <p className="text-muted">Completa la información del curso para publicarlo.</p>
                                 </div>
 
-                                <form action={createBootcamp}>
+                                <form action={createBootcamp} className="space-y-6">
                                     <input type="hidden" name="icon" value={formData.icon} />
                                     <input type="hidden" name="color" value={formData.color} />
 
@@ -110,15 +111,11 @@ export default function CreateBootcampPage() {
 
                                             <div>
                                                 <label htmlFor="description" className="block text-sm font-medium mb-1.5">Descripción</label>
-                                                <textarea
-                                                    id="description"
-                                                    name="description"
+                                                <RichTextEditor
                                                     value={formData.description}
-                                                    onChange={handleInputChange}
-                                                    rows={4}
-                                                    className="w-full px-4 py-2 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none resize-none"
-                                                    placeholder="Describe lo que aprenderán los estudiantes..."
+                                                    onChange={(val) => setFormData(prev => ({ ...prev, description: val }))}
                                                 />
+                                                <input type="hidden" name="description" value={formData.description} />
                                             </div>
                                         </div>
                                     </div>
