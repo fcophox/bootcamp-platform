@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { useSidebar } from './sidebar-context';
-import { Home, ClipboardList, Bell, User, Globe, Moon, Sun, LogOut, ChevronLeft, ChevronRight, Award, MessageSquare } from 'lucide-react';
+import { Home, ClipboardList, Bell, User, Globe, Moon, Sun, LogOut, ChevronLeft, ChevronRight, Award, MessageSquare, BookOpen } from 'lucide-react';
 import { Tooltip } from './tooltip';
 import { ThemeLogo } from './theme-logo';
 import { createClient } from '@/utils/supabase/client';
@@ -18,7 +18,7 @@ const getMenuItems = (currentRole: string) => {
         {
             name: 'Dashboard',
             href: '/dashboard',
-            icon: Home,
+            icon: BookOpen,
         },
         {
             name: 'Tareas',
@@ -45,7 +45,7 @@ const getMenuItems = (currentRole: string) => {
             {
                 name: 'Bootcamps',
                 href: '/cms',
-                icon: Globe
+                icon: BookOpen
             },
             {
                 name: 'Gestión de Usuarios',
@@ -80,7 +80,7 @@ const getMenuItems = (currentRole: string) => {
         ];
     } else if (currentRole === 'docente') {
         return [
-            { name: 'Bootcamps', href: '/cms', icon: Globe },
+            { name: 'Bootcamps', href: '/cms', icon: BookOpen },
         ];
     }
 
