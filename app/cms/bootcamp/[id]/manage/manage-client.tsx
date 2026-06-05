@@ -638,7 +638,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         return colorInfo || AVAILABLE_COLORS[0];
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'audio' | 'pdf') => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'audio' | 'pdf' | 'video') => {
         if (!e.target.files || e.target.files.length === 0) return;
         const file = e.target.files[0];
         const supabase = createClient();
@@ -651,6 +651,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         if (type === 'image') filePath = `article-covers/${fileName}`;
         else if (type === 'audio') filePath = `podcasts/${fileName}`;
         else if (type === 'pdf') filePath = `documents/${fileName}`;
+        else if (type === 'video') filePath = `videos/${fileName}`;
 
         try {
             const { error: uploadError } = await supabase.storage
@@ -994,11 +995,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                 </div>
                             ) : (
                                 <div>
-                                    {(contentType === 'podcast' || contentType === 'pdf') && (
+                                    {(contentType === 'podcast' || contentType === 'pdf' || contentType === 'video') && (
                                         <div className="mb-6 p-4 border border-dashed border-primary/30 rounded-xl bg-primary/5">
                                             <label className="block text-sm font-semibold mb-3 flex items-center gap-2">
                                                 <FileUp size={18} className="text-primary" />
-                                                {contentType === 'podcast' ? 'Subir Podcast desde PC' : 'Subir PDF desde PC'}
+                                                {contentType === 'podcast' ? 'Subir Podcast desde PC' : (contentType === 'video' ? 'Subir Video desde PC' : 'Subir PDF desde PC')}
                                             </label>
                                             
                                             <div className="flex flex-col gap-4">
@@ -1006,7 +1007,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     <div className="flex items-center justify-between p-3 bg-card-bg border border-border rounded-lg group animate-in slide-in-from-top-2">
                                                         <div className="flex items-center gap-3 overflow-hidden">
                                                             <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                                                                {contentType === 'podcast' ? <Headphones size={20} /> : <FileUp size={20} />}
+                                                                {contentType === 'podcast' ? <Headphones size={20} /> : (contentType === 'video' ? <MonitorPlay size={20} /> : <FileUp size={20} />)}
                                                             </div>
                                                             <div className="truncate">
                                                                 <p className="text-sm font-medium truncate">{resourceContent.split('/').pop()}</p>
@@ -1025,8 +1026,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
                                                 <input
                                                     type="file"
-                                                    accept={contentType === 'podcast' ? 'audio/*' : 'application/pdf'}
-                                                    onChange={(e) => handleFileUpload(e, contentType === 'podcast' ? 'audio' : 'pdf')}
+                                                    accept={contentType === 'podcast' ? 'audio/*' : (contentType === 'video' ? 'video/*' : 'application/pdf')}
+                                                    onChange={(e) => handleFileUpload(e, contentType === 'podcast' ? 'audio' : (contentType === 'video' ? 'video' : 'pdf'))}
                                                     className="hidden"
                                                     id="media-upload"
                                                     disabled={isUploading}
@@ -1054,7 +1055,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                             <div className="text-center">
                                                                 <p className="text-sm font-semibold mb-1">Examinar en mi PC</p>
                                                                 <p className="text-xs text-muted">
-                                                                    {contentType === 'podcast' ? 'MP3, WAV, M4A' : 'Solo archivos PDF'}
+                                                                    {contentType === 'podcast' ? 'MP3, WAV, M4A' : (contentType === 'video' ? 'MP4, WEBM, OGG' : 'Solo archivos PDF')}
                                                                 </p>
                                                             </div>
                                                         </>
@@ -1071,7 +1072,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                     )}
 
                                     <label className="block text-sm font-medium mb-1.5">
-                                        {contentType === 'pdf' ? 'URL del archivo PDF' : 'URL del recurso'}
+                                        {contentType === 'pdf' ? 'URL del archivo PDF' : (contentType === 'video' ? 'URL del video' : 'URL del recurso')}
                                     </label>
                                     <input
                                         type="text"
@@ -1083,9 +1084,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                     <p className="text-xs text-muted mt-1 mb-4">
                                         {contentType === 'podcast'
                                             ? 'Pega el enlace de Spotify, Soundcloud o archivo externo.'
-                                            : contentType === 'pdf'
-                                                ? 'Ingresa la URL del PDF alojado (Google Drive, Dropbox, etc.)'
-                                                : 'Pega el enlace directo al recurso.'}
+                                            : contentType === 'video'
+                                                ? 'Ingresa la URL del video alojado en Supabase, YouTube, Vimeo, Mux, etc.'
+                                                : contentType === 'pdf'
+                                                    ? 'Ingresa la URL del PDF alojado (Google Drive, Dropbox, etc.)'
+                                                    : 'Pega el enlace directo al recurso.'}
                                     </p>
 
                                     <label className="block text-sm font-medium mb-1.5">Contenido / Descripción</label>
