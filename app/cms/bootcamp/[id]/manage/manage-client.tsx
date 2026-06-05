@@ -12,7 +12,7 @@ import {
     Trash2, Edit2, ChevronDown, ChevronUp, GripVertical, MonitorPlay,
     Headphones, FileUp, Users, Trophy, Check, X, Clock, Loader2,
     Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase,
-    MoreHorizontal, BarChart3, Radio
+    MoreHorizontal, BarChart3, Radio, BookOpen
 } from 'lucide-react';
 
 import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson, reorderLessons, reorderModules } from '@/app/actions/module';
@@ -1346,7 +1346,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                             <GripVertical size={16} className="text-muted/50" />
                                                         </div>
                                                         <div className="p-1.5 rounded-md bg-card text-primary flex-shrink-0">
-                                                            <Layout size={20} />
+                                                            <BookOpen size={20} />
                                                         </div>
 
                                                     {editingModuleId === module.id ? (
@@ -1462,7 +1462,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                                     <div className="flex items-center gap-4 flex-1">
                                                                                         <GripVertical size={16} className="text-muted/50 cursor-grab active:cursor-grabbing hover:text-primary transition-colors" />
                                                                                         <span className="text-sm font-bold text-muted/80 flex items-center gap-1.5">
-                                                                                            <Layout size={16} className="text-muted/80" />
+                                                                                            <BookOpen size={16} className="text-muted/80" />
                                                                                             {group.subtitle.title}
                                                                                         </span>
                                                                                     </div>

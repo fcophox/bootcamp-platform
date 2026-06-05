@@ -723,7 +723,7 @@ export default function ClassPlayerPage() {
                                                             <div className="w-full h-px bg-border my-2" title={clase.title} />
                                                         ) : (
                                                             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                                                                <Layout size={12} className="opacity-50" />
+                                                                <BookOpen size={12} className="opacity-50" />
                                                                 {clase.title}
                                                             </h4>
                                                         )}

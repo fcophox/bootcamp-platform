@@ -340,7 +340,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                             {group.subtitle && (
                                                                 <div className="flex items-center justify-between py-4 mt-6 mb-2 border-b border-border/20">
                                                                     <h3 className="text-md font-semibold text-muted-foreground flex items-center gap-2">
-                                                                        <Layout size={16} className="text-muted/60" />
+                                                                        <BookOpen size={16} className="text-muted/60" />
                                                                         {group.subtitle.title}
                                                                     </h3>
                                                                 </div>
