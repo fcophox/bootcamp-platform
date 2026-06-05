@@ -139,6 +139,16 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [draggedOptionId, setDraggedOptionId] = useState<string | null>(null);
     const [dragOverOptionId, setDragOverOptionId] = useState<string | null>(null);
 
+    // Accordion state for separators (subtitles)
+    const [collapsedSeparators, setCollapsedSeparators] = useState<Record<number, boolean>>({});
+
+    const toggleSeparator = (separatorId: number) => {
+        setCollapsedSeparators(prev => ({
+            ...prev,
+            [separatorId]: !prev[separatorId]
+        }));
+    };
+
     // Sync local modules when props change
     useEffect(() => {
         setLocalModules(modules);
@@ -1453,24 +1463,40 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                                             {group.subtitle.title}
                                                                                         </span>
                                                                                     </div>
-                                                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                            <button
+                                                                                                onClick={() => handleEditLesson(group.subtitle!, module.id)}
+                                                                                                className="p-1.5 hover:bg-hover-bg rounded text-muted hover:text-foreground"
+                                                                                            >
+                                                                                                <Edit2 size={14} />
+                                                                                            </button>
+                                                                                            <button
+                                                                                                className="p-1.5 hover:bg-red-500/10 rounded text-muted hover:text-red-500"
+                                                                                                onClick={() => {
+                                                                                                    openConfirmModal(
+                                                                                                        'Eliminar Separador',
+                                                                                                        '¿Estás seguro de eliminar este separador? Las lecciones contenidas no se borrarán, sino que pasarán a estar sin agrupación.',
+                                                                                                        () => deleteLesson(group.subtitle!.id, bootcamp.id)
+                                                                                                    );
+                                                                                                }}
+                                                                                            >
+                                                                                                <Trash2 size={14} />
+                                                                                            </button>
+                                                                                        </div>
                                                                                         <button
-                                                                                            onClick={() => handleEditLesson(group.subtitle!, module.id)}
-                                                                                            className="p-1.5 hover:bg-hover-bg rounded text-muted hover:text-foreground"
-                                                                                        >
-                                                                                            <Edit2 size={14} />
-                                                                                        </button>
-                                                                                        <button
-                                                                                            className="p-1.5 hover:bg-red-500/10 rounded text-muted hover:text-red-500"
-                                                                                            onClick={() => {
-                                                                                                openConfirmModal(
-                                                                                                    'Eliminar Separador',
-                                                                                                    '¿Estás seguro de eliminar este separador? Las lecciones contenidas no se borrarán, sino que pasarán a estar sin agrupación.',
-                                                                                                    () => deleteLesson(group.subtitle!.id, bootcamp.id)
-                                                                                                );
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                toggleSeparator(group.subtitle!.id);
                                                                                             }}
+                                                                                            className="p-1.5 hover:bg-hover-bg rounded text-muted hover:text-foreground transition-colors"
+                                                                                            title={collapsedSeparators[group.subtitle.id] ? "Expandir" : "Colapsar"}
                                                                                         >
-                                                                                            <Trash2 size={14} />
+                                                                                            {collapsedSeparators[group.subtitle.id] ? (
+                                                                                                <ChevronDown size={16} />
+                                                                                            ) : (
+                                                                                                <ChevronUp size={16} />
+                                                                                            )}
                                                                                         </button>
                                                                                     </div>
                                                                                 </div>
@@ -1480,7 +1506,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                 )}
 
                                                                 {/* Children inside this Separator */}
-                                                                <div className={group.subtitle ? "pl-6 border-l-2 border-dashed border-border/20 ml-4 space-y-2 mt-2 mb-4" : "space-y-2"}>
+                                                                {(!group.subtitle || !collapsedSeparators[group.subtitle.id]) && (
+                                                                    <div className={group.subtitle ? "pl-6 border-l-2 border-dashed border-border/20 ml-4 space-y-2 mt-2 mb-4 animate-in fade-in slide-in-from-top-1 duration-200" : "space-y-2"}>
                                                                     {group.lessons.map((lesson) => (
                                                                         <div 
                                                                             key={lesson.id} 
@@ -1545,6 +1572,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                         </div>
                                                                     ))}
                                                                 </div>
+                                                                )}
                                                             </div>
                                                         ))}
                                                         {module.lessons?.length === 0 && (

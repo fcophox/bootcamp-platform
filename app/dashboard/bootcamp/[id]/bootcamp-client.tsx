@@ -5,7 +5,7 @@ import { useSidebar } from '@/components/sidebar-context';
 
 import { Sidebar } from '@/components/sidebar';
 import {
-    ChevronRight,
+    ChevronRight, ChevronDown, ChevronUp,
     BookOpen,
     Clock,
     Calendar,
@@ -140,6 +140,16 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
         : MOCK_MODULES_DATA;
 
     const [activeModule, setActiveModule] = useState<number | null>(modulesToDisplay[0]?.id || null);
+
+    // Accordion state for separators (subtitles)
+    const [collapsedSeparators, setCollapsedSeparators] = useState<Record<number, boolean>>({});
+
+    const toggleSeparator = (separatorId: number) => {
+        setCollapsedSeparators(prev => ({
+            ...prev,
+            [separatorId]: !prev[separatorId]
+        }));
+    };
 
 
     const getTypeIcon = (type: string) => {
@@ -328,14 +338,28 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                     return getGroupedLessons(module.lessons || []).map((group, gIndex) => (
                                                         <div key={group.subtitle?.id || `ungrouped-${gIndex}`} className="space-y-4">
                                                             {group.subtitle && (
-                                                                <div className="flex items-center gap-4 py-4 mt-6 mb-2 border-b border-border/20">
-                                                                    <h3 className="text-md font-semibold text-muted-foreground flex items-center gap-2">
-                                                                        <Layout size={16} className="text-muted/60" />
+                                                                <div 
+                                                                    onClick={() => toggleSeparator(group.subtitle!.id)}
+                                                                    className="flex items-center justify-between py-4 mt-6 mb-2 border-b border-border/20 cursor-pointer group hover:border-violet-500/30 transition-all"
+                                                                >
+                                                                    <h3 className="text-md font-semibold text-muted-foreground flex items-center gap-2 group-hover:text-foreground transition-colors">
+                                                                        <Layout size={16} className="text-muted/60 group-hover:text-violet-400 transition-colors" />
                                                                         {group.subtitle.title}
                                                                     </h3>
+                                                                    <button
+                                                                        className="p-1 hover:bg-hover-bg rounded text-muted group-hover:text-foreground transition-colors"
+                                                                        title={collapsedSeparators[group.subtitle.id] ? "Expandir" : "Colapsar"}
+                                                                    >
+                                                                        {collapsedSeparators[group.subtitle.id] ? (
+                                                                            <ChevronDown size={18} />
+                                                                        ) : (
+                                                                            <ChevronUp size={18} />
+                                                                        )}
+                                                                    </button>
                                                                 </div>
                                                             )}
-                                                            <div className={group.subtitle ? "pl-6 border-l-2 border-dashed border-border/20 ml-4 space-y-4" : "space-y-4"}>
+                                                            {(!group.subtitle || !collapsedSeparators[group.subtitle.id]) && (
+                                                                <div className={group.subtitle ? "pl-6 border-l-2 border-dashed border-border/20 ml-4 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200" : "space-y-4"}>
                                                                 {group.lessons.map((lesson) => {
                                                                     const index = currentLessonNumber++;
 
@@ -448,6 +472,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                     );
                                                                 })}
                                                             </div>
+                                                            )}
                                                         </div>
                                                     ));
                                                 })()}
