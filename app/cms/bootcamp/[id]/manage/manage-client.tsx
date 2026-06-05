@@ -68,6 +68,28 @@ interface ManageBootcampClientProps {
     initialStudents?: Student[];
 }
 
+const getGroupedLessons = (lessons: Lesson[]) => {
+    const groups: { subtitle: Lesson | null; lessons: Lesson[] }[] = [];
+    let currentGroup: { subtitle: Lesson | null; lessons: Lesson[] } = { subtitle: null, lessons: [] };
+
+    (lessons || []).forEach((lesson) => {
+        if (lesson.type === 'subtitle') {
+            if (currentGroup.subtitle !== null || currentGroup.lessons.length > 0) {
+                groups.push(currentGroup);
+            }
+            currentGroup = { subtitle: lesson, lessons: [] };
+        } else {
+            currentGroup.lessons.push(lesson);
+        }
+    });
+
+    if (currentGroup.subtitle !== null || currentGroup.lessons.length > 0) {
+        groups.push(currentGroup);
+    }
+
+    return groups;
+};
+
 export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }: ManageBootcampClientProps) {
     const { isCollapsed } = useSidebar();
 
@@ -112,7 +134,10 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [localModules, setLocalModules] = useState(modules);
     const [draggedLessonId, setDraggedLessonId] = useState<number | null>(null);
     const [draggedModuleId, setDraggedModuleId] = useState<number | null>(null);
+    const [dragOverLessonId, setDragOverLessonId] = useState<number | null>(null);
+    const [dragOverModuleId, setDragOverModuleId] = useState<number | null>(null);
     const [draggedOptionId, setDraggedOptionId] = useState<string | null>(null);
+    const [dragOverOptionId, setDragOverOptionId] = useState<string | null>(null);
 
     // Sync local modules when props change
     useEffect(() => {
@@ -449,37 +474,75 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         setDraggedLessonId(lessonId);
     };
 
-    const handleLessonDragOver = (e: React.DragEvent) => {
+    const handleLessonDragOver = (e: React.DragEvent, targetLessonId: number) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
+        if (draggedLessonId !== null && draggedLessonId !== targetLessonId) {
+            setDragOverLessonId(targetLessonId);
+        }
     };
 
+
     const handleLessonDrop = async (targetLessonId: number, moduleId: number) => {
+        setDragOverLessonId(null);
         if (draggedLessonId === null || draggedLessonId === targetLessonId) return;
 
         const targetModule = localModules.find(m => m.id === moduleId);
         if (!targetModule) return;
 
         const newLessons = [...targetModule.lessons];
+        const draggedLesson = newLessons.find(l => l.id === draggedLessonId);
+        const targetLesson = newLessons.find(l => l.id === targetLessonId);
+        if (!draggedLesson || !targetLesson) return;
+
         const draggedIndex = newLessons.findIndex(l => l.id === draggedLessonId);
         const targetIndex = newLessons.findIndex(l => l.id === targetLessonId);
-
         if (draggedIndex === -1 || targetIndex === -1) return;
 
-        // Reorder locally for immediate UI feedback
-        const [movedLesson] = newLessons.splice(draggedIndex, 1);
-        newLessons.splice(targetIndex, 0, movedLesson);
+        // Get block of dragged item if it's a subtitle (Separación)
+        let blockToMove: Lesson[] = [];
+        if (draggedLesson.type === 'subtitle') {
+            let nextSubtitleIndex = newLessons.findIndex((l, idx) => idx > draggedIndex && l.type === 'subtitle');
+            if (nextSubtitleIndex === -1) nextSubtitleIndex = newLessons.length;
+            blockToMove = newLessons.slice(draggedIndex, nextSubtitleIndex);
+        } else {
+            blockToMove = [draggedLesson];
+        }
+
+        // If dropping on itself or its own children, do nothing
+        if (blockToMove.some(bm => bm.id === targetLessonId)) return;
+
+        // Filter out the dragged block
+        const remainingLessons = newLessons.filter(l => !blockToMove.some(bm => bm.id === l.id));
+
+        // Now find where to insert in remainingLessons
+        let insertIndex = remainingLessons.findIndex(l => l.id === targetLessonId);
+        if (insertIndex === -1) return;
+
+        // If dragging downwards, we want to insert AFTER the target item's block/element
+        if (draggedIndex < targetIndex) {
+            if (targetLesson.type === 'subtitle') {
+                // Find next subtitle index in remainingLessons to insert after target block
+                let targetBlockEndIndex = remainingLessons.findIndex((l, idx) => idx > insertIndex && l.type === 'subtitle');
+                if (targetBlockEndIndex === -1) targetBlockEndIndex = remainingLessons.length;
+                insertIndex = targetBlockEndIndex;
+            } else {
+                insertIndex = insertIndex + 1;
+            }
+        }
+
+        remainingLessons.splice(insertIndex, 0, ...blockToMove);
 
         // Update local state
         setLocalModules(prev => prev.map(m => 
-            m.id === moduleId ? { ...m, lessons: newLessons } : m
+            m.id === moduleId ? { ...m, lessons: remainingLessons } : m
         ));
 
         // Save to server
         try {
-            const lessonOrders = newLessons.map((l, index) => ({ id: l.id, order: index }));
+            const lessonOrders = remainingLessons.map((l, index) => ({ id: l.id, order: index }));
             await reorderLessons(bootcamp.id, lessonOrders);
-            showToast('¡Orden de lecciones actualizado con éxito!');
+            showToast('¡Orden de lecciones y separadores actualizado con éxito!');
         } catch (error) {
             console.error('Error reordering lessons:', error);
             // Fallback to original order if failed
@@ -487,6 +550,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             alert('Error al guardar el nuevo orden de las lecciones');
         } finally {
             setDraggedLessonId(null);
+            setDragOverLessonId(null);
         }
     };
 
@@ -494,11 +558,17 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         setDraggedModuleId(moduleId);
     };
 
-    const handleModuleDragOver = (e: React.DragEvent) => {
+    const handleModuleDragOver = (e: React.DragEvent, targetModuleId: number) => {
         e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (draggedModuleId !== null && draggedModuleId !== targetModuleId) {
+            setDragOverModuleId(targetModuleId);
+        }
     };
 
+
     const handleModuleDrop = async (targetModuleId: number) => {
+        setDragOverModuleId(null);
         if (draggedModuleId === null || draggedModuleId === targetModuleId) return;
 
         const newModules = [...localModules];
@@ -523,6 +593,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             alert('Error al guardar el nuevo orden de los módulos');
         } finally {
             setDraggedModuleId(null);
+            setDragOverModuleId(null);
         }
     };
 
@@ -779,19 +850,18 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 {question.options.map((option, oIndex) => (
                                                     <div 
                                                         key={option.id} 
-                                                        className={`flex items-center gap-3 group transition-all p-1 rounded-md ${draggedOptionId === option.id ? 'opacity-50 ring-1 ring-primary/20 bg-primary/5' : 'hover:bg-hover-bg/30'}`}
-                                                        draggable
-                                                        onDragStart={(e) => {
-                                                            e.stopPropagation();
-                                                            setDraggedOptionId(option.id);
-                                                            e.dataTransfer.setData('application/json', JSON.stringify({ questionId: question.id, optionId: option.id }));
-                                                        }}
+                                                        className="relative"
                                                         onDragOver={(e) => {
                                                             e.preventDefault();
+                                                            if (draggedOptionId !== null && draggedOptionId !== option.id) {
+                                                                setDragOverOptionId(option.id);
+                                                            }
                                                         }}
+
                                                         onDrop={(e) => {
                                                             e.preventDefault();
                                                             e.stopPropagation();
+                                                            setDragOverOptionId(null);
                                                             if (!draggedOptionId || draggedOptionId === option.id) return;
                                                             try {
                                                                 const data = JSON.parse(e.dataTransfer.getData('application/json'));
@@ -813,11 +883,28 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                             } catch (err) {}
                                                             setDraggedOptionId(null);
                                                         }}
-                                                        onDragEnd={() => setDraggedOptionId(null)}
                                                     >
-                                                        <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-primary transition-colors">
-                                                            <GripVertical size={14} />
-                                                        </div>
+                                                        {dragOverOptionId === option.id && (
+                                                            <div className="h-10 border-2 border-dashed border-primary/50 bg-primary/5 rounded-md my-1 flex items-center justify-center transition-all animate-in fade-in zoom-in-95 pointer-events-none">
+                                                                <span className="text-[10px] font-semibold text-primary/70">Mover alternativa aquí</span>
+                                                            </div>
+                                                        )}
+                                                        <div 
+                                                            className={`flex items-center gap-3 group transition-all p-1 rounded-md ${draggedOptionId === option.id ? 'opacity-50 ring-1 ring-primary/20 bg-primary/5' : 'hover:bg-hover-bg/30'}`}
+                                                            draggable
+                                                            onDragStart={(e) => {
+                                                                e.stopPropagation();
+                                                                setDraggedOptionId(option.id);
+                                                                e.dataTransfer.setData('application/json', JSON.stringify({ questionId: question.id, optionId: option.id }));
+                                                            }}
+                                                            onDragEnd={() => {
+                                                                setDraggedOptionId(null);
+                                                                setDragOverOptionId(null);
+                                                            }}
+                                                        >
+                                                            <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-primary transition-colors">
+                                                                <GripVertical size={14} />
+                                                            </div>
                                                         <div
                                                             className={`w-4 h-4 rounded-full border flex items-center justify-center cursor-pointer transition-colors ${option.isCorrect ? 'bg-green-500 border-green-500' : 'border-muted hover:border-foreground'}`}
                                                             onClick={() => {
@@ -864,6 +951,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                         >
                                                             <X size={14} />
                                                         </button>
+                                                        </div>
                                                     </div>
                                                 ))}
 
@@ -1203,24 +1291,38 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                     )}
 
                                     {localModules.map((module) => {
-                                        const isDraggingThis = draggedModuleId === module.id;
                                         return (
                                             <div 
                                                 key={module.id} 
-                                                className={`border border-border rounded-xl bg-card-bg overflow-hidden shadow-sm transition-all ${isDraggingThis ? 'border-primary/50' : ''}`}
-                                                draggable
-                                                onDragStart={(e) => {
-                                                    // Only allow drag from the module handle or if not clicking interactive elements
-                                                    const target = e.target as HTMLElement;
-                                                    if (target.closest('button') || target.closest('.lesson-item')) {
-                                                        e.preventDefault();
-                                                        return;
-                                                    }
-                                                    handleModuleDragStart(module.id);
+                                                className="relative"
+                                                onDragOver={(e) => handleModuleDragOver(e, module.id)}
+
+                                                onDrop={(e) => {
+                                                    e.preventDefault();
+                                                    handleModuleDrop(module.id);
                                                 }}
-                                                onDragOver={handleModuleDragOver}
-                                                onDrop={() => handleModuleDrop(module.id)}
                                             >
+                                                {dragOverModuleId === module.id && (
+                                                    <div className="h-16 border-2 border-dashed border-primary/50 bg-primary/5 rounded-xl mb-4 flex items-center justify-center transition-all animate-in fade-in zoom-in-95 pointer-events-none">
+                                                        <span className="text-xs font-semibold text-primary/70">Soltar módulo aquí</span>
+                                                    </div>
+                                                )}
+                                                <div 
+                                                    className={`border border-border/50 bg-card-bg/50 rounded-xl overflow-hidden mb-4 shadow-sm transition-all ${draggedModuleId === module.id ? 'opacity-50 ring-2 ring-primary/20 scale-[0.99]' : 'hover:border-border'}`}
+                                                    draggable
+                                                    onDragStart={(e) => {
+                                                        const target = e.target as HTMLElement;
+                                                        if (target.closest('button') || target.closest('.lesson-item')) {
+                                                            e.preventDefault();
+                                                            return;
+                                                        }
+                                                        handleModuleDragStart(module.id);
+                                                    }}
+                                                    onDragEnd={() => {
+                                                        setDraggedModuleId(null);
+                                                        setDragOverModuleId(null);
+                                                    }}
+                                                >
                                                 {/* Module Header */}
                                                 <div
                                                     className="flex items-center justify-between p-4 bg-card-bg hover:bg-hover-bg transition-colors cursor-pointer"
@@ -1310,80 +1412,139 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                             {/* Module Content */}
                                             {expandedModule === module.id && (
                                                 <div className="border-t border-border bg-background/50 p-4">
-                                                    <div className="space-y-2 mb-6">
-                                                        {module.lessons?.map((lesson) => (
-                                                            <div 
-                                                                key={lesson.id}
-                                                                draggable
-                                                                onDragStart={(e) => {
-                                                                    e.stopPropagation(); // VERY IMPORTANT: Prevent module drag
-                                                                    handleLessonDragStart(lesson.id);
-                                                                }}
-                                                                onDragOver={handleLessonDragOver}
-                                                                onDrop={(e) => {
-                                                                    e.stopPropagation(); // VERY IMPORTANT: Prevent module drop
-                                                                    handleLessonDrop(lesson.id, module.id);
-                                                                }}
-                                                                className={`lesson-item transition-all ${draggedLessonId === lesson.id ? 'border-primary/50 ring-1 ring-primary/20' : ''}`}
-                                                            >
-                                                                {editingLessonId === lesson.id ? (
-                                                                    renderContentForm()
-                                                                ) : lesson.type === 'subtitle' ? (
-                                                                    <div className="flex items-center justify-between py-3 mt-4 mb-2 group px-2">
-                                                                        <div className="flex items-center gap-4 flex-1">
-                                                                            <GripVertical size={16} className="text-muted/50 cursor-grab active:cursor-grabbing hover:text-primary transition-colors" />
-                                                                            <span className="text-sm font-semibold text-muted-foreground">{lesson.title}</span>
-                                                                        </div>
-                                                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
-                                                                            <button
-                                                                                onClick={() => handleEditLesson(lesson, module.id)}
-                                                                                className="p-1.5 hover:bg-hover-bg rounded text-muted hover:text-foreground"
-                                                                            >
-                                                                                <Edit2 size={14} />
-                                                                            </button>
-                                                                            <button
-                                                                                className="p-1.5 hover:bg-red-500/10 rounded text-muted hover:text-red-500"
-                                                                                onClick={() => {
-                                                                                    openConfirmModal(
-                                                                                        'Eliminar Separador',
-                                                                                        '¿Estás seguro de eliminar este separador?',
-                                                                                        () => deleteLesson(lesson.id, bootcamp.id)
-                                                                                    );
-                                                                                }}
-                                                                            >
-                                                                                <Trash2 size={14} />
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card-bg hover:border-primary/30 transition-all group shadow-sm active:shadow-none">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <GripVertical size={16} className="text-muted cursor-grab active:cursor-grabbing hover:text-primary transition-colors" />
-                                                                            {getLessonIcon(lesson.type)}
-                                                                            <span className="text-sm font-medium">{lesson.title}</span>
-                                                                        </div>
-                                                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                            <button
-                                                                                onClick={() => handleEditLesson(lesson, module.id)}
-                                                                                className="p-1.5 hover:bg-hover-bg rounded text-muted hover:text-foreground"
-                                                                            >
-                                                                                <Edit2 size={14} />
-                                                                            </button>
-                                                                            <button
-                                                                                className="p-1.5 hover:bg-red-500/10 rounded text-muted hover:text-red-500"
-                                                                                onClick={() => {
-                                                                                    openConfirmModal(
-                                                                                        'Eliminar Lección',
-                                                                                        '¿Estás seguro de eliminar esta lección?',
-                                                                                        () => deleteLesson(lesson.id, bootcamp.id)
-                                                                                    );
-                                                                                }}
-                                                                            >
-                                                                                <Trash2 size={14} />
-                                                                            </button>
+                                                    <div className="space-y-4 mb-6">
+                                                        {getGroupedLessons(module.lessons || []).map((group, gIndex) => (
+                                                            <div key={group.subtitle?.id || `ungrouped-${gIndex}`} className="space-y-2">
+                                                                {/* Separator Header */}
+                                                                {group.subtitle && (
+                                                                    <div 
+                                                                        className="relative"
+                                                                        onDragOver={(e) => handleLessonDragOver(e, group.subtitle!.id)}
+                                                                        onDrop={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleLessonDrop(group.subtitle!.id, module.id);
+                                                                        }}
+                                                                    >
+                                                                        {dragOverLessonId === group.subtitle.id && (
+                                                                            <div className="h-12 border-2 border-dashed border-primary/50 bg-primary/5 rounded-xl my-2 flex items-center justify-center transition-all animate-in fade-in zoom-in-95 pointer-events-none">
+                                                                                <span className="text-xs font-semibold text-primary/70">Soltar sección aquí</span>
+                                                                            </div>
+                                                                        )}
+                                                                        <div 
+                                                                            draggable
+                                                                            onDragStart={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleLessonDragStart(group.subtitle!.id);
+                                                                            }}
+                                                                            onDragEnd={() => {
+                                                                                setDraggedLessonId(null);
+                                                                                setDragOverLessonId(null);
+                                                                            }}
+                                                                            className={`lesson-item transition-all ${draggedLessonId === group.subtitle.id ? 'border-primary/50 ring-1 ring-primary/20 bg-primary/5 opacity-50 scale-[0.99]' : ''}`}
+                                                                        >
+                                                                            {editingLessonId === group.subtitle.id ? (
+                                                                                renderContentForm()
+                                                                            ) : (
+                                                                                <div className="flex items-center justify-between py-3 mt-4 mb-2 group px-2 border-b border-border/30">
+                                                                                    <div className="flex items-center gap-4 flex-1">
+                                                                                        <GripVertical size={16} className="text-muted/50 cursor-grab active:cursor-grabbing hover:text-primary transition-colors" />
+                                                                                        <span className="text-sm font-semibold text-primary/90 flex items-center gap-1.5">
+                                                                                            <Layout size={16} className="text-primary/70" />
+                                                                                            {group.subtitle.title}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
+                                                                                        <button
+                                                                                            onClick={() => handleEditLesson(group.subtitle!, module.id)}
+                                                                                            className="p-1.5 hover:bg-hover-bg rounded text-muted hover:text-foreground"
+                                                                                        >
+                                                                                            <Edit2 size={14} />
+                                                                                        </button>
+                                                                                        <button
+                                                                                            className="p-1.5 hover:bg-red-500/10 rounded text-muted hover:text-red-500"
+                                                                                            onClick={() => {
+                                                                                                openConfirmModal(
+                                                                                                    'Eliminar Separador',
+                                                                                                    '¿Estás seguro de eliminar este separador? Las lecciones contenidas no se borrarán, sino que pasarán a estar sin agrupación.',
+                                                                                                    () => deleteLesson(group.subtitle!.id, bootcamp.id)
+                                                                                                );
+                                                                                            }}
+                                                                                        >
+                                                                                            <Trash2 size={14} />
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                     </div>
                                                                 )}
+
+                                                                {/* Children inside this Separator */}
+                                                                <div className={group.subtitle ? "pl-6 border-l-2 border-dashed border-border/20 ml-4 space-y-2 mt-2 mb-4" : "space-y-2"}>
+                                                                    {group.lessons.map((lesson) => (
+                                                                        <div 
+                                                                            key={lesson.id} 
+                                                                            className="relative"
+                                                                            onDragOver={(e) => handleLessonDragOver(e, lesson.id)}
+                                                                            onDrop={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleLessonDrop(lesson.id, module.id);
+                                                                            }}
+                                                                        >
+                                                                            {dragOverLessonId === lesson.id && (
+                                                                                <div className="h-12 border-2 border-dashed border-primary/50 bg-primary/5 rounded-xl my-2 flex items-center justify-center transition-all animate-in fade-in zoom-in-95 pointer-events-none">
+                                                                                    <span className="text-xs font-semibold text-primary/70">Soltar contenido aquí</span>
+                                                                                </div>
+                                                                            )}
+                                                                            <div 
+                                                                                draggable
+                                                                                onDragStart={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleLessonDragStart(lesson.id);
+                                                                                }}
+                                                                                onDragEnd={() => {
+                                                                                    setDraggedLessonId(null);
+                                                                                    setDragOverLessonId(null);
+                                                                                }}
+                                                                                className={`lesson-item transition-all ${draggedLessonId === lesson.id ? 'border-primary/50 ring-1 ring-primary/20 bg-primary/5 opacity-50 scale-[0.99]' : ''}`}
+                                                                            >
+                                                                                {editingLessonId === lesson.id ? (
+                                                                                    renderContentForm()
+                                                                                ) : (
+                                                                                    <div className="flex items-center justify-between p-3.5 bg-background border border-border/60 hover:border-border rounded-xl group transition-all shadow-sm">
+                                                                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                                            <GripVertical size={16} className="text-muted/50 cursor-grab active:cursor-grabbing hover:text-primary transition-colors flex-shrink-0" />
+                                                                                            <div className="p-1.5 rounded-md bg-secondary/30 text-muted flex-shrink-0">
+                                                                                                {getLessonIcon(lesson.type)}
+                                                                                            </div>
+                                                                                            <span className="text-sm font-medium truncate">{lesson.title}</span>
+                                                                                        </div>
+                                                                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                            <button
+                                                                                                onClick={() => handleEditLesson(lesson, module.id)}
+                                                                                                className="p-1.5 hover:bg-hover-bg rounded text-muted hover:text-foreground"
+                                                                                            >
+                                                                                                <Edit2 size={14} />
+                                                                                            </button>
+                                                                                            <button
+                                                                                                className="p-1.5 hover:bg-red-500/10 rounded text-muted hover:text-red-500"
+                                                                                                onClick={() => {
+                                                                                                    openConfirmModal(
+                                                                                                        'Eliminar Lección',
+                                                                                                        '¿Estás seguro de eliminar esta lección?',
+                                                                                                        () => deleteLesson(lesson.id, bootcamp.id)
+                                                                                                    );
+                                                                                                }}
+                                                                                            >
+                                                                                                <Trash2 size={14} />
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
                                                             </div>
                                                         ))}
                                                         {module.lessons?.length === 0 && (
@@ -1416,8 +1577,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 </div>
                                             )}
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                );
+                            })}
                                 </div>
                             </div>
                         )}

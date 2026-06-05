@@ -58,6 +58,37 @@ interface BootcampClientProps {
     bootcamp: any;
 }
 
+interface StudentLesson {
+    id: number;
+    title: string;
+    type: string;
+    duration: string;
+    content?: string;
+    completed?: boolean;
+}
+
+const getGroupedLessons = (lessons: StudentLesson[]) => {
+    const groups: { subtitle: StudentLesson | null; lessons: StudentLesson[] }[] = [];
+    let currentGroup: { subtitle: StudentLesson | null; lessons: StudentLesson[] } = { subtitle: null, lessons: [] };
+
+    (lessons || []).forEach((lesson) => {
+        if (lesson.type === 'subtitle') {
+            if (currentGroup.subtitle !== null || currentGroup.lessons.length > 0) {
+                groups.push(currentGroup);
+            }
+            currentGroup = { subtitle: lesson, lessons: [] };
+        } else {
+            currentGroup.lessons.push(lesson);
+        }
+    });
+
+    if (currentGroup.subtitle !== null || currentGroup.lessons.length > 0) {
+        groups.push(currentGroup);
+    }
+
+    return groups;
+};
+
 export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps) {
 
     const { isCollapsed } = useSidebar();
@@ -291,130 +322,134 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                     {modulesToDisplay
                                         .filter((module: { id: number }) => module.id === activeModule)
                                         .map((module: { id: number; lessons?: { id: number; title: string; type: string; duration: string; content?: string; completed?: boolean }[] }) => (
-
-                                            <div key={module.id} className="space-y-4">
+                                            <div key={module.id} className="space-y-6">
                                                 {(() => {
                                                     let currentLessonNumber = 1;
-                                                    return module.lessons?.map((lesson: { id: number; title: string; type: string; duration: string; content?: string; completed?: boolean }) => {
-                                                        const index = lesson.type === 'subtitle' ? null : currentLessonNumber++;
-
-                                                    // RENDER EXAM CARD
-                                                    if (lesson.type === 'exam') {
-                                                        let duration = '15 min';
-                                                        let questionCount = 0;
-                                                        try {
-                                                            const parsed = JSON.parse(lesson.content || '{}');
-                                                            if (parsed.settings?.duration) duration = `${parsed.settings.duration} min`;
-                                                            if (Array.isArray(parsed.questions)) questionCount = parsed.questions.length;
-                                                            else if (Array.isArray(parsed)) questionCount = parsed.length;
-                                                        } catch { }
-
-                                                        return (
-                                                            <div key={lesson.id} className="flex items-start gap-6 group cursor-pointer bg-violet-500/5 hover:bg-violet-500/10 border border-violet-500/20 p-2 rounded-xl transition-all -mx-2 mt-4 mb-2">
-                                                                {/* Exam Badge */}
-                                                                <div className="h-8 w-8 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400 mt-2 flex-shrink-0 shadow-sm shadow-violet-500/10">
-                                                                    <Trophy size={14} />
-                                                                </div>
-
-                                                                {/* Content */}
-                                                                <div className="flex flex-1 items-start gap-6">
-                                                                    {/* Thumbnail */}
-                                                                    <div className="h-20 w-20 bg-gradient-to-br from-violet-900/40 to-background rounded-lg flex-shrink-0 border border-violet-500/30 relative overflow-hidden flex items-center justify-center group-hover:border-violet-500/50 transition-colors">
-                                                                        <div className="absolute inset-0 bg-violet-500/10 mix-blend-overlay"></div>
-                                                                        <Trophy size={24} className="text-violet-300 relative z-10" />
-                                                                    </div>
-
-                                                                    <div className="pt-1 flex-1">
-                                                                        <h3 className="text-base font-bold text-foreground mb-1 group-hover:text-violet-300 transition-colors">
-                                                                            {lesson.title}
-                                                                        </h3>
-                                                                        <p className="text-xs text-muted flex items-center gap-3 mt-2">
-                                                                            <span className="flex items-center gap-1">
-                                                                                <Clock size={12} />
-                                                                                {duration}
-                                                                            </span>
-                                                                            <span className="w-1 h-1 rounded-full bg-border"></span>
-                                                                            <span>{questionCount} Preguntas</span>
-                                                                            {(isCompleted(lesson.id) || lesson.completed) && (
-                                                                                <>
-                                                                                    <span className="w-1 h-1 rounded-full bg-border"></span>
-                                                                                    <span className="text-green-500 flex items-center gap-1 font-medium">
-                                                                                        <CheckCircle size={10} /> Completado
-                                                                                    </span>
-                                                                                </>
-                                                                            )}
-                                                                        </p>
-                                                                    </div>
-
-                                                                    <div className="self-center px-4 opacity-100">
-                                                                        <Link href={`/dashboard/bootcamp/${bootcamp.id}/clase/${lesson.id}`}>
-                                                                            <button className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg transition-all shadow-lg shadow-violet-900/20 hover:shadow-violet-600/30 transform hover:-translate-y-0.5">
-                                                                                Realizar Cuestionario
-                                                                            </button>
-                                                                        </Link>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    // RENDER SUBTITLE
-                                                    if (lesson.type === 'subtitle') {
-                                                        return (
-                                                            <div key={lesson.id} className="flex items-center gap-4 py-4 mt-6 mb-2">
-                                                                <h3 className="text-md font-semibold text-muted-foreground">{lesson.title}</h3>
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    // RENDER STANDARD LESSON
-                                                    return (
-                                                        <Link
-                                                            href={`/dashboard/bootcamp/${bootcamp.id}/clase/${lesson.id}`}
-                                                            key={lesson.id}
-                                                            className="flex items-start gap-6 group cursor-pointer hover:bg-hover-bg/30 p-2 rounded-xl transition-colors -mx-2 block"
-                                                        >
-                                                            {/* Number Badge */}
-                                                            <div className="h-8 w-8 rounded-full bg-border/50 flex items-center justify-center text-xs font-medium text-muted mt-5 flex-shrink-0">
-                                                                {index}
-                                                            </div>
-
-                                                            {/* Content */}
-                                                            <div className="flex flex-1 items-start gap-6">
-                                                                {/* Thumbnail Placeholder - Square */}
-                                                                <div className="h-20 w-20 bg-card-bg/80 rounded-xl flex-shrink-0 border border-border/50 relative overflow-hidden group-hover:border-violet-500/30 transition-colors flex items-center justify-center">
-                                                                    <div className="h-10 w-10 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm border border-white/10 opacity-50">
-                                                                        {getTypeIcon(lesson.type)}
-                                                                    </div>
-                                                                </div>
-
-                                                                <div className="pt-2 flex-1">
-                                                                    <h3 className="text-base font-medium text-foreground mb-2 group-hover:text-violet-400 transition-colors line-clamp-1">
-                                                                        {lesson.title}
+                                                    return getGroupedLessons(module.lessons || []).map((group, gIndex) => (
+                                                        <div key={group.subtitle?.id || `ungrouped-${gIndex}`} className="space-y-4">
+                                                            {group.subtitle && (
+                                                                <div className="flex items-center gap-4 py-4 mt-6 mb-2 border-b border-border/20">
+                                                                    <h3 className="text-md font-semibold text-muted-foreground flex items-center gap-2">
+                                                                        <Layout size={16} className="text-muted/60" />
+                                                                        {group.subtitle.title}
                                                                     </h3>
-                                                                    <p className="text-xs text-muted flex items-center gap-3">
-                                                                        <span className="flex items-center gap-1">
-                                                                            <Clock size={12} />
-                                                                            {lesson.duration || '10 min'}
-                                                                        </span>
-                                                                        {(isCompleted(lesson.id) || lesson.completed) && (
-                                                                            <>
-                                                                                <span className="w-1 h-1 rounded-full bg-border"></span>
-                                                                                <span className="text-green-500 flex items-center gap-1 font-medium">
-                                                                                    <CheckCircle size={10} /> Completado
-                                                                                </span>
-                                                                            </>
-                                                                        )}
-                                                                    </p>
                                                                 </div>
+                                                            )}
+                                                            <div className={group.subtitle ? "pl-6 border-l-2 border-dashed border-border/20 ml-4 space-y-4" : "space-y-4"}>
+                                                                {group.lessons.map((lesson) => {
+                                                                    const index = currentLessonNumber++;
 
-                                                                <div className="self-center opacity-0 group-hover:opacity-100 transition-opacity px-2">
-                                                                    <ChevronRight size={18} className="text-muted" />
-                                                                </div>
+                                                                    // RENDER EXAM CARD
+                                                                    if (lesson.type === 'exam') {
+                                                                        let duration = '15 min';
+                                                                        let questionCount = 0;
+                                                                        try {
+                                                                            const parsed = JSON.parse(lesson.content || '{}');
+                                                                            if (parsed.settings?.duration) duration = `${parsed.settings.duration} min`;
+                                                                            if (Array.isArray(parsed.questions)) questionCount = parsed.questions.length;
+                                                                            else if (Array.isArray(parsed)) questionCount = parsed.length;
+                                                                        } catch { }
+
+                                                                        return (
+                                                                            <div key={lesson.id} className="flex items-start gap-6 group cursor-pointer bg-violet-500/5 hover:bg-violet-500/10 border border-violet-500/20 p-2 rounded-xl transition-all -mx-2 mt-4 mb-2">
+                                                                                {/* Exam Badge */}
+                                                                                <div className="h-8 w-8 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400 mt-2 flex-shrink-0 shadow-sm shadow-violet-500/10">
+                                                                                    <Trophy size={14} />
+                                                                                </div>
+
+                                                                                {/* Content */}
+                                                                                <div className="flex flex-1 items-start gap-6">
+                                                                                    {/* Thumbnail */}
+                                                                                    <div className="h-20 w-20 bg-gradient-to-br from-violet-900/40 to-background rounded-lg flex-shrink-0 border border-violet-500/30 relative overflow-hidden flex items-center justify-center group-hover:border-violet-500/50 transition-colors">
+                                                                                        <div className="absolute inset-0 bg-violet-500/10 mix-blend-overlay"></div>
+                                                                                        <Trophy size={24} className="text-violet-300 relative z-10" />
+                                                                                    </div>
+
+                                                                                    <div className="pt-1 flex-1">
+                                                                                        <h3 className="text-base font-bold text-foreground mb-1 group-hover:text-violet-300 transition-colors">
+                                                                                            {lesson.title}
+                                                                                        </h3>
+                                                                                        <p className="text-xs text-muted flex items-center gap-3 mt-2">
+                                                                                            <span className="flex items-center gap-1">
+                                                                                                <Clock size={12} />
+                                                                                                {duration}
+                                                                                            </span>
+                                                                                            <span className="w-1 h-1 rounded-full bg-border"></span>
+                                                                                            <span>{questionCount} Preguntas</span>
+                                                                                            {(isCompleted(lesson.id) || lesson.completed) && (
+                                                                                                <>
+                                                                                                    <span className="w-1 h-1 rounded-full bg-border"></span>
+                                                                                                    <span className="text-green-500 flex items-center gap-1 font-medium">
+                                                                                                        <CheckCircle size={10} /> Completado
+                                                                                                    </span>
+                                                                                                </>
+                                                                                            )}
+                                                                                        </p>
+                                                                                    </div>
+
+                                                                                    <div className="self-center px-4 opacity-100">
+                                                                                        <Link href={`/dashboard/bootcamp/${bootcamp.id}/clase/${lesson.id}`}>
+                                                                                            <button className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg transition-all shadow-lg shadow-violet-900/20 hover:shadow-violet-600/30 transform hover:-translate-y-0.5">
+                                                                                                Realizar Cuestionario
+                                                                                            </button>
+                                                                                        </Link>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+
+                                                                    // RENDER STANDARD LESSON
+                                                                    return (
+                                                                        <Link
+                                                                            href={`/dashboard/bootcamp/${bootcamp.id}/clase/${lesson.id}`}
+                                                                            key={lesson.id}
+                                                                            className="flex items-start gap-6 group cursor-pointer hover:bg-hover-bg/30 p-2 rounded-xl transition-colors -mx-2 block"
+                                                                        >
+                                                                            {/* Number Badge */}
+                                                                            <div className="h-8 w-8 rounded-full bg-border/50 flex items-center justify-center text-xs font-medium text-muted mt-5 flex-shrink-0">
+                                                                                {index}
+                                                                            </div>
+
+                                                                            {/* Content */}
+                                                                            <div className="flex flex-1 items-start gap-6">
+                                                                                {/* Thumbnail Placeholder - Square */}
+                                                                                <div className="h-20 w-20 bg-card-bg/80 rounded-xl flex-shrink-0 border border-border/50 relative overflow-hidden group-hover:border-violet-500/30 transition-colors flex items-center justify-center">
+                                                                                    <div className="h-10 w-10 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm border border-white/10 opacity-50">
+                                                                                        {getTypeIcon(lesson.type)}
+                                                                                    </div>
+                                                                                </div>
+
+                                                                                <div className="pt-2 flex-1">
+                                                                                    <h3 className="text-base font-medium text-foreground mb-2 group-hover:text-violet-400 transition-colors line-clamp-1">
+                                                                                        {lesson.title}
+                                                                                    </h3>
+                                                                                    <p className="text-xs text-muted flex items-center gap-3">
+                                                                                        <span className="flex items-center gap-1">
+                                                                                            <Clock size={12} />
+                                                                                            {lesson.duration || '10 min'}
+                                                                                        </span>
+                                                                                        {(isCompleted(lesson.id) || lesson.completed) && (
+                                                                                            <>
+                                                                                                <span className="w-1 h-1 rounded-full bg-border"></span>
+                                                                                                <span className="text-green-500 flex items-center gap-1 font-medium">
+                                                                                                    <CheckCircle size={10} /> Completado
+                                                                                                </span>
+                                                                                            </>
+                                                                                        )}
+                                                                                    </p>
+                                                                                </div>
+
+                                                                                <div className="self-center opacity-0 group-hover:opacity-100 transition-opacity px-2">
+                                                                                    <ChevronRight size={18} className="text-muted" />
+                                                                                </div>
+                                                                            </div>
+                                                                        </Link>
+                                                                    );
+                                                                })}
                                                             </div>
-                                                        </Link>
-                                                    );
-                                                })
+                                                        </div>
+                                                    ));
                                                 })()}
 
                                                 {(!module.lessons || module.lessons.length === 0) && (
