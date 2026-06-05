@@ -996,7 +996,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                             ) : (
                                 <div>
                                     {(contentType === 'podcast' || contentType === 'pdf' || contentType === 'video') && (
-                                        <div className="mb-6 p-4 border border-dashed border-primary/30 rounded-xl bg-primary/5">
+                                        <div className="mb-6 p-4  rounded-xl bg-background">
                                             <label className="block text-sm font-semibold mb-3 flex items-center gap-2">
                                                 <FileUp size={18} className="text-primary" />
                                                 {contentType === 'podcast' ? 'Subir Podcast desde PC' : (contentType === 'video' ? 'Subir Video desde PC' : 'Subir PDF desde PC')}
