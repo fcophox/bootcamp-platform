@@ -1339,10 +1339,10 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     onClick={() => toggleModule(module.id)}
                                                 >
                                                     <div className="flex items-center gap-3 flex-1 mr-4">
-                                                        <div className="p-1.5 rounded-md bg-background text-primary flex-shrink-0 cursor-grab active:cursor-grabbing">
+                                                        <div className="p-1.5 rounded-md bg-primary/10 text-primary flex-shrink-0 cursor-grab active:cursor-grabbing">
                                                             <GripVertical size={16} className="text-muted/50" />
                                                         </div>
-                                                        <div className="p-1.5 rounded-md bg-background text-primary flex-shrink-0">
+                                                        <div className="p-1.5 rounded-md bg-primary/10 text-primary flex-shrink-0">
                                                             <Layout size={20} />
                                                         </div>
 
@@ -1458,8 +1458,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                                 <div className="flex items-center justify-between py-3 mt-4 mb-2 group px-2 border-b border-border/30">
                                                                                     <div className="flex items-center gap-4 flex-1">
                                                                                         <GripVertical size={16} className="text-muted/50 cursor-grab active:cursor-grabbing hover:text-primary transition-colors" />
-                                                                                        <span className="text-sm font-semibold text-primary/90 flex items-center gap-1.5">
-                                                                                            <Layout size={16} className="text-primary/70" />
+                                                                                        <span className="text-sm font-bold text-muted/80 flex items-center gap-1.5">
+                                                                                            <Layout size={16} className="text-muted/80" />
                                                                                             {group.subtitle.title}
                                                                                         </span>
                                                                                     </div>
@@ -1467,12 +1467,12 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                                             <button
                                                                                                 onClick={() => handleEditLesson(group.subtitle!, module.id)}
-                                                                                                className="p-1.5 hover:bg-hover-bg rounded text-muted hover:text-foreground"
+                                                                                                className="p-1.5 hover:bg-hover-bg rounded text-primary/70 hover:text-primary"
                                                                                             >
-                                                                                                <Edit2 size={14} />
+                                                                                                <Edit2 size={14}  />
                                                                                             </button>
                                                                                             <button
-                                                                                                className="p-1.5 hover:bg-red-500/10 rounded text-muted hover:text-red-500"
+                                                                                                className="p-1.5 hover:bg-red-500/10 rounded text-primary/70 hover:text-red-500"
                                                                                                 onClick={() => {
                                                                                                     openConfirmModal(
                                                                                                         'Eliminar Separador',
