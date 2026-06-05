@@ -11,10 +11,54 @@ const sansation = Sansation({
 });
 
 export const metadata: Metadata = {
-  title: "Synaptia",
-  description: "Plataforma de gestión del conocimiento",
+  metadataBase: process.env.VERCEL_URL 
+    ? new URL(`https://${process.env.VERCEL_URL}`) 
+    : new URL('http://localhost:3000'),
+  title: {
+    default: "Synaptia - Plataforma de Gestión del Conocimiento",
+    template: "%s | Synaptia"
+  },
+  description: "Plataforma premium de gestión del conocimiento, bootcamps y educación corporativa interactiva.",
+  keywords: ["Synaptia", "Bootcamp", "Plataforma de educación", "Gestión del conocimiento", "E-learning", "LMS"],
+  authors: [{ name: "Synaptia Team" }],
+  creator: "Synaptia",
   icons: {
     icon: "/brand/favicon.png",
+    shortcut: "/brand/favicon.png",
+    apple: "/brand/favicon.png",
+  },
+  openGraph: {
+    type: "website",
+    locale: "es_CL",
+    url: "https://synaptia.academy",
+    title: "Synaptia - Plataforma de Gestión del Conocimiento",
+    description: "Optimiza el aprendizaje de tu equipo con bootcamps estructurados, evaluaciones avanzadas y certificados integrados.",
+    siteName: "Synaptia",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Synaptia - Plataforma de Gestión del Conocimiento",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Synaptia - Plataforma de Gestión del Conocimiento",
+    description: "Optimiza el aprendizaje de tu equipo con bootcamps estructurados, evaluaciones avanzadas y certificados integrados.",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
 };
 
