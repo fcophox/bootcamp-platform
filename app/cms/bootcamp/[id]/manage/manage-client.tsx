@@ -25,7 +25,7 @@ import { createInvitation } from '@/app/actions/invitation';
 interface Lesson {
     id: number;
     title: string;
-    type: 'text' | 'video' | 'presentation' | 'podcast' | 'pdf' | 'exam';
+    type: 'text' | 'video' | 'presentation' | 'podcast' | 'pdf' | 'exam' | 'subtitle';
     content: string;
 }
 
@@ -91,7 +91,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [editingModuleId, setEditingModuleId] = useState<number | null>(null);
     const [editingModuleTitle, setEditingModuleTitle] = useState('');
     const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
-    const [contentType, setContentType] = useState<'text' | 'video' | 'presentation' | 'podcast' | 'pdf' | 'exam' | 'exam_formal' | null>(null);
+    const [contentType, setContentType] = useState<'text' | 'video' | 'presentation' | 'podcast' | 'pdf' | 'exam' | 'exam_formal' | 'subtitle' | null>(null);
     const [contentTitle, setContentTitle] = useState('');
 
     const [editorContent, setEditorContent] = useState('');
@@ -112,6 +112,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [localModules, setLocalModules] = useState(modules);
     const [draggedLessonId, setDraggedLessonId] = useState<number | null>(null);
     const [draggedModuleId, setDraggedModuleId] = useState<number | null>(null);
+    const [draggedOptionId, setDraggedOptionId] = useState<string | null>(null);
 
     // Sync local modules when props change
     useEffect(() => {
@@ -231,6 +232,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 html: editorContent,
                 imageUrl: resourceContent
             });
+        } else if (contentType === 'subtitle') {
+            finalContent = '';
         } else {
             // For Video, PDF, Presentation, Podcast -> Combine URL + Description
             finalContent = JSON.stringify({
@@ -281,19 +284,17 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         setEditingLessonId(lesson.id);
         setContentType(lesson.type);
         setContentTitle(lesson.title);
-
         if (lesson.type === 'exam') {
             try {
                 const parsed = JSON.parse(lesson.content);
-                // Handle both old array format and new object format for backward compatibility
                 if (Array.isArray(parsed)) {
                     setExamQuestions(parsed);
-                    setExamDuration(15); // Default defaults
+                    setExamDuration(15);
                 } else {
                     setExamQuestions(parsed.questions || []);
                     setExamDuration(parsed.settings?.duration || 15);
                 }
-                setEditorContent(''); // Clear text editor content
+                setEditorContent('');
             } catch (e) {
                 console.error("Error parsing exam content for edit", e);
                 setExamQuestions([{ id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }]);
@@ -612,18 +613,21 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             <div className="space-y-4">
                 {/* Title */}
                 <div>
-                    <label className="block text-sm font-medium mb-1.5">Título de la lección</label>
+                    <label className="block text-sm font-medium mb-1.5">
+                        {contentType === 'subtitle' ? 'Texto del Separador / Subtítulo' : 'Título de la lección'}
+                    </label>
                     <input
                         type="text"
                         value={contentTitle}
                         onChange={(e) => setContentTitle(e.target.value)}
-                        className="w-full px-4 py-2 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 outline-none"
-                        placeholder="Ej: Conceptos Básicos"
+                        className={`w-full px-4 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 outline-none ${contentType === 'subtitle' ? 'py-3 text-lg font-semibold text-muted-foreground' : 'py-2'}`}
+                        placeholder={contentType === 'subtitle' ? "Ej: Sección Práctica..." : "Ej: Conceptos Básicos"}
                         autoFocus
                     />
                 </div>
 
                 {/* Category Tabs */}
+                {contentType !== 'subtitle' && (
                 <div>
                     <label className="block text-sm font-medium mb-1.5">Tipo de contenido</label>
                     <div className="flex flex-wrap gap-2">
@@ -635,6 +639,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                             { id: 'pdf' as const, label: 'PDF', icon: <FileUp size={14} />, color: 'red' },
                             { id: 'exam' as const, label: 'Quiz', icon: <Trophy size={14} />, color: 'yellow' },
                             { id: 'exam_formal' as const, label: 'Examen', icon: <BarChart3 size={14} />, color: 'emerald' },
+                            { id: 'subtitle' as const, label: 'Subtítulo', icon: <ChevronDown size={14} />, color: 'slate' },
                         ].map((cat) => (
                             <button
                                 key={cat.id}
@@ -651,6 +656,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                         ))}
                     </div>
                 </div>
+                )}
                     {contentType === 'text' && (
                         <div>
                             <div className="mb-4">
@@ -712,7 +718,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                             </span>
                         </div>
                     )}
-                    {contentType !== 'text' && contentType !== 'exam_formal' && (
+                    {contentType !== 'text' && contentType !== 'exam_formal' && contentType !== 'subtitle' && (
                         <div>
                             {contentType === 'exam' ? (
                                 <div className="space-y-6 border border-border rounded-lg p-6 bg-background/50">
@@ -771,7 +777,47 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 <label className="text-xs font-semibold text-muted mb-2 block">Alternativas</label>
 
                                                 {question.options.map((option, oIndex) => (
-                                                    <div key={option.id} className="flex items-center gap-3 group">
+                                                    <div 
+                                                        key={option.id} 
+                                                        className={`flex items-center gap-3 group transition-all p-1 rounded-md ${draggedOptionId === option.id ? 'opacity-50 ring-1 ring-primary/20 bg-primary/5' : 'hover:bg-hover-bg/30'}`}
+                                                        draggable
+                                                        onDragStart={(e) => {
+                                                            e.stopPropagation();
+                                                            setDraggedOptionId(option.id);
+                                                            e.dataTransfer.setData('application/json', JSON.stringify({ questionId: question.id, optionId: option.id }));
+                                                        }}
+                                                        onDragOver={(e) => {
+                                                            e.preventDefault();
+                                                        }}
+                                                        onDrop={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            if (!draggedOptionId || draggedOptionId === option.id) return;
+                                                            try {
+                                                                const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                                                                if (data.questionId !== question.id) return;
+                                                                
+                                                                const draggedId = data.optionId;
+                                                                const newQuestions = [...examQuestions];
+                                                                const q = newQuestions.find(q => q.id === question.id);
+                                                                if (!q) return;
+
+                                                                const draggedIndex = q.options.findIndex(o => o.id === draggedId);
+                                                                const dropIndex = q.options.findIndex(o => o.id === option.id);
+                                                                
+                                                                if (draggedIndex !== -1 && dropIndex !== -1) {
+                                                                    const [draggedItem] = q.options.splice(draggedIndex, 1);
+                                                                    q.options.splice(dropIndex, 0, draggedItem);
+                                                                    setExamQuestions(newQuestions);
+                                                                }
+                                                            } catch (err) {}
+                                                            setDraggedOptionId(null);
+                                                        }}
+                                                        onDragEnd={() => setDraggedOptionId(null)}
+                                                    >
+                                                        <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-primary transition-colors">
+                                                            <GripVertical size={14} />
+                                                        </div>
                                                         <div
                                                             className={`w-4 h-4 rounded-full border flex items-center justify-center cursor-pointer transition-colors ${option.isCorrect ? 'bg-green-500 border-green-500' : 'border-muted hover:border-foreground'}`}
                                                             onClick={() => {
@@ -964,8 +1010,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                         >
                             Cancelar
                         </button>
-                        <button onClick={handleSaveContent} disabled={!contentTitle || (contentType !== 'exam' && contentType !== 'exam_formal' && !editorContent)} className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
-                            {editingLessonId ? 'Actualizar Lección' : 'Guardar Lección'}
+                        <button onClick={handleSaveContent} disabled={!contentTitle || (contentType !== 'exam' && contentType !== 'exam_formal' && contentType !== 'subtitle' && !editorContent)} className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
+                            {editingLessonId ? 'Actualizar' : 'Guardar'}
                         </button>
                     </div>
                 </div>
@@ -1282,6 +1328,33 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                             >
                                                                 {editingLessonId === lesson.id ? (
                                                                     renderContentForm()
+                                                                ) : lesson.type === 'subtitle' ? (
+                                                                    <div className="flex items-center justify-between py-3 mt-4 mb-2 group px-2">
+                                                                        <div className="flex items-center gap-4 flex-1">
+                                                                            <GripVertical size={16} className="text-muted/50 cursor-grab active:cursor-grabbing hover:text-primary transition-colors" />
+                                                                            <span className="text-sm font-semibold text-muted-foreground">{lesson.title}</span>
+                                                                        </div>
+                                                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-4">
+                                                                            <button
+                                                                                onClick={() => handleEditLesson(lesson, module.id)}
+                                                                                className="p-1.5 hover:bg-hover-bg rounded text-muted hover:text-foreground"
+                                                                            >
+                                                                                <Edit2 size={14} />
+                                                                            </button>
+                                                                            <button
+                                                                                className="p-1.5 hover:bg-red-500/10 rounded text-muted hover:text-red-500"
+                                                                                onClick={() => {
+                                                                                    openConfirmModal(
+                                                                                        'Eliminar Separador',
+                                                                                        '¿Estás seguro de eliminar este separador?',
+                                                                                        () => deleteLesson(lesson.id, bootcamp.id)
+                                                                                    );
+                                                                                }}
+                                                                            >
+                                                                                <Trash2 size={14} />
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
                                                                 ) : (
                                                                     <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card-bg hover:border-primary/30 transition-all group shadow-sm active:shadow-none">
                                                                         <div className="flex items-center gap-3">
@@ -1322,13 +1395,22 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                         activeModuleForContent === module.id ? (
                                                             renderContentForm()
                                                         ) : (
-                                                            <button
-                                                                onClick={() => { setActiveModuleForContent(module.id); setContentType('text'); }}
-                                                                className="w-full py-3 border border-dashed border-border rounded-lg text-sm text-muted hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
-                                                            >
-                                                                <Plus size={16} />
-                                                                Agregar Contenido
-                                                            </button>
+                                                            <div className="flex gap-2 w-full mt-2">
+                                                                <button
+                                                                    onClick={() => { setActiveModuleForContent(module.id); setContentType('text'); }}
+                                                                    className="flex-1 py-3 border border-dashed border-border rounded-lg text-sm text-muted hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
+                                                                >
+                                                                    <Plus size={16} />
+                                                                    Agregar Contenido
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => { setActiveModuleForContent(module.id); setContentType('subtitle'); }}
+                                                                    className="flex-1 py-3 border border-dashed border-border rounded-lg text-sm text-muted hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
+                                                                >
+                                                                    <Plus size={16} />
+                                                                    Agregar Separación
+                                                                </button>
+                                                            </div>
                                                         )
                                                     )}
                                                 </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Sansation } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeHotkey } from "@/components/theme-hotkey";
 
 const sansation = Sansation({
   subsets: ["latin"],
@@ -33,6 +34,7 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
+          <ThemeHotkey />
           {children}
         </ThemeProvider>
       </body>

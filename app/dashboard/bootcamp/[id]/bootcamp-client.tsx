@@ -293,9 +293,10 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                         .map((module: { id: number; lessons?: { id: number; title: string; type: string; duration: string; content?: string; completed?: boolean }[] }) => (
 
                                             <div key={module.id} className="space-y-4">
-                                                {module.lessons?.map((lesson: { id: number; title: string; type: string; duration: string; content?: string; completed?: boolean }, lessonIndex: number) => {
-
-                                                    const index = lessonIndex + 1;
+                                                {(() => {
+                                                    let currentLessonNumber = 1;
+                                                    return module.lessons?.map((lesson: { id: number; title: string; type: string; duration: string; content?: string; completed?: boolean }) => {
+                                                        const index = lesson.type === 'subtitle' ? null : currentLessonNumber++;
 
                                                     // RENDER EXAM CARD
                                                     if (lesson.type === 'exam') {
@@ -357,6 +358,15 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                         );
                                                     }
 
+                                                    // RENDER SUBTITLE
+                                                    if (lesson.type === 'subtitle') {
+                                                        return (
+                                                            <div key={lesson.id} className="flex items-center gap-4 py-4 mt-6 mb-2">
+                                                                <h3 className="text-md font-semibold text-muted-foreground">{lesson.title}</h3>
+                                                            </div>
+                                                        );
+                                                    }
+
                                                     // RENDER STANDARD LESSON
                                                     return (
                                                         <Link
@@ -404,7 +414,8 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                             </div>
                                                         </Link>
                                                     );
-                                                })}
+                                                })
+                                                })()}
 
                                                 {(!module.lessons || module.lessons.length === 0) && (
                                                     <div className="text-muted italic text-sm p-4">Este módulo aún no tiene lecciones.</div>
