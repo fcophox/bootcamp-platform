@@ -4,14 +4,20 @@ import { useState, useTransition, Suspense } from 'react';
 import Image from 'next/image';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
+import { ThemeLogo } from '@/components/theme-logo';
 import { login, signup } from './actions';
 import { Loader2, Sparkles } from 'lucide-react';
+import { useEffect } from 'react';
 
 function LoginContent() {
     const searchParams = useSearchParams();
     const inviteId = searchParams.get('invite');
     const token = searchParams.get('token');
     const router = useRouter();
+    const { resolvedTheme } = useTheme();
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
     const modeParam = searchParams.get('mode') as 'login' | 'signup' | null;
 
     const [name, setName] = useState('');
@@ -79,12 +85,7 @@ function LoginContent() {
                     <div className="mb-16">
                         <div className="flex items-center">
                             <div className="relative h-10 w-64 overflow-hidden">
-                                <Image
-                                    src="/brand/logotipo-synaptia-vertical.png"
-                                    alt="Synaptia"
-                                    fill
-                                    className="object-contain object-left"
-                                />
+                                <ThemeLogo />
                             </div>
                         </div>
                     </div>

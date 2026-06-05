@@ -74,8 +74,10 @@ body {
 .tiptap-content strong,
 .ProseMirror strong,
 .tiptap-content b,
-.ProseMirror b {
-  color: var(--foreground);
+.ProseMirror b,
+.prose strong,
+.prose b {
+  color: var(--foreground) !important;
   font-weight: 700;
 }
 

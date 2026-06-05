@@ -8,6 +8,7 @@ import { useTheme } from 'next-themes';
 import { useSidebar } from './sidebar-context';
 import { Home, ClipboardList, Bell, User, Globe, Moon, Sun, LogOut, ChevronLeft, ChevronRight, Award, MessageSquare } from 'lucide-react';
 import { Tooltip } from './tooltip';
+import { ThemeLogo } from './theme-logo';
 import { createClient } from '@/utils/supabase/client';
 import { getRoleFromEmail } from '@/utils/roles';
 import { getUserRoleFromDBClient } from '@/utils/roles-client';
@@ -178,12 +179,7 @@ export function Sidebar() {
                 {!isCollapsed && (
                     <div className="flex items-center">
                         <div className="relative h-9 w-32 overflow-hidden">
-                            <Image
-                                src="/brand/logotipo-synaptia-vertical.png"
-                                alt="Synaptia"
-                                fill
-                                className="object-contain object-left"
-                            />
+                            <ThemeLogo />
                         </div>
                     </div>
                 )}

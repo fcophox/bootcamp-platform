@@ -6,12 +6,23 @@ import { revalidatePath } from 'next/cache';
 export async function createModule(bootcampId: number, title: string) {
     const supabase = await createClient();
 
+    // Get max order
+    const { data: maxModule } = await supabase
+        .from('Module')
+        .select('order')
+        .eq('bootcampId', bootcampId)
+        .order('order', { ascending: false })
+        .limit(1)
+        .single();
+
+    const newOrder = maxModule ? (maxModule.order || 0) + 1 : 0;
+
     const { error } = await supabase
         .from('Module')
         .insert({
             bootcampId,
             title,
-            order: 0, // Should calculate max order + 1 ideally
+            order: newOrder,
         });
 
     if (error) {
@@ -25,6 +36,17 @@ export async function createModule(bootcampId: number, title: string) {
 export async function createLesson(moduleId: number, bootcampId: number, title: string, type: string, content: string) {
     const supabase = await createClient();
 
+    // Get max order
+    const { data: maxLesson } = await supabase
+        .from('Lesson')
+        .select('order')
+        .eq('moduleId', moduleId)
+        .order('order', { ascending: false })
+        .limit(1)
+        .single();
+
+    const newOrder = maxLesson ? (maxLesson.order || 0) + 1 : 0;
+
     const { error } = await supabase
         .from('Lesson')
         .insert({
@@ -32,7 +54,7 @@ export async function createLesson(moduleId: number, bootcampId: number, title: 
             title,
             type,
             content,
-            order: 0,
+            order: newOrder,
         });
 
     if (error) {

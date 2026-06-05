@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeLogo } from "@/components/theme-logo";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { getRoleFromEmail } from "@/utils/roles";
@@ -30,12 +31,7 @@ export default async function Home() {
           {/* Logo */}
           <div className="flex items-center">
             <div className="relative h-10 w-64 overflow-hidden">
-              <Image
-                src="/brand/logotipo-synaptia-vertical.png"
-                alt="Synaptia"
-                fill
-                className="object-contain object-left"
-              />
+              <ThemeLogo />
             </div>
           </div>
 
