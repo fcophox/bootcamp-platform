@@ -28,7 +28,8 @@ import {
     Trophy,
     BookOpen,
     FileUp,
-    AlertCircle
+    AlertCircle,
+    Layout
 } from 'lucide-react';
 import { useBootcampProgress } from '@/app/hooks/use-bootcamp-progress';
 import { getBootcampCurriculum } from '@/app/actions/module';
@@ -710,46 +711,67 @@ export default function ClassPlayerPage() {
                                 </div>
 
                                 <div className="p-2">
-                                    {currentModule.classes.map((clase: ClassItem, index: number) => {
-                                        const isActive = clase.id === currentClass.id;
-                                        return (
-                                            <Link
-                                                key={clase.id}
-                                                href={`/dashboard/bootcamp/${bootcampId}/clase/${clase.id}`}
-                                                className={`flex rounded-xl mb-1 transition-all group ${isActive ? 'bg-primary/10 border border-primary/20' : `${isPlaylistCollapsed ? '' : 'hover:bg-hover-bg'} border border-transparent`} ${isPlaylistCollapsed ? 'justify-center p-1' : 'gap-3 p-3'}`}
-                                            >
-                                                <div className={`relative flex-shrink-0 rounded-lg overflow-hidden bg-black/20 flex items-center justify-center border border-border/50 ${isPlaylistCollapsed ? 'h-10 w-10 group-hover:bg-white/10 group-hover:border-white/20 transition-all' : 'h-16 w-16'}`}>
-                                                    {(() => {
-                                                        const type = (clase.type || '').toLowerCase();
-                                                        const size = isPlaylistCollapsed ? 18 : 20;
-                                                        const className = isActive ? 'text-primary' : 'text-muted';
-                                                        if (type === 'video') return <PlayCircle size={size} className={className} />;
-                                                        if (type === 'audio' || type === 'podcast') return <Headphones size={size} className={className} />;
-                                                        if (type === 'presentation') return <Presentation size={size} className={className} />;
-                                                        if (type === 'exam' || type === 'quiz') return <Trophy size={size} className={className} />;
-                                                        if (type === 'pdf') return <FileUp size={size} className={className} />;
-                                                        return <BookOpen size={size} className={className} />;
-                                                    })()}
-                                                    {isActive && (
-                                                        <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
-                                                            <div className="animate-pulse w-2 h-2 bg-primary rounded-full"></div>
+                                    {(() => {
+                                        let lessonCounter = 1;
+                                        return currentModule.classes.map((clase: ClassItem) => {
+                                            const isActive = clase.id === currentClass.id;
+                                            
+                                            if (clase.type === 'subtitle') {
+                                                return (
+                                                    <div key={clase.id} className={`py-3 mt-4 mb-2 border-b border-border/20 ${isPlaylistCollapsed ? 'px-1 text-center' : 'px-3'}`}>
+                                                        {isPlaylistCollapsed ? (
+                                                            <div className="w-full h-px bg-border my-2" title={clase.title} />
+                                                        ) : (
+                                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                                                <Layout size={12} className="opacity-50" />
+                                                                {clase.title}
+                                                            </h4>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
+
+                                            const currentLessonNumber = lessonCounter++;
+
+                                            return (
+                                                <Link
+                                                    key={clase.id}
+                                                    href={`/dashboard/bootcamp/${bootcampId}/clase/${clase.id}`}
+                                                    className={`flex rounded-xl mb-1 transition-all group ${isActive ? 'bg-primary/10 border border-primary/20' : `${isPlaylistCollapsed ? '' : 'hover:bg-hover-bg'} border border-transparent`} ${isPlaylistCollapsed ? 'justify-center p-1' : 'gap-3 p-3'}`}
+                                                >
+                                                    <div className={`relative flex-shrink-0 rounded-lg overflow-hidden bg-black/20 flex items-center justify-center border border-border/50 ${isPlaylistCollapsed ? 'h-10 w-10 group-hover:bg-white/10 group-hover:border-white/20 transition-all' : 'h-16 w-16'}`}>
+                                                        {(() => {
+                                                            const type = (clase.type || '').toLowerCase();
+                                                            const size = isPlaylistCollapsed ? 18 : 20;
+                                                            const className = isActive ? 'text-primary' : 'text-muted';
+                                                            if (type === 'video') return <PlayCircle size={size} className={className} />;
+                                                            if (type === 'audio' || type === 'podcast') return <Headphones size={size} className={className} />;
+                                                            if (type === 'presentation') return <Presentation size={size} className={className} />;
+                                                            if (type === 'exam' || type === 'quiz') return <Trophy size={size} className={className} />;
+                                                            if (type === 'pdf') return <FileUp size={size} className={className} />;
+                                                            return <BookOpen size={size} className={className} />;
+                                                        })()}
+                                                        {isActive && (
+                                                            <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
+                                                                <div className="animate-pulse w-2 h-2 bg-primary rounded-full"></div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {!isPlaylistCollapsed && (
+                                                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                            <h4 className={`text-sm font-medium mb-1 line-clamp-2 ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                                                                {currentLessonNumber}. {clase.title}
+                                                            </h4>
+                                                            <div className="flex items-center gap-2 text-xs text-muted">
+                                                                <span>{clase.id === currentClass.id && clase.type === 'audio' && duration > 0 ? formatTime(duration) : clase.duration}</span>
+                                                                {(isClassCompleted(clase.id) || clase.completed) && <CheckCircle size={10} className="text-green-500" />}
+                                                            </div>
                                                         </div>
                                                     )}
-                                                </div>
-                                                {!isPlaylistCollapsed && (
-                                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                        <h4 className={`text-sm font-medium mb-1 line-clamp-2 ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                                                            {index + 1}. {clase.title}
-                                                        </h4>
-                                                        <div className="flex items-center gap-2 text-xs text-muted">
-                                                            <span>{clase.id === currentClass.id && clase.type === 'audio' && duration > 0 ? formatTime(duration) : clase.duration}</span>
-                                                            {(isClassCompleted(clase.id) || clase.completed) && <CheckCircle size={10} className="text-green-500" />}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </Link>
-                                        );
-                                    })}
+                                                </Link>
+                                            );
+                                        });
+                                    })()}
                                 </div>
                             </div>
                         </>
