@@ -48,7 +48,7 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
     };
 
     return (
-        <div className="flex flex-wrap gap-2 p-2 mb-2 border-b border-border bg-muted/20 rounded-t-lg">
+        <div className="flex flex-wrap gap-2 p-2  border-b border-border bg-background rounded-t-lg">
             <button
                 onClick={() => editor.chain().focus().setParagraph().run()}
                 className={`p-2 rounded hover:bg-background transition-colors ${editor.isActive('paragraph') ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground'}`}
@@ -194,7 +194,7 @@ export const TiptapEditor = ({ content, onChange, editable = true }: TiptapEdito
             {editable && <MenuBar editor={editor} />}
             <EditorContent
                 editor={editor}
-                className="flex-1 overflow-y-auto [&_.ProseMirror]:min-h-full [&_.ProseMirror]:outline-none [&_.ProseMirror]:p-4"
+                className="flex-1 overflow-y-auto [&_.ProseMirror]:min-h-full [&_.ProseMirror]:outline-none [&_.ProseMirror]:p-4  bg-background" 
             />
         </div>
     );

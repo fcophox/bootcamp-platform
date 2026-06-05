@@ -1339,10 +1339,10 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     onClick={() => toggleModule(module.id)}
                                                 >
                                                     <div className="flex items-center gap-3 flex-1 mr-4">
-                                                        <div className="p-1.5 rounded-md bg-primary/10 text-primary flex-shrink-0 cursor-grab active:cursor-grabbing">
+                                                        <div className="p-1.5 rounded-md bg-background text-primary flex-shrink-0 cursor-grab active:cursor-grabbing">
                                                             <GripVertical size={16} className="text-muted/50" />
                                                         </div>
-                                                        <div className="p-1.5 rounded-md bg-primary/10 text-primary flex-shrink-0">
+                                                        <div className="p-1.5 rounded-md bg-background text-primary flex-shrink-0">
                                                             <Layout size={20} />
                                                         </div>
 

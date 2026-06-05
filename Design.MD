@@ -34,14 +34,14 @@ La plataforma soporta nativamente **Modo Oscuro** (predeterminado) y **Modo Clar
 
 | Variable CSS   | Modo Oscuro (Dark) | Modo Claro (Light) | Propósito / Uso                                                     |
 | :------------- | :----------------- | :----------------- | :------------------------------------------------------------------ |
-| `--background` | `#191919`          | `#ffffff`          | Color de fondo de la aplicación.                                    |
-| `--foreground` | `#d4d4d4`          | `#09090b`          | Texto primario de lectura.                                          |
-| `--sidebar-bg` | `#202020`          | `#f4f4f5`          | Fondo del menú de navegación lateral.                               |
-| `--card-bg`    | `#252525`          | `#ffffff`          | Fondo de tarjetas, tablas y modales.                                |
-| `--border`     | `#2f2f2f`          | `#e4e4e7`          | Bordes finos, separadores y divisores.                              |
-| `--hover-bg`   | `#2c2c2c`          | `#f4f4f5`          | Estado de fondo al hacer _hover_ sobre filas y botones.             |
-| `--muted`      | `#9b9b9b`          | `#71717a`          | Texto secundario o deshabilitado.                                   |
-| `--primary`    | `#5215CD`          | `#5215CD`          | Color de acento de marca (Indigo) para botones primarios y enlaces. |
+| `--background` | `#0A0A0B`          | `#F6F6F6`          | Color de fondo de la aplicación.                                    |
+| `--foreground` | `#E4E4E7`          | `#09090b`          | Texto primario de lectura.                                          |
+| `--sidebar-bg` | `#121214`          | `#f4f4f5`          | Fondo del menú de navegación lateral.                               |
+| `--card-bg`    | `#131315`          | `#ffffff`          | Fondo de tarjetas, tablas y modales.                                |
+| `--border`     | `#131315`          | `#e4e4e7`          | Bordes finos, separadores y divisores.                              |
+| `--hover-bg`   | `#161619`          | `#f4f4f5`          | Estado de fondo al hacer _hover_ sobre filas y botones.             |
+| `--muted`      | `#9A9A9E`          | `#71717a`          | Texto secundario o deshabilitado.                                   |
+| `--primary`    | `#5F83FD`          | `#5F83FD`          | Color de acento de marca (Indigo) para botones primarios y enlaces. |
 
 ---
 

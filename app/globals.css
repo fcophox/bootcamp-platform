@@ -4,28 +4,28 @@
 /* DESIGN-TOKENS-DARK-START */
 :root {
   color-scheme: dark;
-  --background: #191919;
-  --foreground: #d4d4d4;
-  --sidebar-bg: #202020;
-  --card-bg: #252525;
-  --border: #2f2f2f;
-  --hover-bg: #2c2c2c;
-  --muted: #9b9b9b;
-  --primary: #5215CD;
+  --background: #0A0A0B;
+  --foreground: #E4E4E7;
+  --sidebar-bg: #121214;
+  --card-bg: #131315;
+  --border: #131315;
+  --hover-bg: #161619;
+  --muted: #9A9A9E;
+  --primary: #5F83FD;
 }
 /* DESIGN-TOKENS-DARK-END */
 
 /* DESIGN-TOKENS-LIGHT-START */
 [data-theme='light'] {
   color-scheme: light;
-  --background: #ffffff;
+  --background: #F6F6F6;
   --foreground: #09090b;
   --sidebar-bg: #f4f4f5;
   --card-bg: #ffffff;
   --border: #e4e4e7;
   --hover-bg: #f4f4f5;
   --muted: #71717a;
-  --primary: #5215CD;
+  --primary: #5F83FD;
 }
 /* DESIGN-TOKENS-LIGHT-END */
 
