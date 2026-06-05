@@ -359,7 +359,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                 </div>
                                                             )}
                                                             {(!group.subtitle || !collapsedSeparators[group.subtitle.id]) && (
-                                                                <div className={group.subtitle ? "pl-6 border-l-2 border-dashed border-border/20 ml-4 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200" : "space-y-4"}>
+                                                                <div className={group.subtitle ? "space-y-4 animate-in fade-in slide-in-from-top-1 duration-200" : "space-y-4"}>
                                                                 {group.lessons.map((lesson) => {
                                                                     const index = currentLessonNumber++;
 
