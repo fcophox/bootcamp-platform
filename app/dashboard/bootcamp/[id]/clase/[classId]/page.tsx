@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useTheme } from "next-themes";
 import { useState, useEffect, useRef } from 'react';
 import { useSidebar } from '@/components/sidebar-context';
@@ -54,6 +55,35 @@ interface Module {
     title: string;
     classes: ClassItem[];
 }
+
+const getLessonDurationInfo = (lesson: any) => {
+    if (lesson.duration && lesson.duration !== '10 min') {
+        return lesson.duration.includes('min') ? lesson.duration : `${lesson.duration} min`;
+    }
+
+    try {
+        const parsed = JSON.parse(lesson.content || '{}');
+        if (parsed.settings?.duration) return `${parsed.settings.duration} min`;
+        if (parsed.duration) return `${parsed.duration} min`;
+    } catch {}
+
+    switch (lesson.type) {
+        case 'video':
+            return '15 min';
+        case 'audio':
+            return '10 min';
+        case 'exam':
+            return '15 min';
+        case 'text':
+        case 'document':
+        case 'file':
+        default:
+            const contentLen = lesson.content ? lesson.content.length : 0;
+            if (contentLen === 0) return '2 min';
+            const mins = Math.max(1, Math.ceil(contentLen / 500));
+            return `${mins} min`;
+    }
+};
 
 export default function ClassPlayerPage() {
     const params = useParams();
@@ -145,7 +175,7 @@ export default function ClassPlayerPage() {
                     title: m.title,
                     classes: m.lessons.map((l: { id: number; title: string; type: string; content: string; order: number }) => ({
                         ...l,
-                        duration: '10 min',
+                        duration: getLessonDurationInfo(l),
                         completed: false,
                     }))
 
@@ -352,7 +382,18 @@ export default function ClassPlayerPage() {
 
 
     if (isLoading) {
-        return <div className="min-h-screen bg-background flex items-center justify-center text-foreground">Cargando contenido del curso...</div>;
+        return (
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center text-foreground">
+                <div className="relative h-32 w-32 animate-pulse">
+                    <Image
+                        src="/brand/logotipo-academy.png"
+                        alt="Cargando..."
+                        fill
+                        className="object-contain drop-shadow-[0_0_15px_rgba(139,92,246,0.5)]"
+                    />
+                </div>
+            </div>
+        );
     }
 
     if (!currentClass || !currentModule) {

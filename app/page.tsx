@@ -6,9 +6,62 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { getRoleFromEmail } from "@/utils/roles";
 import { getUserRoleFromDB } from "@/utils/roles-server";
-import { Network, ArrowRight, Zap, GitMerge, BrainCircuit } from 'lucide-react';
+import { ArrowRight, Zap, GitMerge, BrainCircuit } from 'lucide-react';
 
-export default async function Home() {
+const translations = {
+  es: {
+    login: "Iniciar sesión",
+    signup: "Registrarse",
+    heroTitlePart1: "Conectar, Aprender y",
+    heroTitlePart2: "Evolucionar.",
+    heroSubtitle: "La plataforma definitiva para la gestión del conocimiento y la evolución profesional.",
+    heroCta1: "Comenzar Evolución",
+    heroCta2: "Saber más",
+    manifestoLabel: "El Manifiesto",
+    manifestoQuote1: "\"Transformamos la sobrecarga de información en ",
+    manifestoQuoteHighlight: "evolución real",
+    manifestoQuote2: ", conectando los puntos entre lo que sabes y lo que necesitas ser.\"",
+    connectTitle: "Conecta",
+    connectDesc: "Integra todo tu conocimiento disperso en un solo núcleo. Crea sinapsis perfectas entre recursos, notas y proyectos.",
+    learnTitle: "Aprende",
+    learnDesc: "Rutas de aprendizaje inteligentes y estructuradas, eliminando el ruido y enfocando la atención en lo verdaderamente esencial.",
+    evolveTitle: "Evoluciona",
+    evolveDesc: "Construye un perfil dinámico. Mide tu progreso en tiempo real y demuestra tus capacidades profesionales al mundo.",
+    ctaTitle: "¿Listo para el siguiente nivel?",
+    ctaSubtitle: "Únete a Synaptia hoy y transforma la manera en que adquieres, organizas y demuestras tu conocimiento.",
+    ctaButton: "Crea tu cuenta gratuita",
+    footer: "Synaptia. Todos los derechos reservados.",
+  },
+  en: {
+    login: "Log in",
+    signup: "Sign up",
+    heroTitlePart1: "Connect, Learn and",
+    heroTitlePart2: "Evolve.",
+    heroSubtitle: "The ultimate platform for knowledge management and professional evolution.",
+    heroCta1: "Start Evolution",
+    heroCta2: "Learn more",
+    manifestoLabel: "The Manifesto",
+    manifestoQuote1: "\"We transform information overload into ",
+    manifestoQuoteHighlight: "real evolution",
+    manifestoQuote2: ", connecting the dots between what you know and what you need to be.\"",
+    connectTitle: "Connect",
+    connectDesc: "Integrate all your scattered knowledge into a single core. Create perfect synapses between resources, notes, and projects.",
+    learnTitle: "Learn",
+    learnDesc: "Smart and structured learning paths, cutting through the noise and focusing attention on what is truly essential.",
+    evolveTitle: "Evolve",
+    evolveDesc: "Build a dynamic profile. Measure your progress in real-time and showcase your professional capabilities to the world.",
+    ctaTitle: "Ready for the next level?",
+    ctaSubtitle: "Join Synaptia today and transform the way you acquire, organize, and demonstrate your knowledge.",
+    ctaButton: "Create your free account",
+    footer: "Synaptia. All rights reserved.",
+  }
+};
+
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+};
+
+export default async function Home(props: Props) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -22,6 +75,10 @@ export default async function Home() {
       redirect('/dashboard');
     }
   }
+
+  const resolvedParams = await props.searchParams;
+  const lang = (resolvedParams?.lang === 'en') ? 'en' : 'es';
+  const t = translations[lang];
 
   return (
     <div className="min-h-screen flex flex-col bg-background selection:bg-cyan-500/30">
@@ -37,19 +94,26 @@ export default async function Home() {
 
           {/* Nav Actions */}
           <div className="flex items-center gap-4">
+            <Link
+              href={lang === 'es' ? '?lang=en' : '?lang=es'}
+              className="text-xs font-semibold text-muted hover:text-foreground px-2 py-1 border border-border/50 rounded-md transition-colors"
+              title="Cambiar idioma / Change language"
+            >
+              {lang === 'es' ? 'EN' : 'ES'}
+            </Link>
             <ThemeToggle />
             <div className="h-6 w-px bg-white/10 hidden sm:block"></div>
             <Link
               href="/login"
               className="hidden sm:inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-white/5"
             >
-              Iniciar sesión
+              {t.login}
             </Link>
             <Link
               href="/login?mode=signup"
               className="inline-flex items-center justify-center rounded-full bg-foreground px-5 py-2 text-sm font-medium text-background transition-all hover:scale-105"
             >
-              Registrarse
+              {t.signup}
             </Link>
           </div>
         </div>
@@ -75,14 +139,14 @@ export default async function Home() {
           </div>
 
           <h1 className="text-5xl md:text-6xl font-light tracking-tight text-foreground mb-6 max-w-6xl">
-            Conectar, Aprender y <br className="hidden md:block"/>
+            {t.heroTitlePart1} <br className="hidden md:block"/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-cyan-400">
-              Evolucionar.
+              {t.heroTitlePart2}
             </span>
           </h1>
 
           <p className="text-xl md:text-2xl text-muted max-w-2xl mb-10 leading-relaxed font-light">
-            La plataforma definitiva para la gestión del conocimiento y la evolución profesional.
+            {t.heroSubtitle}
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
@@ -90,23 +154,23 @@ export default async function Home() {
               href="/login?mode=signup"
               className="group inline-flex h-14 items-center justify-center rounded-full bg-foreground px-8 text-base font-medium text-background transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.1)]"
             >
-              Comenzar Evolución
+              {t.heroCta1}
               <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
               href="/login"
               className="inline-flex h-14 items-center justify-center rounded-full border border-border bg-transparent px-8 text-base font-medium text-foreground transition-all hover:bg-white/5 hover:border-white/20"
             >
-              Saber más
+              {t.heroCta2}
             </Link>
           </div>
         </section>
 
         {/* MANIFIESTO */}
         <section className="w-full max-w-5xl mx-auto py-20 md:py-32 text-center border-t border-border/30">
-          <h2 className="text-xs md:text-sm font-semibold tracking-[0.4em] text-cyan-400 uppercase mb-8">El Manifiesto</h2>
+          <h2 className="text-xs md:text-sm font-semibold tracking-[0.4em] text-cyan-400 uppercase mb-8">{t.manifestoLabel}</h2>
           <p className="text-3xl md:text-5xl font-light leading-tight text-foreground/90">
-            "Transformamos la sobrecarga de información en <span className="font-medium text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-cyan-400">evolución real</span>, conectando los puntos entre lo que sabes y lo que necesitas ser."
+            {t.manifestoQuote1}<span className="font-medium text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-cyan-400">{t.manifestoQuoteHighlight}</span>{t.manifestoQuote2}
           </p>
         </section>
 
@@ -120,9 +184,9 @@ export default async function Home() {
               <div className="relative z-10 mb-8 h-16 w-16 rounded-2xl bg-violet-500/10 flex items-center justify-center border border-violet-500/20 text-violet-400 group-hover:scale-110 transition-transform duration-500">
                 <GitMerge size={32} strokeWidth={1.5} />
               </div>
-              <h3 className="relative z-10 text-2xl font-medium mb-4">Conecta</h3>
+              <h3 className="relative z-10 text-2xl font-medium mb-4">{t.connectTitle}</h3>
               <p className="relative z-10 text-muted leading-relaxed font-light text-lg">
-                Integra todo tu conocimiento disperso en un solo núcleo. Crea sinapsis perfectas entre recursos, notas y proyectos.
+                {t.connectDesc}
               </p>
             </div>
 
@@ -132,9 +196,9 @@ export default async function Home() {
               <div className="relative z-10 mb-8 h-16 w-16 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 group-hover:scale-110 transition-transform duration-500">
                 <BrainCircuit size={32} strokeWidth={1.5} />
               </div>
-              <h3 className="relative z-10 text-2xl font-medium mb-4">Aprende</h3>
+              <h3 className="relative z-10 text-2xl font-medium mb-4">{t.learnTitle}</h3>
               <p className="relative z-10 text-muted leading-relaxed font-light text-lg">
-                Rutas de aprendizaje inteligentes y estructuradas, eliminando el ruido y enfocando la atención en lo verdaderamente esencial.
+                {t.learnDesc}
               </p>
             </div>
 
@@ -144,9 +208,9 @@ export default async function Home() {
               <div className="relative z-10 mb-8 h-16 w-16 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 text-purple-400 group-hover:scale-110 transition-transform duration-500">
                 <Zap size={32} strokeWidth={1.5} />
               </div>
-              <h3 className="relative z-10 text-2xl font-medium mb-4">Evoluciona</h3>
+              <h3 className="relative z-10 text-2xl font-medium mb-4">{t.evolveTitle}</h3>
               <p className="relative z-10 text-muted leading-relaxed font-light text-lg">
-                Construye un perfil dinámico. Mide tu progreso en tiempo real y demuestra tus capacidades profesionales al mundo.
+                {t.evolveDesc}
               </p>
             </div>
 
@@ -158,15 +222,15 @@ export default async function Home() {
           <div className="relative overflow-hidden rounded-[3rem] border border-white/10 bg-card-bg p-12 md:p-24 shadow-2xl">
             <div className="absolute inset-0 bg-gradient-to-r from-violet-600/10 via-background to-cyan-400/10 opacity-80"></div>
             <div className="relative z-10 flex flex-col items-center">
-              <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">¿Listo para el siguiente nivel?</h2>
+              <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">{t.ctaTitle}</h2>
               <p className="text-xl text-muted font-light mb-10 max-w-2xl">
-                Únete a Synaptia hoy y transforma la manera en que adquieres, organizas y demuestras tu conocimiento.
+                {t.ctaSubtitle}
               </p>
               <button
                 disabled
                 className="inline-flex h-16 items-center justify-center rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 px-10 text-lg font-semibold text-white opacity-50 cursor-not-allowed"
               >
-                Crea tu cuenta gratuita
+                {t.ctaButton}
               </button>
             </div>
           </div>
@@ -175,10 +239,8 @@ export default async function Home() {
       </main>
 
       <footer className="py-8 border-t border-border/40 relative z-10 text-center text-sm text-muted">
-         © {new Date().getFullYear()} Synaptia. Todos los derechos reservados.
+         © {new Date().getFullYear()} {t.footer}
       </footer>
     </div>
   );
 }
-
-

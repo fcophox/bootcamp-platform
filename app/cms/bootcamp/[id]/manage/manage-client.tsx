@@ -97,6 +97,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [activeTab, setActiveTab] = useState<'content' | 'students'>('content');
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
+    const [openModuleMenuId, setOpenModuleMenuId] = useState<number | null>(null);
+    const moduleMenuRef = useRef<HTMLDivElement>(null);
 
     // Content Management State
     const [expandedModule, setExpandedModule] = useState<number | null>(null);
@@ -158,6 +160,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setOpenMenuId(null);
+            }
+            if (moduleMenuRef.current && !moduleMenuRef.current.contains(event.target as Node)) {
+                setOpenModuleMenuId(null);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -1139,8 +1144,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
                         {/* Title & Tabs */}
                         <div className="flex flex-col gap-6 mb-8">
-                            <div className="flex justify-between items-start">
-                                <div className="flex gap-4 items-start relative">
+                            <div className="flex flex-col sm:flex-row justify-between items-start gap-6 w-full">
+                                <div className="flex gap-4 items-start relative w-full sm:w-auto">
                                     {/* Icon & Color Editor */}
                                     <div className="relative">
                                         <button
@@ -1231,7 +1236,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                 {activeTab === 'content' && (
                                     <button
                                         onClick={() => setIsCreatingModule(true)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+                                        className="flex items-center justify-center gap-2 px-4 py-2 w-full sm:w-auto bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 mt-2 sm:mt-0"
                                     >
                                         <Plus size={20} />
                                         <span>Nuevo módulo</span>
@@ -1321,7 +1326,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     </div>
                                                 )}
                                                 <div 
-                                                    className={`border border-border/50 bg-card-bg/50 rounded-xl overflow-hidden mb-4 shadow-sm transition-all ${draggedModuleId === module.id ? 'opacity-50 ring-2 ring-primary/20 scale-[0.99]' : 'hover:border-border'}`}
+                                                    className={`border border-border/50 bg-card-bg/50 rounded-xl mb-4 shadow-sm transition-all ${draggedModuleId === module.id ? 'opacity-50 ring-2 ring-primary/20 scale-[0.99]' : 'hover:border-border'}`}
                                                     draggable
                                                     onDragStart={(e) => {
                                                         const target = e.target as HTMLElement;
@@ -1338,7 +1343,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 >
                                                 {/* Module Header */}
                                                 <div
-                                                    className="flex items-center justify-between p-4 bg-card-bg hover:bg-hover-bg transition-colors cursor-pointer"
+                                                    className={`flex items-center justify-between p-4 bg-card-bg hover:bg-hover-bg transition-colors cursor-pointer ${expandedModule === module.id ? 'rounded-t-xl' : 'rounded-xl'}`}
                                                     onClick={() => toggleModule(module.id)}
                                                 >
                                                     <div className="flex items-center gap-3 flex-1 mr-4">
@@ -1392,31 +1397,49 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 </div>
                                                 <div className="flex items-center gap-2 text-muted">
                                                     {editingModuleId !== module.id && (
-                                                        <>
+                                                        <div className="relative">
                                                             <button
-                                                                className="p-2 hover:text-foreground transition-colors"
-                                                                title="Editar Nombre"
+                                                                className="p-1 hover:text-foreground transition-colors hover:bg-hover-bg rounded"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setEditingModuleId(module.id);
-                                                                    setEditingModuleTitle(module.title);
+                                                                    setOpenModuleMenuId(openModuleMenuId === module.id ? null : module.id);
                                                                 }}
                                                             >
-                                                                <Edit2 size={16} />
+                                                                <MoreHorizontal size={20} />
                                                             </button>
-                                                            <button className="p-2 hover:text-red-500 transition-colors" title="Eliminar Módulo"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    openConfirmModal(
-                                                                        'Eliminar Módulo',
-                                                                        '¿Estás seguro de eliminar este módulo? Se borrarán todas las lecciones contenidas.',
-                                                                        () => deleteModule(module.id, bootcamp.id)
-                                                                    );
-                                                                }}
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button>
-                                                        </>
+                                                            {openModuleMenuId === module.id && (
+                                                                <div
+                                                                    ref={moduleMenuRef}
+                                                                    className="absolute right-0 top-full mt-1 w-32 bg-card-bg border border-border rounded-lg shadow-lg z-[9999] py-1"
+                                                                >
+                                                                    <button
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-hover-bg transition-colors"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setOpenModuleMenuId(null);
+                                                                            setEditingModuleId(module.id);
+                                                                            setEditingModuleTitle(module.title);
+                                                                        }}
+                                                                    >
+                                                                        <Edit2 size={14} /> Editar
+                                                                    </button>
+                                                                    <button
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-500/10 transition-colors"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setOpenModuleMenuId(null);
+                                                                            openConfirmModal(
+                                                                                'Eliminar Módulo',
+                                                                                '¿Estás seguro de eliminar este módulo? Se borrarán todas las lecciones contenidas.',
+                                                                                () => deleteModule(module.id, bootcamp.id)
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        <Trash2 size={14} /> Borrar
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     )}
                                                     {expandedModule === module.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                                 </div>
@@ -1424,7 +1447,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
                                             {/* Module Content */}
                                             {expandedModule === module.id && (
-                                                <div className="border-t border-border bg-background/50 p-4">
+                                                <div className="border-t border-border bg-background/50 p-4 rounded-b-xl">
                                                     <div className="space-y-4 mb-6">
                                                         {getGroupedLessons(module.lessons || []).map((group, gIndex) => (
                                                             <div key={group.subtitle?.id || `ungrouped-${gIndex}`} className="space-y-2">

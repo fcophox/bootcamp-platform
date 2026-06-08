@@ -2,6 +2,7 @@
 
 import { useState, useTransition, Suspense } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
@@ -9,6 +10,51 @@ import { ThemeLogo } from '@/components/theme-logo';
 import { login, signup } from './actions';
 import { Loader2, Sparkles } from 'lucide-react';
 import { useEffect } from 'react';
+
+const translations = {
+    es: {
+        welcomeLogin: "Te damos la bienvenida",
+        welcomeSignup: "Crear una cuenta",
+        subtitleLogin: "Inicia sesión en tu cuenta",
+        subtitleSignup: "Ingresa tus datos para comenzar",
+        invitedTitle: "¡Has sido invitado!",
+        invitedDesc: "Crea tu cuenta o inicia sesión para unirte al bootcamp.",
+        nameLabel: "Nombre Completo",
+        namePlaceholder: "Tu nombre",
+        emailLabel: "Correo Electrónico",
+        passwordLabel: "Contraseña",
+        forgotPassword: "¿Olvidaste tu contraseña?",
+        buttonLogin: "Iniciar sesión",
+        buttonSignup: "Registrarse",
+        footerLogin: "¿No tienes una cuenta? ",
+        footerSignup: "¿Ya tienes una cuenta? ",
+        footerActionLogin: "Regístrate",
+        footerActionSignup: "Inicia sesión",
+        quote: "El verdadero poder del conocimiento no reside en acumularlo, sino en ponerlo en práctica para transformar la realidad.",
+        quoteAuthor: "El equipo de Synaptia",
+    },
+    en: {
+        welcomeLogin: "We welcome you",
+        welcomeSignup: "Create an account",
+        subtitleLogin: "Sign in to your account",
+        subtitleSignup: "Enter your details to get started",
+        invitedTitle: "You have been invited!",
+        invitedDesc: "Create your account or sign in to join the bootcamp.",
+        nameLabel: "Full Name",
+        namePlaceholder: "Your name",
+        emailLabel: "Email",
+        passwordLabel: "Password",
+        forgotPassword: "Forgot password?",
+        buttonLogin: "Sign in",
+        buttonSignup: "Sign up",
+        footerLogin: "Don't have an account? ",
+        footerSignup: "Already have an account? ",
+        footerActionLogin: "Sign up",
+        footerActionSignup: "Sign in",
+        quote: "The true power of knowledge does not lie in accumulating it, but in putting it into practice to transform reality.",
+        quoteAuthor: "The Synaptia Team",
+    }
+};
 
 function LoginContent() {
     const searchParams = useSearchParams();
@@ -19,6 +65,9 @@ function LoginContent() {
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
     const modeParam = searchParams.get('mode') as 'login' | 'signup' | null;
+
+    const lang = (searchParams.get('lang') === 'en') ? 'en' : 'es';
+    const t = translations[lang];
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -37,6 +86,12 @@ function LoginContent() {
         const params = new URLSearchParams(searchParams.toString());
         params.set('mode', newMode);
         router.push(`/login?${params.toString()}`, { scroll: false });
+    };
+
+    const createQueryString = (name: string, value: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set(name, value);
+        return '?' + params.toString();
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -73,8 +128,15 @@ function LoginContent() {
 
     return (
         <div className="flex min-h-screen bg-background">
-            {/* Theme Toggle */}
-            <div className="absolute top-6 right-6 z-10">
+            {/* Theme & Language Toggle */}
+            <div className="absolute top-6 right-6 z-10 flex items-center gap-4">
+                <Link
+                    href={createQueryString('lang', lang === 'es' ? 'en' : 'es')}
+                    className="text-xs font-semibold text-muted hover:text-foreground px-2 py-1 border border-border/50 rounded-md transition-colors"
+                    title="Cambiar idioma / Change language"
+                >
+                    {lang === 'es' ? 'EN' : 'ES'}
+                </Link>
                 <ThemeToggle />
             </div>
 
@@ -93,10 +155,10 @@ function LoginContent() {
                     {/* Welcome Text */}
                     <div className="mb-8">
                         <h1 className="text-2xl font-medium text-foreground">
-                            {mode === 'login' ? 'Welcome back' : 'Create an account'}
+                            {mode === 'login' ? t.welcomeLogin : t.welcomeSignup}
                         </h1>
                         <p className="mt-1 text-sm text-muted">
-                            {mode === 'login' ? 'Sign in to your account' : 'Enter your details to get started'}
+                            {mode === 'login' ? t.subtitleLogin : t.subtitleSignup}
                         </p>
                     </div>
 
@@ -107,8 +169,8 @@ function LoginContent() {
                                 <Sparkles size={20} />
                             </div>
                             <div>
-                                <p className="text-sm font-semibold text-primary capitalize">¡Has sido invitado!</p>
-                                <p className="text-xs text-primary/80">Crea tu cuenta o inicia sesión para unirte al bootcamp.</p>
+                                <p className="text-sm font-semibold text-primary capitalize">{t.invitedTitle}</p>
+                                <p className="text-xs text-primary/80">{t.invitedDesc}</p>
                             </div>
                         </div>
                     )}
@@ -133,14 +195,14 @@ function LoginContent() {
                         {mode === 'signup' && (
                             <div>
                                 <label htmlFor="name" className="block text-xs font-medium text-foreground mb-2">
-                                    Nombre Completo
+                                    {t.nameLabel}
                                 </label>
                                 <input
                                     id="name"
                                     type="text"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    placeholder="Tu nombre"
+                                    placeholder={t.namePlaceholder}
                                     className="w-full rounded-md border border-border bg-background px-3.5 py-2 text-sm text-foreground placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
                                     required
                                 />
@@ -148,7 +210,7 @@ function LoginContent() {
                         )}
                         <div>
                             <label htmlFor="email" className="block text-xs font-medium text-foreground mb-2">
-                                Email
+                                {t.emailLabel}
                             </label>
                             <input
                                 id="email"
@@ -164,11 +226,11 @@ function LoginContent() {
                         <div>
                             <div className="flex items-center justify-between mb-2">
                                 <label htmlFor="password" className="block text-xs font-medium text-foreground">
-                                    Password
+                                    {t.passwordLabel}
                                 </label>
                                 {mode === 'login' && (
                                     <a href="#" className="text-xs text-muted hover:text-foreground transition-colors">
-                                        Forgot password?
+                                        {t.forgotPassword}
                                     </a>
                                 )}
                             </div>
@@ -208,19 +270,19 @@ function LoginContent() {
                             className="w-full rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             {isPending && <Loader2 size={16} className="animate-spin" />}
-                            {mode === 'login' ? 'Sign in' : 'Sign up'}
+                            {mode === 'login' ? t.buttonLogin : t.buttonSignup}
                         </button>
                     </form>
 
                     {/* Toggle Login/Sign Up */}
                     <p className="mt-6 text-center text-sm text-muted">
-                        {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
+                        {mode === 'login' ? t.footerLogin : t.footerSignup}
                         <button
                             type="button"
                             onClick={() => handleToggleMode(mode === 'login' ? 'signup' : 'login')}
                             className="font-medium text-foreground underline hover:text-primary transition-colors"
                         >
-                            {mode === 'login' ? 'Sign up' : 'Sign in'}
+                            {mode === 'login' ? t.footerActionLogin : t.footerActionSignup}
                         </button>
                     </p>
                 </div>
@@ -234,15 +296,15 @@ function LoginContent() {
                         <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
                     </svg>
                     <blockquote className="text-[28px] font-normal leading-[1.4] text-foreground mb-10">
-                        &quot;La plataforma de bootcamp ha transformado completamente cómo gestionamos y entregamos contenido educativo. La autenticación es súper fluida.&quot;
+                        &quot;{t.quote}&quot;
                     </blockquote>
                     <div className="flex items-center gap-3">
                         <div className="h-11 w-11 rounded-full bg-muted/10 flex items-center justify-center text-sm font-medium text-foreground border border-border">
-                            FC
+                            Sy
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-sm font-medium text-foreground">Francisco Class</span>
-                            <span className="text-xs text-muted">@francisco_dev</span>
+                            <span className="text-sm font-medium text-foreground">{t.quoteAuthor}</span>
+                            <span className="text-xs text-muted">@synamtia_team</span>
                         </div>
                     </div>
                 </div>

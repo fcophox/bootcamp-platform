@@ -89,6 +89,35 @@ const getGroupedLessons = (lessons: StudentLesson[]) => {
     return groups;
 };
 
+const getLessonDurationInfo = (lesson: any) => {
+    if (lesson.duration && lesson.duration !== '10 min') {
+        return lesson.duration.includes('min') ? lesson.duration : `${lesson.duration} min`;
+    }
+
+    try {
+        const parsed = JSON.parse(lesson.content || '{}');
+        if (parsed.settings?.duration) return `${parsed.settings.duration} min`;
+        if (parsed.duration) return `${parsed.duration} min`;
+    } catch {}
+
+    switch (lesson.type) {
+        case 'video':
+            return '15 min';
+        case 'audio':
+            return '10 min';
+        case 'exam':
+            return '15 min';
+        case 'text':
+        case 'document':
+        case 'file':
+        default:
+            const contentLen = lesson.content ? lesson.content.length : 0;
+            if (contentLen === 0) return '2 min';
+            const mins = Math.max(1, Math.ceil(contentLen / 500));
+            return `${mins} min`;
+    }
+};
+
 export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps) {
 
     const { isCollapsed } = useSidebar();
@@ -245,7 +274,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                         </div>
                                         <span className="text-foreground font-bold text-sm">4.6</span>
                                         <span className="text-muted text-sm border-l border-border pl-2 ml-1">1006 opiniones</span>
-                                        <ChevronRight size={14} className="text-muted" />
+                                        {/* <ChevronRight size={14} className="text-muted" /> */}
                                     </div>
                                     <p className="text-xs text-muted mb-6">Inicia: {bootcamp.startDate}</p>
 
@@ -437,7 +466,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                                     <p className="text-xs text-muted flex items-center gap-3">
                                                                                         <span className="flex items-center gap-1">
                                                                                             <Clock size={12} />
-                                                                                            {lesson.duration || '10 min'}
+                                                                                            {getLessonDurationInfo(lesson)}
                                                                                         </span>
                                                                                         {(isCompleted(lesson.id) || lesson.completed) && (
                                                                                             <>

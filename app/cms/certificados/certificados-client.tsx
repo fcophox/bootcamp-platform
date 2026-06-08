@@ -146,7 +146,7 @@ export function CertificadosClient({ certificates, bootcamps }: { certificates: 
                                             </div>
                                             
                                             {/* Status Badge */}
-                                            <div className={`absolute top-3 right-3 px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                                            <div className={`absolute top-3 left-3 px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
                                                 cert.isActive 
                                                     ? 'bg-green-500/90 text-white' 
                                                     : 'bg-slate-500/90 text-white'
@@ -167,7 +167,7 @@ export function CertificadosClient({ certificates, bootcamps }: { certificates: 
                                         </div>
 
                                         {/* Actions Menu */}
-                                        <div className="absolute top-3 left-3">
+                                        <div className="absolute top-3 right-3">
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -179,7 +179,7 @@ export function CertificadosClient({ certificates, bootcamps }: { certificates: 
                                             </button>
 
                                             {openMenuId === cert.id && (
-                                                <div className="absolute top-full left-0 mt-1 w-48 bg-card-bg border border-border rounded-xl shadow-lg z-50 py-1 animate-in fade-in zoom-in-95">
+                                                <div className="absolute top-full right-0 mt-1 w-48 bg-card-bg border border-border rounded-xl shadow-lg z-50 py-1 animate-in fade-in zoom-in-95">
                                                     <Link
                                                         href={`/cms/certificados/${cert.id}`}
                                                         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-hover-bg transition-colors"

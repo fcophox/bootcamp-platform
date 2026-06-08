@@ -56,7 +56,7 @@ export function DashboardClient({ bootcamps, userName = 'Francisco' }: Dashboard
                 </header>
 
                 {/* Page Content - Scrollable with top padding for fixed header */}
-                <main className="flex-1 overflow-y-auto pt-[92px]">
+                <main className="flex-1 overflow-y-auto pt-[92px] px-6 pb-6">
                     <div className="max-w-5xl mx-auto">
                         {/* Welcome Section */}
                         <div className="mb-8">
@@ -70,7 +70,7 @@ export function DashboardClient({ bootcamps, userName = 'Francisco' }: Dashboard
 
                         {/* Available Bootcamps */}
                         <section className="mb-12">
-                            <h2 className="text-xl font-semibold text-foreground mb-4">Bootcamps Disponibles</h2>
+                            <h2 className="text-xl font-semibold text-foreground mb-4">Bootcamps disponibles</h2>
 
                             {bootcamps.length > 0 ? (
                                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">

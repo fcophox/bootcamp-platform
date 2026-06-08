@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 interface SidebarContextType {
     isCollapsed: boolean;
@@ -11,6 +11,22 @@ const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
     const [isCollapsed, setIsCollapsed] = useState(false);
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth < 800) {
+                setIsCollapsed(true);
+            } else {
+                setIsCollapsed(false);
+            }
+        };
+
+        // Check on mount
+        handleResize();
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const toggleSidebar = () => {
         setIsCollapsed(!isCollapsed);

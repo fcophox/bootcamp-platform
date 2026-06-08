@@ -120,8 +120,8 @@ export default function ProfilePage() {
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-y-auto pt-[92px]">
-                    <div className="max-w-4xl mx-auto space-y-8 px-6 pb-12">
+                <main className="flex-1 overflow-y-auto pt-[92px] px-6 pb-6">
+                    <div className="max-w-5xl mx-auto space-y-8">
 
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                             <div>
@@ -148,7 +148,7 @@ export default function ProfilePage() {
                                 </div>
                             </div>
 
-                            <div className="px-8 pb-8">
+                            <div className="px-4 sm:px-8 pb-8">
                                 <div className="flex flex-col md:flex-row gap-8 items-start relative -mt-16">
                                     {/* Profile Photo Placeholder */}
                                     <div className="h-32 w-32 rounded-2xl bg-card-bg border-4 border-card-bg flex items-center justify-center text-4xl font-bold text-primary shadow-2xl overflow-hidden shrink-0 relative group">
@@ -227,7 +227,7 @@ export default function ProfilePage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                             <div className="md:col-span-2 space-y-8">
-                                <div className="bg-card-bg border border-border rounded-xl p-8 shadow-sm ring-1 ring-white/5">
+                                <div className="bg-card-bg border border-border rounded-xl p-4 shadow-sm ring-1 ring-white/5">
                                     <div className="flex items-center gap-2 mb-6">
                                         <div className="h-6 w-1 bg-primary rounded-full"></div>
                                         <h3 className="text-xl font-bold text-foreground">Sobre mí</h3>
@@ -248,7 +248,7 @@ export default function ProfilePage() {
                                     )}
                                 </div>
 
-                                <div className="bg-card-bg border border-border rounded-xl p-8 shadow-sm ring-1 ring-white/5">
+                                <div className="bg-card-bg border border-border rounded-xl p-4 shadow-sm ring-1 ring-white/5">
                                     <div className="flex items-center gap-2 mb-6">
                                         <div className="h-6 w-1 bg-primary rounded-full"></div>
                                         <h3 className="text-xl font-bold text-foreground">Habilidades & Especialidades</h3>
@@ -287,7 +287,7 @@ export default function ProfilePage() {
                             </div>
 
                             <div className="space-y-8">
-                                <div className="bg-card-bg border border-border rounded-xl p-8 shadow-sm ring-1 ring-white/5">
+                                <div className="bg-card-bg border border-border rounded-xl p-4 shadow-sm ring-1 ring-white/5">
                                     <h3 className="text-xl font-bold text-foreground mb-6">Mi Progreso</h3>
                                     <div className="space-y-5">
                                         <div className="flex items-center p-4 bg-primary/5 border border-primary/10 rounded-2xl relative overflow-hidden group">
