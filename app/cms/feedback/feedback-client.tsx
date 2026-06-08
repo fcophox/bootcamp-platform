@@ -153,12 +153,12 @@ export function FeedbackClient({ initialFeedbacks, slug }: { initialFeedbacks: F
                     schema: 'public',
                     table: 'LessonFeedback'
                 },
-                async (payload) => {
+                async (payload: any) => {
                     console.log('Realtime change captured:', payload);
                     await refreshData();
                 }
             )
-            .subscribe((status) => {
+            .subscribe((status: string) => {
                 if (status === 'SUBSCRIBED') {
                     setRealtimeStatus('connected');
                 } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {

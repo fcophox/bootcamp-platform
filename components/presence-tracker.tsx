@@ -2,11 +2,9 @@
 
 import { useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { usePathname } from 'next/navigation';
 
 export function PresenceTracker() {
     const supabase = createClient();
-    const pathname = usePathname();
 
     useEffect(() => {
         let channel: any;
@@ -61,10 +59,9 @@ export function PresenceTracker() {
             handleAuthChange(session);
         });
 
-        // Trigger session verification on mount or route transition
         supabase.auth.getSession().then((res: any) => {
             const session = res.data?.session;
-            console.log('PresenceTracker: getSession on path change:', pathname, 'user:', session?.user?.email);
+            console.log('PresenceTracker: getSession on mount, user:', session?.user?.email);
             handleAuthChange(session);
         });
 
@@ -76,7 +73,7 @@ export function PresenceTracker() {
                 channel.unsubscribe();
             }
         };
-    }, [pathname]);
+    }, []);
 
     return null;
 }

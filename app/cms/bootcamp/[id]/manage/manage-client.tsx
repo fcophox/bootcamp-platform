@@ -12,13 +12,14 @@ import {
     Trash2, Edit2, ChevronDown, ChevronUp, GripVertical, MonitorPlay,
     Headphones, FileUp, Users, Trophy, Check, X, Clock, Loader2,
     Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase,
-    MoreHorizontal, BarChart3, Radio, BookOpen
+    MoreHorizontal, BarChart3, Radio, BookOpen, Calendar
 } from 'lucide-react';
 
 import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson, reorderLessons, reorderModules } from '@/app/actions/module';
 import { updateBootcamp } from '@/app/actions/bootcamp';
 import { createClient } from '@/utils/supabase/client';
 import { removeStudent, updateStudentStatus } from '@/app/actions/student';
+import { useOnlineUsers } from '@/contexts/OnlineUsersContext';
 
 import { createInvitation } from '@/app/actions/invitation';
 
@@ -62,6 +63,9 @@ interface ManageBootcampClientProps {
         description?: string;
         icon?: string;
         color?: string;
+        duration?: string;
+        level?: string;
+        startDate?: string;
     };
 
     modules: Module[];
@@ -100,33 +104,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [openModuleMenuId, setOpenModuleMenuId] = useState<number | null>(null);
     const moduleMenuRef = useRef<HTMLDivElement>(null);
 
-    const [onlineUsers, setOnlineUsers] = useState<Record<string, any>>({});
-
-    useEffect(() => {
-        const supabase = createClient();
-        const channel = supabase.channel('online-users');
-
-        channel
-            .on('presence', { event: 'sync' }, () => {
-                const state = channel.presenceState();
-                console.log('CMS manage-client: presence sync state:', state);
-                const activeUsers: Record<string, any> = {};
-                Object.keys(state).forEach((key) => {
-                    if (state[key] && state[key].length > 0) {
-                        activeUsers[key] = state[key][0];
-                    }
-                });
-                console.log('CMS manage-client: mapped active users:', activeUsers);
-                setOnlineUsers(activeUsers);
-            })
-            .subscribe((status: string) => {
-                console.log('CMS manage-client: presence subscription status:', status);
-            });
-
-        return () => {
-            channel.unsubscribe();
-        };
-    }, []);
+    const { onlineUsers } = useOnlineUsers();
 
     // Content Management State
     const [expandedModule, setExpandedModule] = useState<number | null>(null);
@@ -136,6 +114,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [isEditingBootcampModalOpen, setIsEditingBootcampModalOpen] = useState(false);
     const [tempBootcampTitle, setTempBootcampTitle] = useState(bootcamp.title);
     const [tempDescription, setTempDescription] = useState(bootcamp.description || '');
+    const [tempDuration, setTempDuration] = useState(bootcamp.duration || '');
+    const [tempLevel, setTempLevel] = useState(bootcamp.level || '');
+    const [tempStartDate, setTempStartDate] = useState(bootcamp.startDate || '');
     const [isEditingIcon, setIsEditingIcon] = useState(false);
 
     const [tempIcon, setTempIcon] = useState(bootcamp.icon || 'code');
@@ -481,7 +462,13 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             return;
         }
 
-        if (tempBootcampTitle === bootcamp.title && tempDescription === bootcamp.description) {
+        if (
+            tempBootcampTitle === bootcamp.title && 
+            tempDescription === bootcamp.description &&
+            tempDuration === (bootcamp.duration || '') &&
+            tempLevel === (bootcamp.level || '') &&
+            tempStartDate === (bootcamp.startDate || '')
+        ) {
             setIsEditingBootcampModalOpen(false);
             return;
         }
@@ -490,7 +477,10 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         try {
             await updateBootcamp(bootcamp.id, { 
                 title: tempBootcampTitle,
-                description: tempDescription
+                description: tempDescription,
+                duration: tempDuration,
+                level: tempLevel,
+                startDate: tempStartDate
             });
             setIsEditingBootcampModalOpen(false);
         } catch (error) {
@@ -1244,6 +1234,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                             onClick={() => {
                                                 setTempBootcampTitle(bootcamp.title);
                                                 setTempDescription(bootcamp.description || '');
+                                                setTempDuration(bootcamp.duration || '');
+                                                setTempLevel(bootcamp.level || '');
+                                                setTempStartDate(bootcamp.startDate || '');
                                                 setIsEditingBootcampModalOpen(true);
                                             }}
                                         >
@@ -1257,6 +1250,26 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 className="text-muted text-sm mt-1 prose prose-sm dark:prose-invert max-w-none line-clamp-3"
                                                 dangerouslySetInnerHTML={{ __html: bootcamp.description || 'Gestiona el contenido y los alumnos de tu curso.' }}
                                             />
+                                            {/* Detalles del curso */}
+                                            {(bootcamp.duration || bootcamp.level || bootcamp.startDate) && (
+                                                <div className="flex flex-wrap items-center gap-3 mt-3 text-xs font-medium text-muted-foreground group-hover:text-foreground/80 transition-colors">
+                                                    {bootcamp.duration && (
+                                                        <span className="flex items-center gap-1.5 bg-background/60 px-2.5 py-1 rounded-md border border-border/50">
+                                                            <Clock size={14} className="text-primary/70" /> {bootcamp.duration}
+                                                        </span>
+                                                    )}
+                                                    {bootcamp.level && (
+                                                        <span className="flex items-center gap-1.5 bg-background/60 px-2.5 py-1 rounded-md border border-border/50">
+                                                            <BarChart3 size={14} className="text-primary/70" /> {bootcamp.level}
+                                                        </span>
+                                                    )}
+                                                    {bootcamp.startDate && (
+                                                        <span className="flex items-center gap-1.5 bg-background/60 px-2.5 py-1 rounded-md border border-border/50">
+                                                            <Calendar size={14} className="text-primary/70" /> {bootcamp.startDate}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
                                     </div>
@@ -1291,6 +1304,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                 >
                                     Alumnos
                                 </button>
+                                {/* TODO: Oculto temporalmente
                                 <button
                                     onClick={() => setActiveTab('room')}
                                     className={`pb-3 px-1 text-sm font-medium transition-all ${activeTab === 'room'
@@ -1300,6 +1314,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                 >
                                     Room
                                 </button>
+                                */}
                             </div>
                         </div>
 
@@ -1678,9 +1693,32 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                         {/* STUDENTS TAB */}
                         {activeTab === 'students' && (
                             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                                    <div className="md:col-span-2">
-                                        <div className="bg-card-bg border border-border rounded-xl p-6 shadow-sm">
+                                <div className="flex flex-col gap-6 mb-8">
+                                    <div className="w-full">
+                                        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+                                            <div className="flex items-start md:items-center gap-3 flex-1">
+                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                                                    <Zap size={20} />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-sm text-primary mb-1">Acceso por enlace único</h3>
+                                                    <p className="text-xs text-muted-foreground m-0 max-w-2xl">
+                                                        Genera una URL exclusiva para una sola inscripción. Se autodestruye al ser utilizada. El alumno registrado requiere activación manual en la lista inferior.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={handleGenerateUniqueLink}
+                                                className="whitespace-nowrap flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary/90 transition-colors shadow-md shadow-primary/20 w-full md:w-auto"
+                                            >
+                                                <Plus size={16} />
+                                                <span>Generar invitación</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="w-full">
+                                        <div className="bg-card-bg border border-border rounded-xl p-6 shadow-sm overflow-hidden">
                                             <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                                                 <Users size={20} className="text-primary" />
                                                 Lista de alumnos
@@ -1692,7 +1730,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     <p>Aún no has invitado a ningún alumno.</p>
                                                 </div>
                                             ) : (
-                                                <div className="overflow-visible rounded-lg border border-border">
+                                                <div className="w-full overflow-x-auto rounded-lg border border-border">
                                                     <table className="w-full text-sm text-left">
                                                         <thead className="bg-secondary/30 text-muted uppercase text-xs font-semibold">
                                                             <tr>
@@ -1705,9 +1743,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                         <tbody className="divide-y divide-border">
                                                             {initialStudents.map((student) => {
                                                                 const isOnline = Object.values(onlineUsers).some(
-                                                                    (u: any) => u.email?.toLowerCase() === student.email.toLowerCase()
+                                                                    (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
                                                                 );
-                                                                const initials = student.email.slice(0, 2).toUpperCase();
+                                                                const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
 
                                                                 return (
                                                                     <tr key={student.id} className="bg-card-bg hover:bg-hover-bg transition-colors">
@@ -1807,47 +1845,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <div className="bg-card-bg border border-border rounded-xl p-6 shadow-sm sticky top-24">
-                                            <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 text-primary">
-                                                <Zap size={20} />
-                                                Acceso por enlace único
-                                            </h3>
-                                            <p className="text-sm text-muted mb-8 leading-relaxed">
-                                                Genera una URL exclusiva para una sola inscripción. Al activarse por un alumno, el enlace se autodestruye por seguridad.
-                                            </p>
 
-                                            <div className="space-y-4">
-                                                <button
-                                                    onClick={handleGenerateUniqueLink}
-                                                    className="w-full py-5 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all font-bold flex flex-col items-center justify-center gap-2 group shadow-xl shadow-primary/30 active:scale-95 border border-white/10"
-                                                >
-                                                    <div className="flex items-center gap-2 text-sm">
-                                                        <Plus size={22} className="group-hover:rotate-90 transition-transform" />
-                                                        <span>Generar Nueva Invitación</span>
-                                                    </div>
-                                                </button>
-
-                                                <div className="p-4 bg-muted/20 border border-white/5 rounded-xl">
-                                                    <p className="text-[10px] text-muted text-center uppercase tracking-widest font-bold mb-3">¿Cómo funciona?</p>
-                                                    <ul className="text-xs text-muted-foreground space-y-2">
-                                                        <li className="flex items-start gap-2">
-                                                            <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1 flex-shrink-0" />
-                                                            Copia el enlace al portapapeles.
-                                                        </li>
-                                                        <li className="flex items-start gap-2">
-                                                            <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1 flex-shrink-0" />
-                                                            El alumno se registra y queda inscrito.
-                                                        </li>
-                                                        <li className="flex items-start gap-2">
-                                                            <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1 flex-shrink-0" />
-                                                            Debes activarlo manualmente en la lista.
-                                                        </li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         )}
@@ -1855,14 +1853,61 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                         {/* ROOM TAB */}
                         {activeTab === 'room' && (
                             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                <div className="flex flex-col items-center justify-center p-16 border border-dashed border-border rounded-xl bg-card-bg/50 mt-8">
-                                    <div className="w-16 h-16 bg-muted/10 rounded-full flex items-center justify-center mb-6 border border-border/50">
-                                        <MonitorPlay size={32} className="text-muted" />
+                                <div className="relative flex flex-col items-center justify-center min-h-[400px] p-8 md:p-16 border border-dashed border-primary/20 rounded-2xl bg-card-bg/30 mt-8 overflow-hidden shadow-sm">
+                                    <div className="absolute inset-0 z-0 flex items-center justify-center opacity-40 pointer-events-none mix-blend-luminosity">
+                                        <img src="/room.svg" alt="Room background" className="w-full h-full object-cover md:object-contain" />
                                     </div>
-                                    <h3 className="text-xl font-bold text-foreground mb-3">Salas de Reuniones</h3>
-                                    <p className="text-muted text-center max-w-md">
-                                        Aún no has configurado ninguna sala virtual para este bootcamp. Aquí podrás gestionar las sesiones en vivo y reuniones con los estudiantes.
-                                    </p>
+                                    {/* Online students avatars */}
+                                    <div className="absolute inset-0 z-10 overflow-hidden animate-in zoom-in-95 duration-500 pointer-events-auto">
+                                        {/* If there are online students, show them */}
+                                        {Object.values(onlineUsers).filter((u: any) => u.email).length > 0 ? (
+                                            <>
+                                                {initialStudents.filter((student) =>
+                                                    Object.values(onlineUsers).some((u: any) =>
+                                                        u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
+                                                    )
+                                                ).map((student) => {
+                                                    const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
+                                                    
+                                                    // Función de hash simple para generar posiciones "random" pero consistentes por alumno
+                                                    let hash = 0;
+                                                    const str = student.email || student.id.toString();
+                                                    for (let i = 0; i < str.length; i++) {
+                                                        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+                                                    }
+                                                    // Mantener el avatar alejado de los bordes (entre 15% y 85%)
+                                                    const top = Math.abs(hash % 70) + 15;
+                                                    const left = Math.abs((hash >> 5) % 70) + 15;
+
+                                                    return (
+                                                        <div key={student.id} 
+                                                             className="absolute flex flex-col items-center animate-in zoom-in duration-300 group cursor-pointer"
+                                                             style={{ top: `${top}%`, left: `${left}%`, transform: 'translate(-50%, -50%)' }}
+                                                        >
+                                                            <div className="h-16 w-16 rounded-full bg-background/80 backdrop-blur-md border border-primary/30 flex items-center justify-center text-sm font-bold text-primary shadow-2xl shadow-primary/20 hover:scale-110 hover:border-primary/60 transition-all">
+                                                                {initials}
+                                                            </div>
+                                                            <span className="absolute bottom-1 right-1 block h-3.5 w-3.5 rounded-full border-2 border-background bg-green-500 shadow-sm shadow-green-500/50" />
+                                                            
+                                                            <div className="absolute top-full mt-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background/90 backdrop-blur-sm text-xs font-medium px-3 py-1.5 rounded-lg border border-border shadow-lg pointer-events-none whitespace-nowrap z-20">
+                                                                {student.email}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </>
+                                        ) : (
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                <div className="w-20 h-20 bg-background/80 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6 border border-border shadow-xl shadow-black/5">
+                                                    <MonitorPlay size={36} className="text-primary" />
+                                                </div>
+                                                <h3 className="text-2xl font-bold text-foreground mb-4">Salón de conocimientos</h3>
+                                                <p className="text-muted-foreground text-center max-w-lg rounded-xl leading-relaxed">
+                                                    Aún no has configurado ninguna sala virtual para este bootcamp. Aquí podrás gestionar las sesiones en vivo y reuniones con los estudiantes.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -1882,19 +1927,19 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 isLoading={isActionLoading}
             />
 
-            {/* Edit Bootcamp Info Modal */}
+            {/* Edit Bootcamp Info Drawer */}
             {isEditingBootcampModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[100] flex justify-end">
                     {/* Backdrop */}
                     <div 
-                        className="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity"
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-500"
                         onClick={() => setIsEditingBootcampModalOpen(false)}
                     />
                     
-                    {/* Modal Content */}
-                    <div className="relative w-full max-w-2xl bg-card-bg border border-border rounded-xl shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between p-6 border-b border-border">
-                            <h2 className="text-xl font-bold text-foreground">Editar Información del Bootcamp</h2>
+                    {/* Drawer Content */}
+                    <div className="relative w-full max-w-lg h-full bg-card-bg border-l border-border shadow-2xl animate-in slide-in-from-right duration-500 ease-out flex flex-col">
+                        <div className="flex items-center justify-between p-6 border-b border-border bg-background/50">
+                            <h2 className="text-xl font-bold text-foreground">Editar Información</h2>
                             <button 
                                 onClick={() => setIsEditingBootcampModalOpen(false)}
                                 className="p-2 text-muted hover:text-foreground hover:bg-hover-bg rounded-lg transition-colors"
@@ -1903,7 +1948,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                             </button>
                         </div>
                         
-                        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
                             <div>
                                 <label className="block text-sm font-medium mb-1.5 text-foreground">Título</label>
                                 <input
@@ -1923,9 +1968,42 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                     minHeight="min-h-[200px]"
                                 />
                             </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1.5 text-foreground">Duración</label>
+                                    <input
+                                        type="text"
+                                        value={tempDuration}
+                                        onChange={(e) => setTempDuration(e.target.value)}
+                                        className="w-full px-4 py-2 bg-background border border-border rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-foreground"
+                                        placeholder="Ej: 12 semanas"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1.5 text-foreground">Nivel</label>
+                                    <input
+                                        type="text"
+                                        value={tempLevel}
+                                        onChange={(e) => setTempLevel(e.target.value)}
+                                        className="w-full px-4 py-2 bg-background border border-border rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-foreground"
+                                        placeholder="Principiante"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="mt-6">
+                                <label className="block text-sm font-medium mb-1.5 text-foreground">Fecha de Inicio</label>
+                                <input
+                                    type="text"
+                                    value={tempStartDate}
+                                    onChange={(e) => setTempStartDate(e.target.value)}
+                                    className="w-full px-4 py-2 bg-background border border-border rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-foreground"
+                                    placeholder="Ej: 15 Feb 2026"
+                                />
+                            </div>
                         </div>
-                        
-                        <div className="flex items-center justify-end gap-3 p-6 border-t border-border bg-background/50 rounded-b-xl">
+                        <div className="p-6 border-t border-border bg-background/50 mt-auto flex items-center justify-end gap-3">
                             <button
                                 onClick={() => setIsEditingBootcampModalOpen(false)}
                                 className="px-5 py-2 text-sm font-medium text-muted hover:text-foreground bg-transparent hover:bg-hover-bg rounded-lg transition-colors"
@@ -1938,7 +2016,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                 className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isActionLoading && <Loader2 size={16} className="animate-spin" />}
-                                Guardar Cambios
+                                Guardar
                             </button>
                         </div>
                     </div>

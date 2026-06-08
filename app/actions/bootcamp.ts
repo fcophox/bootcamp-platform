@@ -67,7 +67,7 @@ export async function deleteBootcamp(id: number) {
     revalidatePath('/cms');
 }
 
-export async function updateBootcamp(id: number, updates: { title?: string; icon?: string; color?: string; description?: string }) {
+export async function updateBootcamp(id: number, updates: { title?: string; icon?: string; color?: string; description?: string; duration?: string; level?: string; startDate?: string }) {
 
     const supabase = await createClient();
 
@@ -82,6 +82,7 @@ export async function updateBootcamp(id: number, updates: { title?: string; icon
     }
 
     revalidatePath(`/cms/bootcamp/${id}/manage`);
+    revalidatePath(`/dashboard/bootcamp/${id}`);
     revalidatePath('/dashboard');
     revalidatePath('/cms');
 }

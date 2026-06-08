@@ -65,7 +65,7 @@ export async function getAllUsersWithRoles(): Promise<UserWithRole[]> {
     }
 
     // Match users with their registrations
-    return users.map(user => {
+    return users.map((user: any) => {
         const userEmailNormalized = user.email.trim().toLowerCase();
         
         const userRegistrations = (typedEnrollments || []).filter(reg => 
