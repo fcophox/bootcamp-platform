@@ -9,8 +9,14 @@ export function PresenceTracker() {
     useEffect(() => {
         let channel: any;
 
-        const setupPresence = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
+        const handleAuthChange = async (session: any) => {
+            // Clean up previous channel
+            if (channel) {
+                channel.unsubscribe();
+                channel = null;
+            }
+
+            const user = session?.user;
             if (!user) return;
 
             const userId = user.id;
@@ -42,9 +48,20 @@ export function PresenceTracker() {
                 });
         };
 
-        setupPresence();
+        // Listen for auth changes (useful since Layout doesn't remount on login redirect)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            handleAuthChange(session);
+        });
+
+        // Initialize with current session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            handleAuthChange(session);
+        });
 
         return () => {
+            if (subscription) {
+                subscription.unsubscribe();
+            }
             if (channel) {
                 channel.unsubscribe();
             }
