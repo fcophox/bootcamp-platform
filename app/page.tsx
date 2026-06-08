@@ -66,7 +66,7 @@ export default async function Home() {
           <div className="mb-2 p-2 rounded-3xl flex items-center justify-center">
              <div className="relative h-40 w-40">
                <Image
-                 src="/brand/logotipoacademy.png"
+                 src="/brand/logotipo-academy.png"
                  alt="Logo"
                  fill
                  className="object-contain"
