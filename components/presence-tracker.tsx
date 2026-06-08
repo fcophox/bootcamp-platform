@@ -34,27 +34,25 @@ export function PresenceTracker() {
 
             channel
                 .on('presence', { event: 'sync' }, () => {
-                    // Sincronización silenciosa
+                    console.log('PresenceTracker: synced presence, current state:', channel.presenceState());
                 })
                 .subscribe(async (status: string) => {
+                    console.log('PresenceTracker: subscription status:', status);
                     if (status === 'SUBSCRIBED') {
-                        await channel.track({
+                        const tracked = await channel.track({
                             online_at: new Date().toISOString(),
                             name: userMetadata.full_name || user.email?.split('@')[0] || 'Usuario',
                             email: user.email,
                             role: role,
                         });
+                        console.log('PresenceTracker: track result:', tracked);
                     }
                 });
         };
 
         // Listen for auth changes (useful since Layout doesn't remount on login redirect)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            handleAuthChange(session);
-        });
-
-        // Initialize with current session
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            console.log('PresenceTracker: auth state changed event:', event, 'user:', session?.user?.email);
             handleAuthChange(session);
         });
 

@@ -109,15 +109,19 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         channel
             .on('presence', { event: 'sync' }, () => {
                 const state = channel.presenceState();
+                console.log('CMS manage-client: presence sync state:', state);
                 const activeUsers: Record<string, any> = {};
                 Object.keys(state).forEach((key) => {
                     if (state[key] && state[key].length > 0) {
                         activeUsers[key] = state[key][0];
                     }
                 });
+                console.log('CMS manage-client: mapped active users:', activeUsers);
                 setOnlineUsers(activeUsers);
             })
-            .subscribe();
+            .subscribe((status) => {
+                console.log('CMS manage-client: presence subscription status:', status);
+            });
 
         return () => {
             channel.unsubscribe();
