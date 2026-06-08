@@ -2,9 +2,11 @@
 
 import { useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { usePathname } from 'next/navigation';
 
 export function PresenceTracker() {
     const supabase = createClient();
+    const pathname = usePathname();
 
     useEffect(() => {
         let channel: any;
@@ -17,7 +19,10 @@ export function PresenceTracker() {
             }
 
             const user = session?.user;
-            if (!user) return;
+            if (!user) {
+                console.log('PresenceTracker: No authenticated user found to track presence.');
+                return;
+            }
 
             const userId = user.id;
             const userMetadata = user.user_metadata || {};
@@ -50,9 +55,16 @@ export function PresenceTracker() {
                 });
         };
 
-        // Listen for auth changes (useful since Layout doesn't remount on login redirect)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
             console.log('PresenceTracker: auth state changed event:', event, 'user:', session?.user?.email);
+            handleAuthChange(session);
+        });
+
+        // Trigger session verification on mount or route transition
+        supabase.auth.getSession().then((res: any) => {
+            const session = res.data?.session;
+            console.log('PresenceTracker: getSession on path change:', pathname, 'user:', session?.user?.email);
             handleAuthChange(session);
         });
 
@@ -64,7 +76,7 @@ export function PresenceTracker() {
                 channel.unsubscribe();
             }
         };
-    }, []);
+    }, [pathname]);
 
     return null;
 }

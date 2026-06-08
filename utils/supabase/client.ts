@@ -1,5 +1,7 @@
 import { createBrowserClient } from '@supabase/ssr'
 
+let client: ReturnType<typeof createBrowserClient> | null = null;
+
 export function createClient() {
     // Verificación básica para evitar crash si las variables no están cargadas
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -14,5 +16,9 @@ export function createClient() {
         )
     }
 
-    return createBrowserClient(url, key)
+    if (!client) {
+        client = createBrowserClient(url, key)
+    }
+
+    return client
 }

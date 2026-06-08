@@ -119,7 +119,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 console.log('CMS manage-client: mapped active users:', activeUsers);
                 setOnlineUsers(activeUsers);
             })
-            .subscribe((status) => {
+            .subscribe((status: string) => {
                 console.log('CMS manage-client: presence subscription status:', status);
             });
 
