@@ -3,6 +3,7 @@ import { Sansation } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeHotkey } from "@/components/theme-hotkey";
+import { PresenceTracker } from "@/components/presence-tracker";
 
 const sansation = Sansation({
   subsets: ["latin"],
@@ -79,6 +80,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <ThemeHotkey />
+          <PresenceTracker />
           {children}
         </ThemeProvider>
       </body>

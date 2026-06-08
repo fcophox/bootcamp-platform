@@ -94,11 +94,35 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const { isCollapsed } = useSidebar();
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'content' | 'students'>('content');
+    const [activeTab, setActiveTab] = useState<'content' | 'students' | 'room'>('content');
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const [openModuleMenuId, setOpenModuleMenuId] = useState<number | null>(null);
     const moduleMenuRef = useRef<HTMLDivElement>(null);
+
+    const [onlineUsers, setOnlineUsers] = useState<Record<string, any>>({});
+
+    useEffect(() => {
+        const supabase = createClient();
+        const channel = supabase.channel('online-users');
+
+        channel
+            .on('presence', { event: 'sync' }, () => {
+                const state = channel.presenceState();
+                const activeUsers: Record<string, any> = {};
+                Object.keys(state).forEach((key) => {
+                    if (state[key] && state[key].length > 0) {
+                        activeUsers[key] = state[key][0];
+                    }
+                });
+                setOnlineUsers(activeUsers);
+            })
+            .subscribe();
+
+        return () => {
+            channel.unsubscribe();
+        };
+    }, []);
 
     // Content Management State
     const [expandedModule, setExpandedModule] = useState<number | null>(null);
@@ -1263,6 +1287,15 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                 >
                                     Alumnos
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('room')}
+                                    className={`pb-3 px-1 text-sm font-medium transition-all ${activeTab === 'room'
+                                        ? 'text-primary border-b-2 border-primary'
+                                        : 'text-muted hover:text-foreground'
+                                        }`}
+                                >
+                                    Room
+                                </button>
                             </div>
                         </div>
 
@@ -1659,17 +1692,38 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     <table className="w-full text-sm text-left">
                                                         <thead className="bg-secondary/30 text-muted uppercase text-xs font-semibold">
                                                             <tr>
-                                                                <th className="px-4 py-3">Email</th>
+                                                                <th className="px-4 py-3">Alumno</th>
                                                                 <th className="px-4 py-3">Estado</th>
                                                                 <th className="px-4 py-3">Invitado</th>
                                                                 <th className="px-4 py-3 text-right">Acciones</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y divide-border">
-                                                            {initialStudents.map((student) => (
-                                                                <tr key={student.id} className="bg-card-bg hover:bg-hover-bg transition-colors">
-                                                                    <td className="px-4 py-3 font-medium">{student.email}</td>
-                                                                    <td className="px-4 py-3">{getStatusBadge(student.status)}</td>
+                                                            {initialStudents.map((student) => {
+                                                                const isOnline = Object.values(onlineUsers).some(
+                                                                    (u: any) => u.email?.toLowerCase() === student.email.toLowerCase()
+                                                                );
+                                                                const initials = student.email.slice(0, 2).toUpperCase();
+
+                                                                return (
+                                                                    <tr key={student.id} className="bg-card-bg hover:bg-hover-bg transition-colors">
+                                                                        <td className="px-4 py-3 font-medium">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <div className="relative flex-shrink-0">
+                                                                                    <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                                                                                        {initials}
+                                                                                    </div>
+                                                                                    <span 
+                                                                                        className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full border-2 border-card-bg transition-colors duration-300 ${
+                                                                                            isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
+                                                                                        }`}
+                                                                                        title={isOnline ? 'Activo ahora' : 'Desconectado'}
+                                                                                    />
+                                                                                </div>
+                                                                                <span className="truncate">{student.email}</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-4 py-3">{getStatusBadge(student.status)}</td>
                                                                     <td className="px-4 py-3 text-muted">
                                                                         {new Date(student.invitedAt).toLocaleDateString()}
                                                                     </td>
@@ -1740,7 +1794,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                         </div>
                                                                     </td>
                                                                 </tr>
-                                                            ))}
+                                                                );
+                                                            })}
                                                         </tbody>
                                                     </table>
                                                 </div>
@@ -1789,6 +1844,21 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ROOM TAB */}
+                        {activeTab === 'room' && (
+                            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <div className="flex flex-col items-center justify-center p-16 border border-dashed border-border rounded-xl bg-card-bg/50 mt-8">
+                                    <div className="w-16 h-16 bg-muted/10 rounded-full flex items-center justify-center mb-6 border border-border/50">
+                                        <MonitorPlay size={32} className="text-muted" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-foreground mb-3">Salas de Reuniones</h3>
+                                    <p className="text-muted text-center max-w-md">
+                                        Aún no has configurado ninguna sala virtual para este bootcamp. Aquí podrás gestionar las sesiones en vivo y reuniones con los estudiantes.
+                                    </p>
                                 </div>
                             </div>
                         )}
