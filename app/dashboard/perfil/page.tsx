@@ -94,7 +94,7 @@ export default function ProfilePage() {
                     .order('createdAt', { ascending: false });
                 
                 if (enrolledBootcamps) {
-                    const bootcampsWithProgress = await Promise.all(enrolledBootcamps.map(async (bootcamp) => {
+                    const bootcampsWithProgress = await Promise.all(enrolledBootcamps.map(async (bootcamp: any) => {
                         // Get total lessons
                         const { data: modules } = await supabase
                             .from('Module')
