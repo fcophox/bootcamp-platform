@@ -1,11 +1,34 @@
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
-import { Mail, MapPin, Briefcase, Calendar, Award, BookOpen, ShieldCheck, CheckCircle2, Save, X, Edit2, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Mail, MapPin, Briefcase, Calendar, Award, BookOpen, ShieldCheck, CheckCircle2, Save, X, Edit2, Loader2, Trophy, Clock, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Camera, Building2 } from 'lucide-react';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
 import { createClient } from '@/utils/supabase/client';
 import { updateProfile } from '@/app/actions/profile';
+
+const AVAILABLE_AVATARS = [0, 1, 2, 3, 4, 5, 6, 16, 17, 18, 19, 20, 21, 43, 44, 45, 46, 47];
+
+const getAvatarStyle = (indexStr: string | undefined | null) => {
+    if (!indexStr || indexStr === '') return {};
+    const index = parseInt(indexStr) || 0;
+    if (!AVAILABLE_AVATARS.includes(index)) return {};
+    return {
+        backgroundImage: `url('/perfil/${index}.png')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+    };
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ICON_MAP: Record<string, any> = {
+    code: Code, database: Database, layout: Layout, globe: Globe, server: Server, cloud: Cloud, cpu: Cpu, smartphone: Smartphone, bot: Bot, brain: BrainCircuit, sparkles: Sparkles, network: Network, terminal: Terminal, microscope: Microscope, rocket: Rocket, binary: Binary
+};
+
+const COLOR_MAP: Record<string, string> = {
+    green: 'bg-green-500', blue: 'bg-blue-500', violet: 'bg-violet-500', orange: 'bg-orange-500', red: 'bg-red-500', pink: 'bg-pink-500',
+};
 
 export default function ProfilePage() {
     const supabase = createClient();
@@ -22,6 +45,8 @@ export default function ProfilePage() {
         joinDate: '',
         bio: '',
         skills: '',
+        avatar: '',
+        jobTitle: '',
         stats: {
             courses: 0,
             students: 0,
@@ -30,6 +55,10 @@ export default function ProfilePage() {
     });
 
     const [formData, setFormData] = useState({ ...user });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [myBootcamps, setMyBootcamps] = useState<any[]>([]);
+    const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+    const [skillInput, setSkillInput] = useState('');
 
     useEffect(() => {
         async function fetchUser() {
@@ -45,6 +74,8 @@ export default function ProfilePage() {
                     joinDate: new Date(authUser.created_at).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }),
                     bio: metadata.bio || 'Sin biografía disponible.',
                     skills: metadata.skills || '',
+                    avatar: metadata.avatar || '',
+                    jobTitle: metadata.job_title || '',
                     stats: {
                         courses: metadata.role === 'alumno' ? 0 : 4,
                         students: metadata.role === 'alumno' ? 0 : 250,
@@ -53,6 +84,55 @@ export default function ProfilePage() {
                 };
                 setUser(userData);
                 setFormData(userData);
+
+                // Fetch enrolled bootcamps
+                const { data: enrolledBootcamps } = await supabase
+                    .from('Bootcamp')
+                    .select('*, BootcampStudent!inner(*)')
+                    .eq('BootcampStudent.email', authUser.email)
+                    .eq('BootcampStudent.status', 'active')
+                    .order('createdAt', { ascending: false });
+                
+                if (enrolledBootcamps) {
+                    const bootcampsWithProgress = await Promise.all(enrolledBootcamps.map(async (bootcamp) => {
+                        // Get total lessons
+                        const { data: modules } = await supabase
+                            .from('Module')
+                            .select('id, Lesson(id)')
+                            .eq('bootcampId', bootcamp.id);
+                        
+                        let totalLessons = 0;
+                        if (modules) {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            modules.forEach((mod: any) => {
+                                totalLessons += (mod.Lesson?.length || 0);
+                            });
+                        }
+
+                        // Get completions
+                        const studentId = bootcamp.BootcampStudent?.[0]?.id;
+                        let completedLessons = 0;
+                        if (studentId) {
+                            const { data: completions } = await supabase
+                                .from('LessonCompletion')
+                                .select('id')
+                                .eq('studentId', studentId);
+                            completedLessons = completions?.length || 0;
+                        }
+
+                        let progress = 0;
+                        if (totalLessons > 0) {
+                            progress = Math.round((completedLessons / totalLessons) * 100);
+                        }
+
+                        return {
+                            ...bootcamp,
+                            calculatedProgress: progress
+                        };
+                    }));
+
+                    setMyBootcamps(bootcampsWithProgress);
+                }
             }
         }
         fetchUser();
@@ -77,6 +157,8 @@ export default function ProfilePage() {
                 bio: formData.bio,
                 location: formData.location,
                 skills: formData.skills,
+                avatar: formData.avatar,
+                job_title: formData.jobTitle,
             });
 
             if (result.error) {
@@ -100,8 +182,35 @@ export default function ProfilePage() {
         }));
     };
 
+    const handleAddSkill = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && skillInput.trim()) {
+            e.preventDefault();
+            const currentSkills = formData.skills ? formData.skills.split(',').map(s => s.trim()).filter(Boolean) : [];
+            const newSkill = skillInput.trim();
+            if (!currentSkills.includes(newSkill)) {
+                setFormData(prev => ({
+                    ...prev,
+                    skills: [...currentSkills, newSkill].join(', ')
+                }));
+            }
+            setSkillInput('');
+        }
+    };
+
+    const handleRemoveSkill = (skillToRemove: string) => {
+        const currentSkills = formData.skills ? formData.skills.split(',').map(s => s.trim()).filter(Boolean) : [];
+        setFormData(prev => ({
+            ...prev,
+            skills: currentSkills.filter(s => s !== skillToRemove).join(', ')
+        }));
+    };
+
     const skillsList = typeof user.skills === 'string'
         ? user.skills.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+        
+    const editSkillsList = typeof formData.skills === 'string'
+        ? formData.skills.split(',').map(s => s.trim()).filter(Boolean)
         : [];
 
     const { isCollapsed } = useSidebar();
@@ -121,12 +230,12 @@ export default function ProfilePage() {
                 </header>
 
                 <main className="flex-1 overflow-y-auto pt-[92px] px-6 pb-6">
-                    <div className="max-w-5xl mx-auto space-y-8">
+                    <div className="max-w-6xl mx-auto space-y-8">
 
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                             <div>
                                 <h1 className="text-3xl font-bold text-foreground">Mi Perfil</h1>
-                                <p className="text-muted mt-1">Gestiona tu información pública y datos personales.</p>
+                                <p className="text-muted mt-1">Gestiona tu información pública y tu progreso académico.</p>
                             </div>
                         </div>
 
@@ -138,199 +247,304 @@ export default function ProfilePage() {
                             </div>
                         )}
 
-                        <div className="bg-card-bg border border-border rounded-xl overflow-hidden shadow-sm ring-1 ring-white/5">
-                            <div className="h-40 bg-gradient-to-r from-primary/30 via-indigo-500/20 to-primary/10 w-full relative">
-                                <div className="absolute top-4 right-4 group">
-                                    <span className="bg-primary/20 text-primary border border-primary/30 px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider flex items-center gap-1.5 shadow-sm backdrop-blur-md">
-                                        <ShieldCheck size={14} />
-                                        Perfil Verificado
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="px-4 sm:px-8 pb-8">
-                                <div className="flex flex-col md:flex-row gap-8 items-start relative -mt-16">
-                                    {/* Profile Photo Placeholder */}
-                                    <div className="h-32 w-32 rounded-2xl bg-card-bg border-4 border-card-bg flex items-center justify-center text-4xl font-bold text-primary shadow-2xl overflow-hidden shrink-0 relative group">
-                                        <div className="absolute inset-0 bg-primary/10 flex items-center justify-center uppercase transition-transform group-hover:scale-110 duration-500">
-                                            {user.name ? user.name.slice(0, 2) : 'FC'}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex-1 md:mt-12 space-y-6">
-                                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-                                            <div className="w-full">
-                                                {isEditing ? (
-                                                    <div className="space-y-4 max-w-sm">
-                                                        <div>
-                                                            <label className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5 block">Nombre registrado</label>
-                                                            <input name="name" value={formData.name} onChange={handleChange} className="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-inner" />
-                                                        </div>
+                        <div className="flex flex-col lg:flex-row gap-8">
+                            {/* COLUMNA IZQUIERDA: INFO DEL PERFIL */}
+                            <div className="w-full lg:w-[350px] shrink-0 space-y-6">
+                                <div className="bg-card-bg border border-border rounded-xl shadow-sm ring-1 ring-white/5 relative">
+                                    <div className="p-6">
+                                        <div className="flex items-center gap-4 mb-6">
+                                            {/* Avatar Circular */}
+                                            <div 
+                                                className={`h-20 w-20 rounded-full bg-card-bg border-2 border-border flex items-center justify-center text-2xl font-bold text-primary shadow-lg overflow-hidden shrink-0 relative group ${isEditing ? 'cursor-pointer' : ''}`}
+                                                onClick={() => isEditing && setIsAvatarModalOpen(true)}
+                                            >
+                                                <div 
+                                                    className="absolute inset-0 bg-primary/10 flex items-center justify-center uppercase transition-transform group-hover:scale-110 duration-500 w-full h-full"
+                                                    style={getAvatarStyle(isEditing ? formData.avatar : user.avatar)}
+                                                >
+                                                    {(!user.avatar && !formData.avatar) && (user.name ? user.name.slice(0, 2) : 'FC')}
+                                                </div>
+                                                {isEditing && (
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Camera size={24} className="text-white" />
                                                     </div>
+                                                )}
+                                            </div>
+
+                                            {/* Nombre y Categoría */}
+                                            <div className="flex-1 min-w-0 flex flex-col justify-center items-start">
+                                                {isEditing ? (
+                                                    <input name="name" value={formData.name} onChange={handleChange} className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-inner mb-2" placeholder="Nombre completo" />
                                                 ) : (
-                                                    <div className="space-y-1">
-                                                        <h2 className="text-3xl font-bold text-foreground flex items-center gap-3">
+                                                    <>
+                                                        <h2 className="text-xl font-bold text-foreground flex items-center gap-1.5 mb-1 truncate w-full">
                                                             {user.name}
-                                                            <div className="bg-blue-500/10 p-1 rounded-full"><CheckCircle2 size={16} className="text-blue-500" /></div>
+                                                            <CheckCircle2 size={16} className="text-blue-500 shrink-0" />
                                                         </h2>
-                                                        <p className="text-primary font-medium flex items-center gap-2 text-sm">
-                                                            <Briefcase size={16} className="opacity-70" />
+                                                        <p className="text-primary font-medium flex items-center gap-1.5 text-xs truncate mb-2">
+                                                            <Briefcase size={12} className="opacity-70 shrink-0" />
                                                             {user.role}
                                                         </p>
-                                                    </div>
+                                                    </>
+                                                )}
+                                                <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full text-[9px] uppercase font-bold tracking-wider flex items-center gap-1 shadow-sm w-max">
+                                                    <ShieldCheck size={12} />
+                                                    Verificado
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Listado de Datos */}
+                                        <div className="w-full border-t border-border pt-2 space-y-4 text-sm text-left">
+                                            <div className="flex items-center gap-4 group transition-colors hover:text-foreground">
+                                                <div className="rounded-lg text-primary shrink-0"><Mail size={16} /></div>
+                                                <span className="text-muted-foreground truncate">{user.email}</span>
+                                            </div>
+                                            <div className="flex items-center gap-4 group transition-colors hover:text-foreground">
+                                                <div className="rounded-lg text-primary shrink-0"><Building2 size={16} /></div>
+                                                {isEditing ? (
+                                                    <input 
+                                                        type="text" 
+                                                        name="jobTitle" 
+                                                        value={formData.jobTitle} 
+                                                        onChange={handleChange} 
+                                                        placeholder="Ej: Desarrollador Frontend" 
+                                                        className="flex-1 min-w-0 bg-background border border-border rounded-lg px-3 py-1.5 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all shadow-inner" 
+                                                    />
+                                                ) : (
+                                                    <span className="text-muted-foreground truncate">{user.jobTitle || 'Sin cargo definido'}</span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-4 group transition-colors hover:text-foreground">
+                                                <div className="rounded-lg text-primary shrink-0"><Calendar size={16} /></div>
+                                                <span className="text-muted-foreground">Miembro desde {user.joinDate}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Sobre Mí & Habilidades (Movidos a la izquierda) */}
+                                        <div className="w-full border-t border-border pt-2 mt-4 space-y-6 text-left">
+                                            {/* Sobre mí */}
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <h3 className="text-xs font-medium text-foreground uppercase tracking-wider">Sobre mí</h3>
+                                                </div>
+                                                {isEditing ? (
+                                                    <textarea
+                                                        name="bio"
+                                                        value={formData.bio}
+                                                        onChange={handleChange}
+                                                        rows={4}
+                                                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none leading-relaxed shadow-inner"
+                                                        placeholder="Cuéntanos un poco sobre ti..."
+                                                    />
+                                                ) : (
+                                                    <p className="text-muted/90 leading-relaxed text-sm">
+                                                        {user.bio}
+                                                    </p>
                                                 )}
                                             </div>
 
-                                            <div className="flex gap-3 shrink-0">
+                                            {/* Habilidades */}
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <h3 className="text-xs font-medium text-foreground uppercase tracking-wider">Habilidades</h3>
+                                                </div>
                                                 {isEditing ? (
-                                                    <>
-                                                        <button onClick={handleCancel} disabled={isPending} className="px-4 py-2 bg-transparent hover:bg-hover-bg text-muted hover:text-foreground rounded-lg text-sm font-medium transition-all flex items-center gap-2">
-                                                            <X size={18} />
-                                                            <span>Cancelar</span>
-                                                        </button>
-                                                        <button onClick={handleSave} disabled={isPending} className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-bold transition-all shadow-lg shadow-primary/25 flex items-center gap-2 active:scale-[0.98] disabled:opacity-50">
-                                                            {isPending ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                                                            <span>Guardar Cambios</span>
-                                                        </button>
-                                                    </>
+                                                    <div className="flex flex-col gap-3">
+                                                        <div className="flex flex-wrap gap-2 content-start">
+                                                            {editSkillsList.map((skill) => (
+                                                                <span key={skill} className="px-2 py-1 bg-primary/10 border border-primary/20 text-primary rounded-md text-xs font-semibold flex items-center gap-1.5">
+                                                                    {skill}
+                                                                    <button type="button" onClick={() => handleRemoveSkill(skill)} className="hover:text-red-500 transition-colors">
+                                                                        <X size={12} />
+                                                                    </button>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            value={skillInput}
+                                                            onChange={(e) => setSkillInput(e.target.value)}
+                                                            onKeyDown={handleAddSkill}
+                                                            placeholder="Escribe una habilidad y presiona Enter..."
+                                                            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none shadow-inner"
+                                                        />
+                                                    </div>
                                                 ) : (
-                                                    <button onClick={handleEdit} className="px-5 py-2.5 bg-hover-bg hover:bg-white/10 text-foreground border border-white/5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-sm active:scale-[0.98]">
-                                                        <Edit2 size={18} className="text-primary" />
-                                                        <span>Editar Perfil</span>
-                                                    </button>
+                                                    <div className="flex flex-wrap gap-2 content-start">
+                                                        {skillsList.map((skill) => (
+                                                            <span key={skill} className="px-2 py-1 bg-hover-bg border border-white/5 rounded-md text-xs font-semibold text-foreground/80 cursor-default">
+                                                                {skill}
+                                                            </span>
+                                                        ))}
+                                                        {skillsList.length === 0 && (
+                                                            <div className="text-muted/40 italic text-xs">
+                                                                No hay habilidades registradas.
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-wrap gap-6 text-sm text-muted/80">
-                                            <div className="flex items-center gap-2 group transition-colors hover:text-foreground">
-                                                <Mail size={16} className="text-primary/70" />
-                                                <span className="cursor-default">{user.email}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2 group transition-colors hover:text-foreground">
-                                                <MapPin size={16} className="text-primary/70" />
-                                                {isEditing ? (
-                                                    <input name="location" value={formData.location} onChange={handleChange} className="bg-background border border-border rounded-md px-2 py-1 text-foreground text-xs focus:ring-1 focus:ring-primary outline-none" />
-                                                ) : (
-                                                    <span>{user.location}</span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-2 group">
-                                                <Calendar size={16} className="text-primary/70" />
-                                                <span>Miembro desde {user.joinDate}</span>
-                                            </div>
+                                        {/* Botones de Acción */}
+                                        <div className="w-full mt-8">
+                                            {isEditing ? (
+                                                <div className="flex flex-col gap-3">
+                                                    <button onClick={handleSave} disabled={isPending} className="w-full px-5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-bold transition-all shadow-lg shadow-primary/25 flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50">
+                                                        {isPending ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                                                        <span>Guardar Cambios</span>
+                                                    </button>
+                                                    <button onClick={handleCancel} disabled={isPending} className="w-full px-4 py-2 bg-transparent border border-border hover:bg-hover-bg text-muted hover:text-foreground rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2">
+                                                        <X size={18} />
+                                                        <span>Cancelar</span>
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button onClick={handleEdit} className="w-full px-5 py-3 bg-hover-bg hover:bg-white/10 text-foreground border border-white/5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
+                                                    <Edit2 size={18} className="text-primary" />
+                                                    <span>Editar Perfil</span>
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                            <div className="md:col-span-2 space-y-8">
-                                <div className="bg-card-bg border border-border rounded-xl p-4 shadow-sm ring-1 ring-white/5">
-                                    <div className="flex items-center gap-2 mb-6">
-                                        <div className="h-6 w-1 bg-primary rounded-full"></div>
-                                        <h3 className="text-xl font-bold text-foreground">Sobre mí</h3>
-                                    </div>
-                                    {isEditing ? (
-                                        <textarea
-                                            name="bio"
-                                            value={formData.bio}
-                                            onChange={handleChange}
-                                            rows={5}
-                                            className="w-full bg-background border border-border rounded-xl px-5 py-4 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none leading-relaxed shadow-inner"
-                                            placeholder="Cuéntanos un poco sobre ti..."
-                                        />
-                                    ) : (
-                                        <p className="text-muted/90 leading-relaxed text-base">
-                                            {user.bio}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="bg-card-bg border border-border rounded-xl p-4 shadow-sm ring-1 ring-white/5">
-                                    <div className="flex items-center gap-2 mb-6">
-                                        <div className="h-6 w-1 bg-primary rounded-full"></div>
-                                        <h3 className="text-xl font-bold text-foreground">Habilidades & Especialidades</h3>
-                                    </div>
-                                    {isEditing ? (
-                                        <div className="space-y-4">
-                                            <textarea
-                                                name="skills"
-                                                value={formData.skills}
-                                                onChange={handleChange}
-                                                rows={2}
-                                                placeholder="React, Next.js, Node.js, Arquitectura Cloud..."
-                                                className="w-full bg-background border border-border rounded-xl px-5 py-4 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none shadow-inner"
-                                            />
-                                            <div className="flex items-start gap-2 text-xs text-muted/60 bg-white/5 p-3 rounded-lg border border-white/5">
-                                                <ShieldCheck size={14} className="mt-0.5 shrink-0" />
-                                                <p>Separa tus habilidades por comas para que sean indexables por el buscador del campus.</p>
+                            {/* COLUMNA DERECHA: PROGRESO Y DETALLES */}
+                            <div className="flex-1 space-y-8">
+                                
+                                {/* Mi Progreso - Destaque */}
+                                <div className="bg-card-bg border border-border rounded-xl p-6 shadow-xl ring-1 ring-white/5 relative overflow-hidden">
+                                    {/* <div className="absolute -top-20 -right-20 text-primary/5 rotate-12 pointer-events-none">
+                                        <Trophy size={350} />
+                                    </div> */}
+                                    
+                                    <div className="relative z-10">
+                                        <h3 className="text-md font-semibold text-foreground mb-8 flex items-center gap-3">
+                                            <div className="text-primary rounded-xl">
+                                                <Trophy size={16} />
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-wrap gap-2.5">
-                                            {skillsList.map((skill) => (
-                                                <span key={skill} className="px-4 py-2 bg-hover-bg border border-white/5 rounded-xl text-xs font-semibold text-foreground/80 hover:border-primary transition-all cursor-default">
-                                                    {skill}
-                                                </span>
-                                            ))}
-                                            {skillsList.length === 0 && (
-                                                <div className="flex flex-col items-center justify-center py-6 w-full text-muted/40 italic text-sm">
-                                                    <BookOpen size={24} className="mb-2 opacity-20" />
-                                                    No hay habilidades registradas.
+                                            Mis Bootcamps en Progreso
+                                        </h3>
+                                        
+                                        <div className="space-y-4">
+                                            {myBootcamps.length > 0 ? myBootcamps.map((bootcamp, index) => {
+                                                const iconName = bootcamp.icon || 'code';
+                                                const IconComponent = ICON_MAP[iconName] || BookOpen;
+                                                const bgClass = bootcamp.color ? COLOR_MAP[bootcamp.color] : 'bg-primary';
+                                                
+                                                const progress = bootcamp.calculatedProgress || 0;
+
+                                                return (
+                                                    <Link key={bootcamp.id} href={`/dashboard/bootcamp/${bootcamp.id}`} className="flex items-center gap-6 p-5 bg-background border border-border rounded-2xl shadow-sm hover:border-primary/30 hover:shadow-md transition-all group cursor-pointer">
+                                                        <div className={`w-12 h-12 rounded-full ${bgClass} flex items-center justify-center flex-shrink-0 text-white shadow-lg`}>
+                                                            <IconComponent size={28} />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <h4 className="text-sm font-semibold text-foreground truncate mb-1.5 group-hover:text-primary transition-colors">{bootcamp.title}</h4>
+                                                            <div className="flex items-center gap-4 text-xs text-muted">
+                                                                <span className="flex items-center gap-1"><Clock size={12}/> {bootcamp.duration || '12 Semanas'}</span>
+                                                                <span className="flex items-center gap-1"><Award size={12}/> {bootcamp.level || 'Todos'}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="w-32 md:w-48 shrink-0 flex flex-col gap-2">
+                                                            <div className="flex justify-between items-center text-xs font-bold">
+                                                                <span className="text-muted-foreground hidden md:inline">Progreso</span>
+                                                                <span className="text-primary ml-auto">{progress}%</span>
+                                                            </div>
+                                                            <div className="h-2 w-full bg-hover-bg rounded-full overflow-hidden border border-white/5">
+                                                                <div className="h-full bg-gradient-to-r from-primary to-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${progress}%` }}></div>
+                                                            </div>
+                                                        </div>
+                                                    </Link>
+                                                );
+                                            }) : (
+                                                <div className="p-8 text-center border border-dashed border-border rounded-2xl bg-background/50">
+                                                    <BookOpen size={32} className="mx-auto text-muted/50 mb-3" />
+                                                    <p className="text-muted">No estás inscrito en ningún bootcamp aún.</p>
                                                 </div>
                                             )}
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="space-y-8">
-                                <div className="bg-card-bg border border-border rounded-xl p-4 shadow-sm ring-1 ring-white/5">
-                                    <h3 className="text-xl font-bold text-foreground mb-6">Mi Progreso</h3>
-                                    <div className="space-y-5">
-                                        <div className="flex items-center p-4 bg-primary/5 border border-primary/10 rounded-2xl relative overflow-hidden group">
-                                            <div className="absolute top-0 right-0 p-1 text-primary/5 transition-transform group-hover:scale-150 duration-700">
-                                                <BookOpen size={64} />
-                                            </div>
-                                            <div className="p-3 bg-primary/10 text-primary rounded-xl mr-4 shrink-0">
-                                                <BookOpen size={24} />
-                                            </div>
-                                            <div className="relative z-10">
-                                                <p className="text-2xl font-black text-foreground">{user.stats.courses}</p>
-                                                <p className="text-[10px] text-muted uppercase tracking-[0.2em] font-bold">Bootcamps</p>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="flex items-center p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl relative overflow-hidden group">
-                                            <div className="absolute top-0 right-0 p-1 text-emerald-500/5 transition-transform group-hover:scale-150 duration-700">
-                                                <Award size={64} />
-                                            </div>
-                                            <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl mr-4 shrink-0">
-                                                <Award size={24} />
-                                            </div>
-                                            <div className="relative z-10">
-                                                <p className="text-2xl font-black text-foreground">+{user.stats.students}</p>
-                                                <p className="text-[10px] text-muted uppercase tracking-[0.2em] font-bold">Puntos XP</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="p-5 bg-hover-bg/50 border border-white/5 rounded-2xl">
-                                            <div className="flex justify-between items-end mb-2">
-                                                <span className="text-xs text-muted/60 font-medium">Nivel de Perfil</span>
-                                                <span className="text-xs text-primary font-bold">Intermedio</span>
-                                            </div>
-                                            <div className="h-1.5 w-full bg-background rounded-full overflow-hidden">
-                                                <div className="h-full bg-primary w-[65%] rounded-full"></div>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
+
                             </div>
                         </div>
                     </div>
                 </main>
+
+                {/* Avatar Selection Modal */}
+                {isAvatarModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+                        <div className="bg-card-bg border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative animate-in zoom-in-95 duration-200">
+                            <div className="flex items-center justify-between p-5 border-b border-border bg-background/50">
+                                <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                                    <Camera size={18} className="text-primary" />
+                                    Selecciona tu Avatar
+                                </h3>
+                                <button 
+                                    onClick={() => setIsAvatarModalOpen(false)}
+                                    className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-hover-bg transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            
+                            <div className="p-6">
+                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+                                    {/* Opción de Iniciales */}
+                                    <button
+                                        onClick={() => {
+                                            setFormData(prev => ({ ...prev, avatar: '' }));
+                                            setIsAvatarModalOpen(false);
+                                        }}
+                                        className={`aspect-square w-full rounded-full shrink-0 border-2 transition-all group overflow-hidden relative bg-primary/10 flex items-center justify-center font-bold text-primary text-2xl uppercase ${formData.avatar === '' ? 'border-primary scale-105 shadow-lg shadow-primary/20 ring-4 ring-primary/20' : 'border-transparent hover:border-primary/50 hover:scale-105 hover:shadow-md'}`}
+                                        type="button"
+                                    >
+                                        {user.name ? user.name.slice(0, 2) : 'FC'}
+                                        {formData.avatar === '' && (
+                                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                                <CheckCircle2 size={32} className="text-white drop-shadow-md" />
+                                            </div>
+                                        )}
+                                    </button>
+
+                                    {AVAILABLE_AVATARS.map((avatarId) => (
+                                        <button
+                                            key={avatarId}
+                                            onClick={() => {
+                                                setFormData(prev => ({ ...prev, avatar: avatarId.toString() }));
+                                                setIsAvatarModalOpen(false);
+                                            }}
+                                            className={`aspect-square w-full rounded-full shrink-0 border-2 transition-all group overflow-hidden relative ${formData.avatar === avatarId.toString() ? 'border-primary scale-105 shadow-lg shadow-primary/20 ring-4 ring-primary/20' : 'border-transparent hover:border-primary/50 hover:scale-105 hover:shadow-md'}`}
+                                            type="button"
+                                        >
+                                            <div 
+                                                className="absolute inset-0 w-full h-full transition-transform group-hover:scale-110 duration-500"
+                                                style={getAvatarStyle(avatarId.toString())}
+                                            />
+                                            {formData.avatar === avatarId.toString() && (
+                                                <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                                    <CheckCircle2 size={32} className="text-white drop-shadow-md" />
+                                                </div>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            <div className="p-4 border-t border-border bg-background/50 flex justify-end">
+                                <button
+                                    onClick={() => setIsAvatarModalOpen(false)}
+                                    className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-bold transition-all shadow-md active:scale-95"
+                                >
+                                    Listo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

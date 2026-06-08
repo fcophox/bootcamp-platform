@@ -8,6 +8,8 @@ export async function updateProfile(data: {
     bio?: string;
     location?: string;
     skills?: string;
+    avatar?: string;
+    job_title?: string;
 }) {
     const supabase = await createClient()
 
@@ -22,6 +24,8 @@ export async function updateProfile(data: {
             bio: data.bio,
             location: data.location,
             skills: data.skills,
+            avatar: data.avatar,
+            job_title: data.job_title,
         }
     })
 

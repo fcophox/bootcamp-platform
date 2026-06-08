@@ -13,6 +13,19 @@ import { createClient } from '@/utils/supabase/client';
 import { getRoleFromEmail } from '@/utils/roles';
 import { getUserRoleFromDBClient } from '@/utils/roles-client';
 
+const AVAILABLE_AVATARS = [0, 1, 2, 3, 4, 5, 6, 16, 17, 18, 19, 20, 21, 43, 44, 45, 46, 47];
+
+const getAvatarStyle = (indexStr: string | undefined | null) => {
+    if (!indexStr || indexStr === '') return {};
+    const index = parseInt(indexStr) || 0;
+    if (!AVAILABLE_AVATARS.includes(index)) return {};
+    return {
+        backgroundImage: `url('/perfil/${index}.png')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+    };
+};
+
 const getMenuItems = (currentRole: string) => {
     const studentItems = [
         {
@@ -98,6 +111,7 @@ export function Sidebar() {
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [userEmail, setUserEmail] = useState('');
     const [userName, setUserName] = useState('');
+    const [avatar, setAvatar] = useState('');
     const [role, setRole] = useState('alumno');
 
     // Hydration check
@@ -114,6 +128,7 @@ export function Sidebar() {
             if (data.user) {
                 setUserEmail(data.user.email || '');
                 setUserName(data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || '');
+                setAvatar(data.user.user_metadata?.avatar || '');
 
                 // Set initial role from metadata/email for speed
                 const initialRole = getRoleFromEmail(data.user.email, data.user.user_metadata);
@@ -244,8 +259,12 @@ export function Sidebar() {
                     className={`w-full flex items-center gap-3 rounded-lg hover:bg-hover-bg transition-colors ${isCollapsed ? 'justify-center py-2' : 'px-4 py-3'}`}
                     title={isCollapsed ? userName : ''}
                 >
-                    <div className={`rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary border border-primary/20 flex-shrink-0 ${isCollapsed ? 'h-8 w-8' : 'h-9 w-9'}`}>
-                        {userName.charAt(0).toUpperCase()}
+                    <div className={`rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary border border-primary/20 flex-shrink-0 relative overflow-hidden ${isCollapsed ? 'h-8 w-8' : 'h-9 w-9'}`}>
+                        {avatar ? (
+                            <div className="absolute inset-0 w-full h-full" style={getAvatarStyle(avatar)} />
+                        ) : (
+                            userName.charAt(0).toUpperCase()
+                        )}
                     </div>
                     {!isCollapsed && (
                         <div className="flex-1 min-w-0 text-left">
