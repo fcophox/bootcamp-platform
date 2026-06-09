@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
 import { ConfirmationModal } from '@/components/confirmation-modal';
@@ -97,6 +98,7 @@ const getGroupedLessons = (lessons: Lesson[]) => {
 
 export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }: ManageBootcampClientProps) {
     const { isCollapsed } = useSidebar();
+    const router = useRouter();
 
     // UI State
     const [activeTab, setActiveTab] = useState<'content' | 'students' | 'room'>('content');
@@ -118,6 +120,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [tempDuration, setTempDuration] = useState(bootcamp.duration || '');
     const [tempLevel, setTempLevel] = useState(bootcamp.level || '');
     const [tempStartDate, setTempStartDate] = useState(bootcamp.startDate || '');
+    const [tempEnableChecklist, setTempEnableChecklist] = useState<boolean>(bootcamp.enableChecklist ?? true);
     const [isEditingIcon, setIsEditingIcon] = useState(false);
 
     const [tempIcon, setTempIcon] = useState(bootcamp.icon || 'code');
@@ -231,6 +234,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 try {
                     await action();
                     setModalConfig(prev => ({ ...prev, isOpen: false }));
+                    router.refresh();
                 } catch (error: unknown) {
                     const e = error as Error;
                     console.error(e);
@@ -249,6 +253,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             await createModule(bootcamp.id, newModuleTitle);
             setNewModuleTitle('');
             setIsCreatingModule(false);
+            router.refresh();
         } catch {
             alert('Error al crear módulo');
         }
@@ -322,6 +327,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             setResourceContent('');
             setExamQuestions([{ id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }]); // Reset Exam
             setExamDuration(15);
+            router.refresh();
         } catch {
             alert('Error al guardar contenido');
         }
@@ -451,6 +457,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             await updateModule(moduleId, bootcamp.id, editingModuleTitle);
             setEditingModuleId(null);
             setEditingModuleTitle('');
+            router.refresh();
         } catch (error) {
             console.error(error);
         } finally {
@@ -468,7 +475,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             tempDescription === bootcamp.description &&
             tempDuration === (bootcamp.duration || '') &&
             tempLevel === (bootcamp.level || '') &&
-            tempStartDate === (bootcamp.startDate || '')
+            tempStartDate === (bootcamp.startDate || '') &&
+            tempEnableChecklist === (bootcamp.enableChecklist ?? true)
         ) {
             setIsEditingBootcampModalOpen(false);
             return;
@@ -481,9 +489,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 description: tempDescription,
                 duration: tempDuration,
                 level: tempLevel,
-                startDate: tempStartDate
+                startDate: tempStartDate,
+                enableChecklist: tempEnableChecklist
             });
             setIsEditingBootcampModalOpen(false);
+            router.refresh();
         } catch (error) {
             console.error(error);
         } finally {
@@ -496,6 +506,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         try {
             await updateBootcamp(bootcamp.id, { icon: tempIcon, color: tempColor });
             setIsEditingIcon(false);
+            router.refresh();
         } catch (error) {
             console.error(error);
         } finally {
@@ -1238,6 +1249,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 setTempDuration(bootcamp.duration || '');
                                                 setTempLevel(bootcamp.level || '');
                                                 setTempStartDate(bootcamp.startDate || '');
+                                                setTempEnableChecklist(bootcamp.enableChecklist ?? true);
                                                 setIsEditingBootcampModalOpen(true);
                                             }}
                                         >
@@ -1991,16 +2003,40 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         placeholder="Principiante"
                                     />
                                 </div>
-                            </div>
-                            
-                            <div className="mt-6">
-                                <label className="block text-sm font-medium mb-1.5 text-foreground">Fecha de Inicio</label>
-                                <input
-                                    type="date"
-                                    value={tempStartDate}
-                                    onChange={(e) => setTempStartDate(e.target.value)}
-                                    className="w-full px-4 py-2 bg-background border border-border rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-foreground"
-                                />
+                                <div>
+                                    <label className="block text-sm font-medium mb-1.5 text-foreground">Fecha de Inicio</label>
+                                    <input
+                                        type="date"
+                                        value={tempStartDate}
+                                        onChange={(e) => setTempStartDate(e.target.value)}
+                                        className="w-full px-4 py-2 bg-background border border-border rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-foreground"
+                                    />
+                                </div>
+                                <div className="flex flex-col">
+                                    <label className="block text-sm font-medium mb-1.5 text-foreground">Habilitar Checklist</label>
+                                    <div className="flex items-center gap-3 h-[42px]">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                setTempEnableChecklist(!tempEnableChecklist);
+                                            }}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                tempEnableChecklist ? 'bg-primary' : 'bg-border'
+                                            }`}
+                                        >
+                                            <span className="sr-only">Habilitar Checklist</span>
+                                            <span
+                                                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                                                    tempEnableChecklist ? 'translate-x-5' : 'translate-x-1'
+                                                }`}
+                                            />
+                                        </button>
+                                        <span className="text-sm text-muted">
+                                            {tempEnableChecklist ? 'Habilitado' : 'Deshabilitado'}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div className="p-6 border-t border-border bg-background/50 mt-auto flex items-center justify-end gap-3">

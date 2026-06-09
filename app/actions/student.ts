@@ -286,7 +286,6 @@ export async function autoActivateStudents(email: string) {
             console.error('Error auto-activating students:', updateError);
         } else {
             console.log(`Successfully auto-activated ${idsToActivate.length} student registrations for email ${email}`);
-            revalidatePath('/dashboard');
         }
     }
 }

@@ -6,13 +6,9 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 
 async function main() {
     const { data, error } = await supabase
-        .from('LessonFeedback')
-        .select(`
-            *,
-            UserRole:userId (
-                email
-            )
-        `);
+        .from('Bootcamp')
+        .select('*')
+        .limit(1);
     console.log(data, error);
 }
 main();

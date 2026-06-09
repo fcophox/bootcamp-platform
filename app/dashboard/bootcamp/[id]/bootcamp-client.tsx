@@ -17,7 +17,7 @@ import {
     Headphones,
     Presentation,
     Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary,
-    FileUp
+    FileUp, Search
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -170,6 +170,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
         : MOCK_MODULES_DATA;
 
     const [activeModule, setActiveModule] = useState<number | null>(modulesToDisplay[0]?.id || null);
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Accordion state for separators (subtitles)
     const [collapsedSeparators, setCollapsedSeparators] = useState<Record<number, boolean>>({});
@@ -202,7 +203,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
 
 
     // Use Progress Hook
-    const { getProgressPercentage, isCompleted, isLoaded } = useBootcampProgress(bootcamp.id);
+    const { getProgressPercentage, isCompleted, isLoaded, toggleClassCompletion } = useBootcampProgress(bootcamp.id);
     const overallProgress = isLoaded ? getProgressPercentage(totalClasses) : (bootcamp.progress || 0);
 
     // Dynamic Icon and Color
@@ -330,39 +331,60 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                             </div>
                         </div>
 
-                        {/* Plan de Estudios Title */}
-                        <div className="mb-4 flex items-center gap-3">
-                            <BarChart3 size={24} className="text-violet-500" />
-                            <h2 className="text-xl font-bold text-foreground">Plan de Estudios</h2>
+                        {/* Plan de Estudios Title & Search */}
+                        <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <BarChart3 size={24} className="text-violet-500" />
+                                <h2 className="text-xl font-bold text-foreground">Plan de Estudios</h2>
+                            </div>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar lección..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full md:w-64 pl-9 pr-4 py-2 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground"
+                                />
+                            </div>
                         </div>
 
                         {/* Module Tabs - Minimalist Style */}
                         {modulesToDisplay && modulesToDisplay.length > 0 ? (
                             <>
-                                <div className="flex items-center gap-8 mb-8 border-b border-border overflow-x-auto">
-                                    {modulesToDisplay.map((module: { id: number; title: string }) => (
+                                {!searchQuery.trim() && (
+                                    <div className="flex items-center gap-8 mb-8 border-b border-border overflow-x-auto">
+                                        {modulesToDisplay.map((module: { id: number; title: string }) => (
 
-                                        <button
-                                            key={module.id}
-                                            onClick={() => setActiveModule(module.id)}
-                                            className={`
-                                                pb-4 text-sm font-medium transition-all relative whitespace-nowrap
-                                                ${activeModule === module.id
-                                                    ? 'text-foreground border-b-2 border-foreground'
-                                                    : 'text-muted hover:text-foreground/80'}
-                                            `}
-                                        >
-                                            {module.title}
-                                        </button>
-                                    ))}
-                                </div>
+                                            <button
+                                                key={module.id}
+                                                onClick={() => setActiveModule(module.id)}
+                                                className={`
+                                                    pb-4 text-sm font-medium transition-all relative whitespace-nowrap
+                                                    ${activeModule === module.id
+                                                        ? 'text-foreground border-b-2 border-foreground'
+                                                        : 'text-muted hover:text-foreground/80'}
+                                                `}
+                                            >
+                                                {module.title}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
 
-                                {/* Class List for Active Module */}
+                                {/* Class List */}
                                 <div className="space-y-4">
-                                    {modulesToDisplay
-                                        .filter((module: { id: number }) => module.id === activeModule)
-                                        .map((module: { id: number; lessons?: { id: number; title: string; type: string; duration: string; content?: string; completed?: boolean }[] }) => (
+                                    {(searchQuery.trim()
+                                        ? modulesToDisplay.map((m: any) => ({
+                                            ...m,
+                                            lessons: m.lessons?.filter((l: any) => l.type !== 'subtitle' && l.title.toLowerCase().includes(searchQuery.toLowerCase())) || []
+                                        })).filter((m: any) => m.lessons.length > 0)
+                                        : modulesToDisplay.filter((module: { id: number }) => module.id === activeModule)
+                                    ).map((module: any) => (
                                             <div key={module.id} className="space-y-6">
+                                                {searchQuery.trim() && (
+                                                    <h3 className="text-sm font-semibold text-primary mt-4 border-b border-border/50 pb-2">{module.title}</h3>
+                                                )}
                                                 {(() => {
                                                     let currentLessonNumber = 1;
                                                     return getGroupedLessons(module.lessons || []).map((group, gIndex) => (
@@ -480,7 +502,27 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                                     </p>
                                                                                 </div>
 
-                                                                                <div className="self-center opacity-0 group-hover:opacity-100 transition-opacity px-2">
+                                                                                <div className={`self-center flex items-center gap-4 transition-opacity px-2 ${isCompleted(lesson.id) && (bootcamp.enableChecklist !== false) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                                                                                    {(bootcamp.enableChecklist !== false) && (
+                                                                                        <button 
+                                                                                            onClick={(e) => {
+                                                                                                e.preventDefault();
+                                                                                                e.stopPropagation();
+                                                                                                toggleClassCompletion(lesson.id);
+                                                                                            }}
+                                                                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                                                                                isCompleted(lesson.id) ? 'bg-green-500' : 'bg-border'
+                                                                                            }`}
+                                                                                            title={isCompleted(lesson.id) ? "Marcar como no visto" : "Marcar como visto"}
+                                                                                        >
+                                                                                            <span className="sr-only">Marcar como visto</span>
+                                                                                            <span
+                                                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                                                                    isCompleted(lesson.id) ? 'translate-x-4' : 'translate-x-1'
+                                                                                                }`}
+                                                                                            />
+                                                                                        </button>
+                                                                                    )}
                                                                                     <ChevronRight size={18} className="text-muted" />
                                                                                 </div>
                                                                             </div>

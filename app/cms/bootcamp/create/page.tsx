@@ -53,7 +53,8 @@ export default function CreateBootcampPage() {
         startDate: '',
         students: 0,
         icon: 'code',
-        color: 'green'
+        color: 'green',
+        enableChecklist: true
     });
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -211,6 +212,32 @@ export default function CreateBootcampPage() {
                                                     onChange={handleInputChange}
                                                     className="w-full px-4 py-2 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
                                                 />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <label className="block text-sm font-medium mb-1.5">Habilitar Checklist</label>
+                                                <div className="flex items-center gap-3 h-[42px]">
+                                                    <input type="hidden" name="enableChecklist" value={formData.enableChecklist ? 'true' : 'false'} />
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            setFormData(prev => ({ ...prev, enableChecklist: !prev.enableChecklist }));
+                                                        }}
+                                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                                            formData.enableChecklist ? 'bg-primary' : 'bg-border'
+                                                        }`}
+                                                    >
+                                                        <span className="sr-only">Habilitar Checklist</span>
+                                                        <span
+                                                            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                                                                formData.enableChecklist ? 'translate-x-5' : 'translate-x-1'
+                                                            }`}
+                                                        />
+                                                    </button>
+                                                    <span className="text-sm text-muted">
+                                                        {formData.enableChecklist ? 'Habilitado' : 'Deshabilitado'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
