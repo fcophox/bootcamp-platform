@@ -68,6 +68,7 @@ interface ManageBootcampClientProps {
         duration?: string;
         level?: string;
         startDate?: string;
+        enableChecklist?: boolean;
     };
 
     modules: Module[];
