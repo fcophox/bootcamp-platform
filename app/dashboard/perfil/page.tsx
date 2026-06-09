@@ -7,6 +7,8 @@ import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
 import { createClient } from '@/utils/supabase/client';
 import { updateProfile } from '@/app/actions/profile';
+import { autoActivateStudents } from '@/app/actions/student';
+import { formatDateString } from '@/utils/date';
 
 const AVAILABLE_AVATARS = [0, 1, 2, 3, 4, 5, 6, 16, 17, 18, 19, 20, 21, 43, 44, 45, 46, 47];
 
@@ -85,6 +87,11 @@ export default function ProfilePage() {
                 setUser(userData);
                 setFormData(userData);
 
+                // Auto-activate enrolled students whose start date has arrived
+                if (authUser.email) {
+                    await autoActivateStudents(authUser.email);
+                }
+
                 // Fetch enrolled bootcamps
                 const { data: enrolledBootcamps } = await supabase
                     .from('Bootcamp')
@@ -105,7 +112,7 @@ export default function ProfilePage() {
                         if (modules) {
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             modules.forEach((mod: any) => {
-                                totalLessons += (mod.Lesson?.length || 0);
+                                  totalLessons += (mod.Lesson?.length || 0);
                             });
                         }
 
@@ -127,6 +134,7 @@ export default function ProfilePage() {
 
                         return {
                             ...bootcamp,
+                            startDate: formatDateString(bootcamp.startDate),
                             calculatedProgress: progress
                         };
                     }));
@@ -135,6 +143,7 @@ export default function ProfilePage() {
                 }
             }
         }
+
         fetchUser();
     }, [supabase.auth]);
 

@@ -8,6 +8,7 @@ import { RichTextEditor } from '@/components/rich-text-editor';
 import { ChevronRight, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary } from 'lucide-react';
 import { createBootcamp } from '@/app/actions/bootcamp';
 import Link from 'next/link';
+import { formatDateString } from '@/utils/date';
 
 // Map of icon names to components
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -203,13 +204,12 @@ export default function CreateBootcampPage() {
                                             <div>
                                                 <label htmlFor="startDate" className="block text-sm font-medium mb-1.5">Fecha de Inicio</label>
                                                 <input
-                                                    type="text"
+                                                    type="date"
                                                     id="startDate"
                                                     name="startDate"
                                                     value={formData.startDate}
                                                     onChange={handleInputChange}
                                                     className="w-full px-4 py-2 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                                                    placeholder="Ej: 15 Feb 2026"
                                                 />
                                             </div>
                                         </div>
@@ -242,7 +242,7 @@ export default function CreateBootcampPage() {
                                         duration={formData.duration || '--'}
                                         level={formData.level}
                                         students={formData.students}
-                                        startDate={formData.startDate || '--'}
+                                        startDate={formatDateString(formData.startDate) || '--'}
                                         className="bg-card-bg shadow-xl"
                                         icon={formData.icon}
                                         color={formData.color}

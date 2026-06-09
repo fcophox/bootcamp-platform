@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
+import { hasBootcampStarted } from '@/utils/date';
 
 export async function getStudents(bootcampId: number) {
     const supabase = await createClient();
@@ -239,4 +240,53 @@ export async function getStudentExamAttempts(userId: string) {
         return [];
     }
     return data;
+}
+
+export async function autoActivateStudents(email: string) {
+    if (!email) return;
+    const supabase = await createClient();
+    
+    // Fetch all invited student records for this user
+    const { data: enrollments, error } = await supabase
+        .from('BootcampStudent')
+        .select(`
+            id,
+            bootcampId,
+            status,
+            Bootcamp (
+                startDate
+            )
+        `)
+        .eq('email', email)
+        .eq('status', 'invited');
+
+    if (error || !enrollments || enrollments.length === 0) {
+        return;
+    }
+
+    const idsToActivate: number[] = [];
+
+    for (const enrollment of enrollments) {
+        // cast because of Supabase joined relation types
+        const bootcamp = enrollment.Bootcamp as any;
+        if (bootcamp && bootcamp.startDate) {
+            if (hasBootcampStarted(bootcamp.startDate)) {
+                idsToActivate.push(enrollment.id);
+            }
+        }
+    }
+
+    if (idsToActivate.length > 0) {
+        const { error: updateError } = await supabase
+            .from('BootcampStudent')
+            .update({ status: 'active', joinedAt: new Date().toISOString() })
+            .in('id', idsToActivate);
+
+        if (updateError) {
+            console.error('Error auto-activating students:', updateError);
+        } else {
+            console.log(`Successfully auto-activated ${idsToActivate.length} student registrations for email ${email}`);
+            revalidatePath('/dashboard');
+        }
+    }
 }

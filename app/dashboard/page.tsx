@@ -1,6 +1,8 @@
 import { createClient } from '@/utils/supabase/server';
 import { DashboardClient } from './dashboard-client';
 import { redirect } from 'next/navigation';
+import { autoActivateStudents } from '@/app/actions/student';
+import { formatDateString } from '@/utils/date';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +30,11 @@ export default async function DashboardPage() {
     const userEmail = user.email;
     const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Estudiante';
 
+    // Auto-activate any invited bootcamps whose start date has been reached
+    if (userEmail) {
+        await autoActivateStudents(userEmail);
+    }
+
     // 3. Fetch bootcamps where student is enrolled by email
     const { data: bootcamps, error } = await supabase
         .from('Bootcamp')
@@ -46,6 +53,7 @@ export default async function DashboardPage() {
 
     const cleanedBootcamps = bootcamps?.map(b => ({
         ...b,
+        startDate: formatDateString(b.startDate),
         students: b.BootcampStudent?.length || 0 
     })) || [];
 

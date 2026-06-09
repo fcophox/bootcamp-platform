@@ -22,6 +22,7 @@ import {
 import { useState } from 'react';
 
 import { useBootcampProgress } from '@/app/hooks/use-bootcamp-progress';
+import { formatDateString } from '@/utils/date';
 
 // Shared Icon Map (could be in a separate util file)
 const ICON_MAP: Record<string, any> = {
@@ -276,7 +277,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                         <span className="text-muted text-sm border-l border-border pl-2 ml-1">1006 opiniones</span>
                                         {/* <ChevronRight size={14} className="text-muted" /> */}
                                     </div>
-                                    <p className="text-xs text-muted mb-6">Inicia: {bootcamp.startDate}</p>
+                                    <p className="text-xs text-muted mb-6">Inicia: {formatDateString(bootcamp.startDate)}</p>
 
                                     {/* Metadata Tags */}
                                     <div className="flex flex-wrap gap-3 mb-8">

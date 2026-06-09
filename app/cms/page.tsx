@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { CmsClient } from './cms-client';
 import { redirect } from 'next/navigation';
+import { formatDateString } from '@/utils/date';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,5 +36,10 @@ export default async function CmsPage() {
         return <CmsClient bootcamps={[]} />;
     }
 
-    return <CmsClient bootcamps={bootcamps || []} />;
+    const cleanedBootcamps = (bootcamps || []).map((b) => ({
+        ...b,
+        startDate: formatDateString(b.startDate)
+    }));
+
+    return <CmsClient bootcamps={cleanedBootcamps} />;
 }

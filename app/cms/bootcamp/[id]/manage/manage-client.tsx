@@ -20,6 +20,7 @@ import { updateBootcamp } from '@/app/actions/bootcamp';
 import { createClient } from '@/utils/supabase/client';
 import { removeStudent, updateStudentStatus } from '@/app/actions/student';
 import { useOnlineUsers } from '@/contexts/OnlineUsersContext';
+import { formatDateString } from '@/utils/date';
 
 import { createInvitation } from '@/app/actions/invitation';
 
@@ -1265,7 +1266,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     )}
                                                     {bootcamp.startDate && (
                                                         <span className="flex items-center gap-1.5 bg-background/60 px-2.5 py-1 rounded-md border border-border/50">
-                                                            <Calendar size={14} className="text-primary/70" /> {bootcamp.startDate}
+                                                            <Calendar size={14} className="text-primary/70" /> {formatDateString(bootcamp.startDate)}
                                                         </span>
                                                     )}
                                                 </div>
@@ -1995,11 +1996,10 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                             <div className="mt-6">
                                 <label className="block text-sm font-medium mb-1.5 text-foreground">Fecha de Inicio</label>
                                 <input
-                                    type="text"
+                                    type="date"
                                     value={tempStartDate}
                                     onChange={(e) => setTempStartDate(e.target.value)}
                                     className="w-full px-4 py-2 bg-background border border-border rounded-lg outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-foreground"
-                                    placeholder="Ej: 15 Feb 2026"
                                 />
                             </div>
                         </div>
