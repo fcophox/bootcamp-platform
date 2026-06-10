@@ -15,6 +15,7 @@ interface Bootcamp {
     level: string;
     students: number;
     startDate: string;
+    isFrozen?: boolean;
 }
 
 interface DashboardClientProps {

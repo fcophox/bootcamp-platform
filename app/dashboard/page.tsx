@@ -35,7 +35,7 @@ export default async function DashboardPage() {
         await autoActivateStudents(userEmail);
     }
 
-    // 3. Fetch bootcamps where student is enrolled by email
+    // 3. Fetch bootcamps where student is enrolled by email (active or frozen)
     const { data: bootcamps, error } = await supabase
         .from('Bootcamp')
         .select(`
@@ -43,7 +43,7 @@ export default async function DashboardPage() {
             BootcampStudent!inner(*)
         `)
         .eq('BootcampStudent.email', userEmail)
-        .eq('BootcampStudent.status', 'active')
+        .in('BootcampStudent.status', ['active', 'frozen'])
         .order('createdAt', { ascending: false });
 
     if (error) {
@@ -51,11 +51,17 @@ export default async function DashboardPage() {
         return <DashboardClient bootcamps={[]} userName={userName} />;
     }
 
-    const cleanedBootcamps = bootcamps?.map(b => ({
-        ...b,
-        startDate: formatDateString(b.startDate),
-        students: b.BootcampStudent?.length || 0 
-    })) || [];
+    const cleanedBootcamps = bootcamps?.map(b => {
+        const studentRecord = Array.isArray(b.BootcampStudent) ? b.BootcampStudent[0] : b.BootcampStudent;
+        const isFrozen = studentRecord?.status === 'frozen';
+        
+        return {
+            ...b,
+            startDate: formatDateString(b.startDate),
+            isFrozen,
+            students: Array.isArray(b.BootcampStudent) ? b.BootcampStudent.length : 0 
+        };
+    }) || [];
 
     return <DashboardClient bootcamps={cleanedBootcamps} userName={userName} />;
 }

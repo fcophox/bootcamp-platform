@@ -45,6 +45,7 @@ export interface BootcampCardProps {
     onDelete?: (id: number) => void;
     icon?: string;
     color?: string;
+    isFrozen?: boolean;
 }
 
 export function BootcampCard({
@@ -60,7 +61,8 @@ export function BootcampCard({
     buttonText,
     onDelete,
     icon,
-    color
+    color,
+    isFrozen
 }: BootcampCardProps) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -136,9 +138,16 @@ export function BootcampCard({
                 </div>
                 <div className="flex items-center justify-between text-sm">
                     <span className="text-muted">Nivel:</span>
-                    <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary border border-primary/20">
-                        {level}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        {isFrozen && (
+                            <span className="inline-flex items-center rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-400 border border-cyan-500/20">
+                                Congelado
+                            </span>
+                        )}
+                        <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary border border-primary/20">
+                            {level}
+                        </span>
+                    </div>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                     <span className="text-muted">Estudiantes:</span>
@@ -151,12 +160,21 @@ export function BootcampCard({
             </div>
 
             <div className="flex gap-3">
-                <Link
-                    href={linkHref}
-                    className="flex-1 block text-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary/20"
-                >
-                    {linkText}
-                </Link>
+                {isFrozen ? (
+                    <button
+                        disabled
+                        className="flex-1 block text-center rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm font-semibold text-muted/60 cursor-not-allowed"
+                    >
+                        Acceso Congelado
+                    </button>
+                ) : (
+                    <Link
+                        href={linkHref}
+                        className="flex-1 block text-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary/20"
+                    >
+                        {linkText}
+                    </Link>
+                )}
             </div>
         </div>
     );

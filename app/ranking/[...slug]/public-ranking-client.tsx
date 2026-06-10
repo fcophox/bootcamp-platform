@@ -1,8 +1,38 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useOnlineUsers } from '@/contexts/OnlineUsersContext';
-import { Trophy, Activity, Share2, Check } from 'lucide-react';
+import { Trophy, Activity, Share2, Check, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Clock, BarChart2, Calendar, Users } from 'lucide-react';
+import { formatDateString } from '@/utils/date';
+
+const ICON_MAP: Record<string, any> = {
+    code: Code,
+    database: Database,
+    layout: Layout,
+    globe: Globe,
+    server: Server,
+    cloud: Cloud,
+    cpu: Cpu,
+    smartphone: Smartphone,
+    bot: Bot,
+    brain: BrainCircuit,
+    sparkles: Sparkles,
+    network: Network,
+    terminal: Terminal,
+    microscope: Microscope,
+    rocket: Rocket,
+    binary: Binary
+};
+
+const COLOR_MAP: Record<string, string> = {
+    green: 'bg-green-500',
+    blue: 'bg-blue-500',
+    violet: 'bg-violet-500',
+    orange: 'bg-orange-500',
+    red: 'bg-red-500',
+    pink: 'bg-pink-500',
+};
 
 interface Student {
     id: number;
@@ -25,6 +55,10 @@ interface PublicRankingClientProps {
         id: number;
         title: string;
         startDate?: string;
+        duration?: string;
+        level?: string;
+        icon?: string;
+        color?: string;
     };
     modules: Module[];
     students: Student[];
@@ -39,15 +73,20 @@ export function PublicRankingClient({
 }: PublicRankingClientProps) {
     const { onlineUsers } = useOnlineUsers();
     const [copied, setCopied] = useState(false);
-    const [showOnlyOnline, setShowOnlyOnline] = useState(false);
     const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
+
+    const IconComponent = bootcamp.icon ? ICON_MAP[bootcamp.icon] || Code : null;
+    const bgClass = bootcamp.color ? COLOR_MAP[bootcamp.color] || 'bg-green-500' : 'bg-green-500';
 
     // Process completions to build ranking data
     const rankingData = (() => {
         const totalLessons = modules.flatMap(m => m.lessons || []);
         const totalLessonsCount = totalLessons.length;
+        
+        // Only show active students in ranking
+        const activeStudents = students.filter(s => s.status === 'active');
 
-        const data = students.map(student => {
+        const data = activeStudents.map(student => {
             const studentCompletions = initialCompletions.filter(c => c.studentId === student.id);
             // Unique completions to avoid double points for same lesson
             const uniqueCompletedLessons = Array.from(new Set(studentCompletions.map(c => c.lessonId)));
@@ -63,8 +102,9 @@ export function PublicRankingClient({
         return data.sort((a, b) => b.points - a.points || a.student.email.localeCompare(b.student.email));
     })();
 
-    // Process completions list for activity chart
-    const completionsList = initialCompletions;
+    // Process completions list for activity chart - only for active students
+    const activeStudentIds = new Set(students.filter(s => s.status === 'active').map(s => s.id));
+    const completionsList = initialCompletions.filter(c => activeStudentIds.has(c.studentId));
 
     // Process chart data (day mode by default, since week toggle was removed)
     const chartData = (() => {
@@ -137,20 +177,64 @@ export function PublicRankingClient({
     };
 
     return (
-        <div className="min-h-screen bg-background text-foreground py-10 px-4 md:px-8">
-            <div className="max-w-4xl mx-auto flex flex-col gap-8">
+        <div className="min-h-screen flex flex-col bg-background text-foreground pt-10 pb-6 px-4 md:px-8">
+            <div className="max-w-4xl mx-auto flex-1 w-full flex flex-col gap-8">
                 
+                {/* Logo Superior */}
+                <div className="flex justify-center sm:justify-start">
+                    <div className="relative h-10 w-48">
+                        <Image 
+                            src="/brand/logotipo-synaptia-vertical-dark.png" 
+                            alt="Synaptia Logotipo" 
+                            fill 
+                            className="object-contain object-center sm:object-left"
+                            priority
+                        />
+                    </div>
+                </div>
+
                 {/* Public Header */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/60 pb-6">
                     <div>
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-3">
                             <span className="text-[10px] font-bold uppercase tracking-wider text-primary px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20">
                                 Ranking Público
                             </span>
                         </div>
-                        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-                            {bootcamp.title}
+                        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3">
+                            {IconComponent && (
+                                <div className={`w-10 h-10 rounded-full ${bgClass} flex items-center justify-center flex-shrink-0 text-white shadow-lg shadow-black/10`}>
+                                    <IconComponent size={20} />
+                                </div>
+                            )}
+                            <span>{bootcamp.title}</span>
                         </h1>
+
+                        {/* Bootcamp Info Metadata Badges */}
+                        <div className="flex flex-wrap items-center gap-3 mt-4">
+                            {bootcamp.duration && (
+                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border/40 bg-card-bg/20 text-xs text-muted-foreground font-medium backdrop-blur-sm">
+                                    <Clock size={14} className="text-primary/70" />
+                                    <span>{bootcamp.duration}</span>
+                                </div>
+                            )}
+                            {bootcamp.level && (
+                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border/40 bg-card-bg/20 text-xs text-muted-foreground font-medium backdrop-blur-sm">
+                                    <BarChart2 size={14} className="text-primary/70" />
+                                    <span>{bootcamp.level}</span>
+                                </div>
+                            )}
+                            {bootcamp.startDate && (
+                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border/40 bg-card-bg/20 text-xs text-muted-foreground font-medium backdrop-blur-sm">
+                                    <Calendar size={14} className="text-primary/70" />
+                                    <span>{formatDateString(bootcamp.startDate)}</span>
+                                </div>
+                            )}
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border/40 bg-card-bg/20 text-xs text-muted-foreground font-medium backdrop-blur-sm">
+                                <Users size={14} className="text-primary/70" />
+                                <span>{rankingData.length} {rankingData.length === 1 ? 'alumno' : 'alumnos'}</span>
+                            </div>
+                        </div>
                     </div>
                     <button
                         onClick={handleShare}
@@ -164,7 +248,7 @@ export function PublicRankingClient({
                         ) : (
                             <>
                                 <Share2 size={14} />
-                                <span>Compartir Ranking</span>
+                                <span>Copiar enlace</span>
                             </>
                         )}
                     </button>
@@ -178,7 +262,7 @@ export function PublicRankingClient({
                         <div className="flex flex-col gap-1">
                             <h2 className="text-lg font-bold flex items-center gap-2">
                                 <Activity size={18} className="text-primary" />
-                                <span>Frecuencia de Lecturas</span>
+                                <span>Frecuencia de lecturas</span>
                             </h2>
                             <p className="text-xs text-muted-foreground">
                                 Distribución de lecciones vistas en el bootcamp por día de la semana
@@ -346,182 +430,165 @@ export function PublicRankingClient({
                 <div className="bg-card-bg/30 border border-border/40 p-6 rounded-2xl shadow-xl backdrop-blur-md relative overflow-hidden">
                     <div className="absolute -left-8 -bottom-8 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
 
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-border/30 pb-4">
+                    <div className="flex justify-between items-center mb-6 border-b border-border/30 pb-4">
                         <div className="flex flex-col gap-1">
                             <h2 className="text-lg font-bold flex items-center gap-2">
                                 <Trophy size={18} className="text-primary" />
-                                <span>Tabla de Posiciones</span>
+                                <span>Tabla de posiciones</span>
                             </h2>
                             <p className="text-xs text-muted-foreground">
                                 Progreso y rendimiento de los alumnos inscritos
                             </p>
                         </div>
-                        <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-start">
-                            <span className="text-xs text-muted-foreground bg-secondary/30 px-3 py-1.5 rounded-full border border-border/40 font-medium">
-                                {showOnlyOnline ? 'Conectados' : 'Total alumnos'}: {
-                                    showOnlyOnline 
-                                        ? rankingData.filter(item => Object.values(onlineUsers).some((u: any) => u.email && item.student.email && u.email.trim().toLowerCase() === item.student.email.trim().toLowerCase())).length
-                                        : rankingData.length
-                                }
-                            </span>
-                            <button
-                                onClick={() => setShowOnlyOnline(!showOnlyOnline)}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-300 flex items-center gap-2 ${
-                                    showOnlyOnline 
-                                        ? 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20 shadow-md shadow-green-500/5' 
-                                        : 'bg-secondary/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-                                }`}
-                            >
-                                <span className={`w-2 h-2 rounded-full ${showOnlyOnline ? 'bg-green-500 animate-pulse' : 'bg-neutral-500'}`} />
-                                <span>{showOnlyOnline ? 'Ver Todo' : 'Ver Online'}</span>
-                            </button>
-                        </div>
+                        <span className="text-xs text-muted-foreground bg-secondary/30 px-3 py-1.5 rounded-full border border-border/40 font-medium">
+                            Total alumnos: {rankingData.length}
+                        </span>
                     </div>
 
                     <div className="grid grid-cols-1 gap-3">
-                        {(() => {
-                            const displayedData = showOnlyOnline
-                                ? rankingData.filter(item => {
-                                    const { student } = item;
-                                    return Object.values(onlineUsers).some(
-                                        (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
-                                    );
-                                })
-                                : rankingData;
+                        {rankingData.map((item, index) => {
+                            const { student, points } = item;
+                            const totalLessons = modules.flatMap(m => m.lessons || []).length;
+                            const progressPercentage = totalLessons > 0 ? Math.round((points / totalLessons) * 100) : 0;
+                            const isOnline = Object.values(onlineUsers).some(
+                                (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
+                            );
+                            const name = student.email ? student.email.split('@')[0] : 'Alumno';
+                            const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
 
-                            if (displayedData.length === 0) {
-                                return (
-                                    <div className="flex flex-col items-center justify-center p-8 bg-card-bg/25 border border-border/50 rounded-xl">
-                                        <p className="text-sm text-muted-foreground">No hay alumnos conectados en este momento</p>
-                                    </div>
-                                );
-                            }
+                            const isTop3 = index < 3;
+                            const podiumStyles = [
+                                { bg: 'bg-yellow-500/10 border-yellow-500/30 hover:border-yellow-500/50 shadow-yellow-500/5', label: '🥇 1er Lugar' },
+                                { bg: 'bg-slate-400/10 border-slate-400/30 hover:border-slate-400/50 shadow-slate-400/5', label: '🥈 2do Lugar' },
+                                { bg: 'bg-amber-700/10 border-amber-700/30 hover:border-amber-700/50 shadow-amber-700/5', label: '🥉 3er Lugar' }
+                            ];
 
-                            return displayedData.map((item, index) => {
-                                const { student, points } = item;
-                                const totalLessons = modules.flatMap(m => m.lessons || []).length;
-                                const progressPercentage = totalLessons > 0 ? Math.round((points / totalLessons) * 100) : 0;
-                                const isOnline = Object.values(onlineUsers).some(
-                                    (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
-                                );
-                                const name = student.email ? student.email.split('@')[0] : 'Alumno';
-                                const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
+                            const currentPodium = isTop3 ? podiumStyles[index] : null;
 
-                                const originalIndex = rankingData.findIndex(r => r.student.id === student.id);
-                                const isTop3 = originalIndex < 3;
-                                const podiumStyles = [
-                                    { bg: 'bg-yellow-500/10 border-yellow-500/30 hover:border-yellow-500/50 shadow-yellow-500/5', label: '🥇 1er Lugar' },
-                                    { bg: 'bg-slate-400/10 border-slate-400/30 hover:border-slate-400/50 shadow-slate-400/5', label: '🥈 2do Lugar' },
-                                    { bg: 'bg-amber-700/10 border-amber-700/30 hover:border-amber-700/50 shadow-amber-700/5', label: '🥉 3er Lugar' }
-                                ];
+                            return (
+                                <div 
+                                    key={student.id} 
+                                    className={`flex flex-row items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
+                                        currentPodium 
+                                            ? `${currentPodium.bg} shadow-md` 
+                                            : 'bg-card-bg/40 border-border hover:border-foreground/20'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                                        {/* Posición / Rank index */}
+                                        <div className="flex items-center justify-center w-8 shrink-0">
+                                            {isTop3 ? (
+                                                <span className="text-xl font-bold select-none">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
+                                            ) : (
+                                                <span className="text-sm font-semibold text-muted select-none">#{index + 1}</span>
+                                            )}
+                                        </div>
 
-                                const currentPodium = isTop3 ? podiumStyles[originalIndex] : null;
+                                        {/* Avatar */}
+                                        <div className="relative shrink-0 hidden sm:block">
+                                            <div className={`h-11 w-11 rounded-full flex items-center justify-center font-bold text-sm shadow-inner transition-colors ${
+                                                index === 0 
+                                                    ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' 
+                                                    : index === 1 
+                                                        ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30' 
+                                                        : index === 2 
+                                                            ? 'bg-amber-700/20 text-amber-500 border border-amber-700/30' 
+                                                            : 'bg-primary/10 text-primary border border-primary/20'
+                                            }`}>
+                                                {initials}
+                                            </div>
+                                            <span 
+                                                className={`absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 transition-colors duration-300 ${
+                                                    currentPodium ? 'border-card-bg' : 'border-card'
+                                                } ${
+                                                    isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
+                                                }`}
+                                                title={isOnline ? 'Activo ahora' : 'Desconectado'}
+                                            />
+                                        </div>
 
-                                return (
-                                    <div 
-                                        key={student.id} 
-                                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
-                                            currentPodium 
-                                                ? `${currentPodium.bg} shadow-md` 
-                                                : 'bg-card-bg/40 border-border hover:border-foreground/20'
-                                        }`}
-                                    >
-                                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                                            {/* Posición / Rank index */}
-                                            <div className="flex items-center justify-center w-8 shrink-0">
-                                                {isTop3 ? (
-                                                    <span className="text-xl font-bold select-none">{originalIndex === 0 ? '🥇' : originalIndex === 1 ? '🥈' : '🥉'}</span>
-                                                ) : (
-                                                    <span className="text-sm font-semibold text-muted select-none">#{originalIndex + 1}</span>
+                                        {/* Nombre y correo */}
+                                        <div className="flex flex-col min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold text-sm text-foreground truncate capitalize">
+                                                    {name}
+                                                </span>
+                                                {currentPodium && (
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-background/60 border border-border/40 uppercase tracking-wider scale-90">
+                                                        {currentPodium.label}
+                                                    </span>
                                                 )}
                                             </div>
-
-                                            {/* Avatar */}
-                                            <div className="relative shrink-0">
-                                                <div className={`h-11 w-11 rounded-xl flex items-center justify-center font-bold text-sm shadow-inner transition-colors ${
-                                                    originalIndex === 0 
-                                                        ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' 
-                                                        : originalIndex === 1 
-                                                            ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30' 
-                                                            : originalIndex === 2 
-                                                                ? 'bg-amber-700/20 text-amber-500 border border-amber-700/30' 
-                                                                : 'bg-primary/10 text-primary border border-primary/20'
-                                                }`}>
-                                                    {initials}
-                                                </div>
-                                                <span 
-                                                    className={`absolute -bottom-1 -right-1 block h-3 w-3 rounded-full border-2 transition-colors duration-300 ${
-                                                        currentPodium ? 'border-card-bg' : 'border-card'
-                                                    } ${
-                                                        isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
-                                                    }`}
-                                                    title={isOnline ? 'Activo ahora' : 'Desconectado'}
-                                                />
-                                            </div>
-
-                                            {/* Nombre y correo */}
-                                            <div className="flex flex-col min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-semibold text-sm text-foreground truncate capitalize">
-                                                        {name}
-                                                    </span>
-                                                    {currentPodium && (
-                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-background/60 border border-border/40 uppercase tracking-wider scale-90">
-                                                            {currentPodium.label}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <span className="text-xs text-muted-foreground truncate">
-                                                    {student.email}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Puntos y Progreso */}
-                                        <div className="flex items-center gap-6 mt-4 sm:mt-0 shrink-0 pl-12 sm:pl-0">
-                                            {/* Progreso bar & fraction */}
-                                            <div className="flex flex-col items-end text-right">
-                                                <span className="text-xs text-muted-foreground font-medium mb-1">
-                                                    {points} de {totalLessons} lecciones
-                                                </span>
-                                                <div className="w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
-                                                    <div 
-                                                        className={`h-full rounded-full transition-all duration-1000 ${
-                                                            originalIndex === 0 
-                                                                ? 'bg-yellow-500' 
-                                                                : originalIndex === 1 
-                                                                    ? 'bg-slate-300' 
-                                                                    : originalIndex === 2 
-                                                                        ? 'bg-amber-600' 
-                                                                        : 'bg-primary'
-                                                        }`}
-                                                        style={{ width: `${progressPercentage}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Puntos de Clasificación Badge */}
-                                            <div className={`h-12 w-20 rounded-xl flex flex-col items-center justify-center border font-bold select-none ${
-                                                originalIndex === 0 
-                                                    ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-500' 
-                                                    : originalIndex === 1 
-                                                        ? 'bg-slate-400/20 border-slate-400/40 text-slate-300' 
-                                                        : originalIndex === 2 
-                                                            ? 'bg-amber-700/20 border-amber-700/40 text-amber-500' 
-                                                            : 'bg-secondary/40 border-border text-foreground'
-                                            }`}>
-                                                <span className="text-lg leading-none">{points}</span>
-                                                <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">pts</span>
-                                            </div>
+                                            <span className="text-xs text-muted-foreground truncate">
+                                                {student.email}
+                                            </span>
                                         </div>
                                     </div>
-                                );
-                            });
-                        })()}
+
+                                    {/* Puntos y Progreso */}
+                                    <div className="flex items-center gap-6 shrink-0">
+                                        {/* Progreso bar & fraction */}
+                                        <div className="hidden sm:flex flex-col items-end text-right">
+                                            <span className="text-xs text-muted-foreground font-medium mb-1">
+                                                {points} de {totalLessons} lecciones
+                                            </span>
+                                            <div className="w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
+                                                <div 
+                                                    className={`h-full rounded-full transition-all duration-1000 ${
+                                                        index === 0 
+                                                            ? 'bg-yellow-500' 
+                                                            : index === 1 
+                                                                ? 'bg-slate-300' 
+                                                                : index === 2 
+                                                                    ? 'bg-amber-600' 
+                                                                    : 'bg-primary'
+                                                    }`}
+                                                    style={{ width: `${progressPercentage}%` }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Puntos de Clasificación Badge */}
+                                        <div className={`h-12 w-20 rounded-xl flex flex-col items-center justify-center border font-bold select-none ${
+                                            index === 0 
+                                                ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-500' 
+                                                : index === 1 
+                                                    ? 'bg-slate-400/20 border-slate-400/40 text-slate-300' 
+                                                    : index === 2 
+                                                        ? 'bg-amber-700/20 border-amber-700/40 text-amber-500' 
+                                                        : 'bg-secondary/40 border-border text-foreground'
+                                        }`}>
+                                            <span className="text-lg leading-none">{points}</span>
+                                            <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">pts</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
 
             </div>
+
+            {/* Footer */}
+            <footer className="mt-20 border-t border-border/40 py-8 relative z-10 w-full bg-background/30 backdrop-blur-md">
+                <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 px-4">
+                    <div className="flex items-center gap-3">
+                        {/* Logotipo */}
+                        <div className="relative h-6 w-36 shrink-0">
+                            <Image 
+                                src="/brand/logotipo-synaptia-vertical-dark.png" 
+                                alt="Synaptia Logotipo" 
+                                fill 
+                                className="object-contain object-left"
+                            />
+                        </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground font-medium">
+                        © {new Date().getFullYear()} Synaptia. Todos los derechos reservados.
+                    </div>
+                </div>
+            </footer>
         </div>
     );
 }

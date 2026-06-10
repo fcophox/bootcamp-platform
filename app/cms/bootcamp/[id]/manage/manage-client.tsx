@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
@@ -13,7 +14,7 @@ import {
     Trash2, Edit2, ChevronDown, ChevronUp, GripVertical, MonitorPlay,
     Headphones, FileUp, Users, Trophy, Check, X, Clock, Loader2,
     Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase,
-    MoreHorizontal, BarChart3, Radio, BookOpen, Calendar
+    MoreHorizontal, BarChart3, Radio, BookOpen, Calendar, Snowflake
 } from 'lucide-react';
 
 import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson, reorderLessons, reorderModules } from '@/app/actions/module';
@@ -53,7 +54,7 @@ interface Module {
 interface Student {
     id: number;
     email: string;
-    status: 'invited' | 'active' | 'completed';
+    status: 'invited' | 'active' | 'completed' | 'frozen';
     invitedAt: string;
     joinedAt?: string;
 }
@@ -69,6 +70,7 @@ interface ManageBootcampClientProps {
         level?: string;
         startDate?: string;
         enableChecklist?: boolean;
+        enableRanking?: boolean;
     };
 
     modules: Module[];
@@ -104,6 +106,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     // UI State
     const [activeTab, setActiveTab] = useState<'content' | 'students' | 'room' | 'ranking'>('content');
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+    const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const [openModuleMenuId, setOpenModuleMenuId] = useState<number | null>(null);
     const moduleMenuRef = useRef<HTMLDivElement>(null);
@@ -120,24 +123,25 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [completionsList, setCompletionsList] = useState<{ studentId: number; lessonId: number; completedAt: string }[]>([]);
     const [chartMode, setChartMode] = useState<'day' | 'week'>('day');
     const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
-    const [showOnlyOnline, setShowOnlyOnline] = useState(false);
 
     useEffect(() => {
         async function fetchRanking() {
-            if (initialStudents.length === 0) {
+            const activeStudents = initialStudents.filter(s => s.status === 'active');
+            if (activeStudents.length === 0) {
                 setRankingData([]);
+                setCompletionsList([]);
                 setIsRankingLoading(false);
                 return;
             }
             try {
                 const supabase = createClient();
-                const studentIds = initialStudents.map(s => s.id);
+                const studentIds = activeStudents.map(s => s.id);
                 
                 // Get all lesson IDs in this bootcamp
                 const lessonIds = modules.flatMap(m => m.lessons || []).map(l => l.id);
                 
                 if (lessonIds.length === 0) {
-                    setRankingData(initialStudents.map(student => ({
+                    setRankingData(activeStudents.map(student => ({
                         student,
                         points: 0,
                         completedLessonIds: []
@@ -173,7 +177,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 });
 
                 // Map students to ranking data
-                const mappedRanking = initialStudents.map(student => {
+                const mappedRanking = activeStudents.map(student => {
                     const studentCompletions = completionsMap[student.id] || [];
                     return {
                         student,
@@ -210,6 +214,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [tempLevel, setTempLevel] = useState(bootcamp.level || '');
     const [tempStartDate, setTempStartDate] = useState(bootcamp.startDate || '');
     const [tempEnableChecklist, setTempEnableChecklist] = useState<boolean>(bootcamp.enableChecklist ?? true);
+    const [tempEnableRanking, setTempEnableRanking] = useState<boolean>(bootcamp.enableRanking ?? true);
     const [isEditingIcon, setIsEditingIcon] = useState(false);
 
     const [tempIcon, setTempIcon] = useState(bootcamp.icon || 'code');
@@ -262,6 +267,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setOpenMenuId(null);
+                setMenuPosition(null);
             }
             if (moduleMenuRef.current && !moduleMenuRef.current.contains(event.target as Node)) {
                 setOpenModuleMenuId(null);
@@ -270,6 +276,22 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // Close student action menu on scroll or resize to prevent popover drift
+    useEffect(() => {
+        const handleScrollOrResize = () => {
+            if (openMenuId !== null) {
+                setOpenMenuId(null);
+                setMenuPosition(null);
+            }
+        };
+        window.addEventListener('scroll', handleScrollOrResize, { passive: true });
+        window.addEventListener('resize', handleScrollOrResize);
+        return () => {
+            window.removeEventListener('scroll', handleScrollOrResize);
+            window.removeEventListener('resize', handleScrollOrResize);
+        };
+    }, [openMenuId]);
 
     // Close type selector dropdown on outside click
     useEffect(() => {
@@ -485,14 +507,26 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         }
     };
 
-    const handleToggleStatus = async (studentId: number, currentStatus: string) => {
+    const handleToggleStatus = async (studentId: number, newStatus: 'invited' | 'active' | 'completed' | 'frozen') => {
         setIsActionLoading(true);
         try {
-            const newStatus = currentStatus === 'active' ? 'invited' : 'active';
             await updateStudentStatus(studentId, bootcamp.id, newStatus);
         } catch (error: unknown) {
             const e = error as Error;
             alert(e.message);
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const handleToggleRanking = async () => {
+        setIsActionLoading(true);
+        try {
+            const nextStatus = !(bootcamp.enableRanking ?? true);
+            await updateBootcamp(bootcamp.id, { enableRanking: nextStatus });
+            router.refresh();
+        } catch (error) {
+            console.error(error);
         } finally {
             setIsActionLoading(false);
         }
@@ -533,6 +567,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         switch (status) {
             case 'active': return <span className="bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full text-xs border border-green-500/20">Activo</span>;
             case 'completed': return <span className="bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-full text-xs border border-blue-500/20">Completado</span>;
+            case 'frozen': return <span className="bg-cyan-500/10 text-cyan-500 px-2 py-0.5 rounded-full text-xs border border-cyan-500/20">Congelado</span>;
             case 'invited':
                 return <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">Pendiente</span>;
             default: return <span className="bg-orange-500/10 text-orange-500 px-2 py-0.5 rounded-full text-xs border border-orange-500/20">Invitado</span>;
@@ -565,7 +600,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             tempDuration === (bootcamp.duration || '') &&
             tempLevel === (bootcamp.level || '') &&
             tempStartDate === (bootcamp.startDate || '') &&
-            tempEnableChecklist === (bootcamp.enableChecklist ?? true)
+            tempEnableChecklist === (bootcamp.enableChecklist ?? true) &&
+            tempEnableRanking === (bootcamp.enableRanking ?? true)
         ) {
             setIsEditingBootcampModalOpen(false);
             return;
@@ -579,7 +615,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 duration: tempDuration,
                 level: tempLevel,
                 startDate: tempStartDate,
-                enableChecklist: tempEnableChecklist
+                enableChecklist: tempEnableChecklist,
+                enableRanking: tempEnableRanking
             });
             setIsEditingBootcampModalOpen(false);
             router.refresh();
@@ -1446,6 +1483,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 setTempLevel(bootcamp.level || '');
                                                 setTempStartDate(bootcamp.startDate || '');
                                                 setTempEnableChecklist(bootcamp.enableChecklist ?? true);
+                                                setTempEnableRanking(bootcamp.enableRanking ?? true);
                                                 setIsEditingBootcampModalOpen(true);
                                             }}
                                         >
@@ -1984,7 +2022,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                             </div>
                                                                         </td>
                                                                         <td className="px-4 py-3">{getStatusBadge(student.status)}</td>
-                                                                    <td className="px-4 py-3 text-muted">
+                                                                        <td className="px-4 py-3 text-muted">
                                                                         {new Date(student.invitedAt).toLocaleDateString()}
                                                                     </td>
                                                                     <td className="px-4 py-3 text-right relative">
@@ -1992,21 +2030,39 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                             <button
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
-                                                                                    setOpenMenuId(openMenuId === student.id ? null : student.id);
+                                                                                    if (openMenuId === student.id) {
+                                                                                        setOpenMenuId(null);
+                                                                                        setMenuPosition(null);
+                                                                                    } else {
+                                                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                                                        setOpenMenuId(student.id);
+                                                                                        setMenuPosition({
+                                                                                            top: rect.bottom + window.scrollY,
+                                                                                            left: rect.right - 192 + window.scrollX
+                                                                                        });
+                                                                                    }
                                                                                 }}
                                                                                 className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-muted hover:text-foreground transition-all"
                                                                             >
                                                                                 {isActionLoading && openMenuId === student.id ? <Loader2 size={16} className="animate-spin text-primary" /> : <MoreHorizontal size={18} />}
                                                                             </button>
 
-                                                                            {openMenuId === student.id && (
+                                                                            {openMenuId === student.id && menuPosition && typeof document !== 'undefined' && createPortal(
                                                                                 <div
                                                                                     ref={menuRef}
-                                                                                    className="absolute right-4 top-10 w-48 bg-card-bg/95 backdrop-blur-md border border-white/10 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[100] py-1.5 animate-in fade-in zoom-in-95 duration-200 text-left"
+                                                                                    style={{
+                                                                                        position: 'absolute',
+                                                                                        top: `${menuPosition.top}px`,
+                                                                                        left: `${menuPosition.left}px`,
+                                                                                    }}
+                                                                                    className="w-48 bg-card-bg/95 backdrop-blur-md border border-white/10 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[99999] py-1.5 animate-in fade-in zoom-in-95 duration-200 text-left"
                                                                                 >
                                                                                     <Link
                                                                                         href={`/cms/bootcamp/${bootcamp.id}/student/${student.id}`}
-                                                                                        onClick={() => setOpenMenuId(null)}
+                                                                                        onClick={() => {
+                                                                                            setOpenMenuId(null);
+                                                                                            setMenuPosition(null);
+                                                                                        }}
                                                                                         className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-foreground hover:bg-white/5 transition-colors"
                                                                                     >
                                                                                         <BarChart3 size={14} className="text-primary" />
@@ -2016,7 +2072,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                                     <button
                                                                                         onClick={() => {
                                                                                             setOpenMenuId(null);
-                                                                                            handleToggleStatus(student.id, student.status);
+                                                                                            setMenuPosition(null);
+                                                                                            handleToggleStatus(student.id, student.status === 'active' ? 'invited' : 'active');
                                                                                         }}
                                                                                         className={`w-full flex items-center gap-2 px-4 py-2.5 text-xs transition-colors ${student.status === 'active' ? 'text-amber-500 hover:bg-amber-500/10' : 'text-green-500 hover:bg-green-500/10'}`}
                                                                                     >
@@ -2033,11 +2090,24 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                                         )}
                                                                                     </button>
 
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            setOpenMenuId(null);
+                                                                                            setMenuPosition(null);
+                                                                                            handleToggleStatus(student.id, student.status === 'frozen' ? 'active' : 'frozen');
+                                                                                        }}
+                                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-cyan-500 hover:bg-cyan-500/10 transition-colors"
+                                                                                    >
+                                                                                        <Snowflake size={14} />
+                                                                                        {student.status === 'frozen' ? 'Descongelar alumno' : 'Congelar alumno'}
+                                                                                    </button>
+
                                                                                     <div className="h-px bg-white/5 my-1" />
 
                                                                                     <button
                                                                                         onClick={() => {
                                                                                             setOpenMenuId(null);
+                                                                                            setMenuPosition(null);
                                                                                             openConfirmModal(
                                                                                                 'Eliminar Registro',
                                                                                                 '¿Estás seguro de eliminar este registro? El alumno ya no podrá ingresar.',
@@ -2049,7 +2119,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                                         <Trash2 size={14} />
                                                                                         Borrar registro
                                                                                     </button>
-                                                                                </div>
+                                                                                </div>,
+                                                                                document.body
                                                                             )}
                                                                         </div>
                                                                     </td>
@@ -2164,27 +2235,52 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 <div>
                                                     <h4 className="text-base font-bold text-foreground flex items-center gap-2">
                                                         <BarChart3 size={18} className="text-primary" />
-                                                        <span>Frecuencia de Lecturas</span>
+                                                        <span>Frecuencia de lecturas</span>
                                                     </h4>
                                                     <p className="text-xs text-muted-foreground mt-0.5">
                                                         Distribución de lecciones vistas en el bootcamp
                                                     </p>
                                                 </div>
 
-                                                {/* Ver Ranking Button */}
-                                                <button
-                                                    onClick={() => {
-                                                        const slug = bootcamp.title.toLowerCase()
-                                                            .replace(/[^a-z0-9]+/g, '-')
-                                                            .replace(/(^-|-$)/g, '');
-                                                        const url = `/ranking/${bootcamp.id}-${slug}`;
-                                                        window.open(url, '_blank');
-                                                    }}
-                                                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border/40 bg-secondary/30 text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all duration-300 flex items-center gap-1.5 self-start sm:self-center"
-                                                >
-                                                    <Trophy size={12} className="text-yellow-500" />
-                                                    <span>Ver Ranking</span>
-                                                </button>
+                                                {/* Generar URL Ranking Toggle and Button */}
+                                                <div className="flex items-center gap-4 self-start sm:self-center bg-card-bg/25 border border-white/5 rounded-xl px-3.5 py-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs text-muted-foreground">Generar URL</span>
+                                                        <button
+                                                            type="button"
+                                                            disabled={isActionLoading}
+                                                            onClick={handleToggleRanking}
+                                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                                                (bootcamp.enableRanking ?? true) ? 'bg-primary' : 'bg-white/10'
+                                                            } ${isActionLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                                        >
+                                                            <span
+                                                                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                                                                    (bootcamp.enableRanking ?? true) ? 'translate-x-4.5' : 'translate-x-1'
+                                                                }`}
+                                                            />
+                                                        </button>
+                                                    </div>
+
+                                                    {(bootcamp.enableRanking ?? true) && (
+                                                        <>
+                                                            <div className="w-[1px] h-4 bg-white/10" />
+                                                            <button
+                                                                onClick={() => {
+                                                                    const slug = bootcamp.title.toLowerCase()
+                                                                        .replace(/[^a-z0-9]+/g, '-')
+                                                                        .replace(/(^-|-$)/g, '');
+                                                                    const url = `/ranking/${bootcamp.id}-${slug}`;
+                                                                    window.open(url, '_blank');
+                                                                }}
+                                                                className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-border/40 bg-secondary/30 text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all duration-300 flex items-center gap-1"
+                                                            >
+                                                                <Trophy size={11} className="text-yellow-500" />
+                                                                <span>Ver Ranking</span>
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             {/* Line Chart Canvas */}
@@ -2340,173 +2436,137 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 border-b border-border/30 pb-4 px-2">
+                                        <div className="flex justify-between items-center mb-4 px-2">
                                             <h3 className="text-lg font-semibold flex items-center gap-2">
                                                 <Trophy size={20} className="text-primary" />
-                                                <span>Tabla de Posiciones</span>
+                                                <span>Tabla de posiciones</span>
                                             </h3>
-                                            <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-start">
-                                                <span className="text-xs text-muted-foreground bg-secondary/30 px-3 py-1.5 rounded-full border border-border/40 font-medium">
-                                                    {showOnlyOnline ? 'Conectados' : 'Total alumnos'}: {
-                                                        showOnlyOnline 
-                                                            ? rankingData.filter(item => Object.values(onlineUsers).some((u: any) => u.email && item.student.email && u.email.trim().toLowerCase() === item.student.email.trim().toLowerCase())).length
-                                                            : rankingData.length
-                                                    }
-                                                </span>
-                                                <button
-                                                    onClick={() => setShowOnlyOnline(!showOnlyOnline)}
-                                                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-300 flex items-center gap-2 ${
-                                                        showOnlyOnline 
-                                                            ? 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20 shadow-md shadow-green-500/5' 
-                                                            : 'bg-secondary/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-                                                    }`}
-                                                >
-                                                    <span className={`w-2 h-2 rounded-full ${showOnlyOnline ? 'bg-green-500 animate-pulse' : 'bg-neutral-500'}`} />
-                                                    <span>{showOnlyOnline ? 'Ver Todo' : 'Ver Online'}</span>
-                                                </button>
-                                            </div>
+                                            <span className="text-xs text-muted-foreground bg-secondary/30 px-3 py-1 rounded-full border border-border/40 font-medium">
+                                                Total alumnos: {rankingData.length}
+                                            </span>
                                         </div>
 
                                         <div className="grid grid-cols-1 gap-3">
-                                            {(() => {
-                                                const displayedData = showOnlyOnline
-                                                    ? rankingData.filter(item => {
-                                                        const { student } = item;
-                                                        return Object.values(onlineUsers).some(
-                                                            (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
-                                                        );
-                                                    })
-                                                    : rankingData;
+                                            {rankingData.map((item, index) => {
+                                                const { student, points } = item;
+                                                const totalLessons = modules.flatMap(m => m.lessons || []).length;
+                                                const progressPercentage = totalLessons > 0 ? Math.round((points / totalLessons) * 100) : 0;
+                                                const isOnline = Object.values(onlineUsers).some(
+                                                    (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
+                                                );
+                                                const name = student.email ? student.email.split('@')[0] : 'Alumno';
+                                                const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
 
-                                                if (displayedData.length === 0) {
-                                                    return (
-                                                        <div className="flex flex-col items-center justify-center p-8 bg-card-bg/25 border border-border/50 rounded-xl">
-                                                            <p className="text-sm text-muted-foreground">No hay alumnos conectados en este momento</p>
-                                                        </div>
-                                                    );
-                                                }
+                                                // Top 3 styles
+                                                const isTop3 = index < 3;
+                                                const podiumStyles = [
+                                                    { bg: 'bg-yellow-500/10 border-yellow-500/30 hover:border-yellow-500/50 shadow-yellow-500/5', label: '🥇 1er Lugar' },
+                                                    { bg: 'bg-slate-400/10 border-slate-400/30 hover:border-slate-400/50 shadow-slate-400/5', label: '🥈 2do Lugar' },
+                                                    { bg: 'bg-amber-700/10 border-amber-700/30 hover:border-amber-700/50 shadow-amber-700/5', label: '🥉 3er Lugar' }
+                                                ];
 
-                                                return displayedData.map((item, index) => {
-                                                    const { student, points } = item;
-                                                    const totalLessons = modules.flatMap(m => m.lessons || []).length;
-                                                    const progressPercentage = totalLessons > 0 ? Math.round((points / totalLessons) * 100) : 0;
-                                                    const isOnline = Object.values(onlineUsers).some(
-                                                        (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
-                                                    );
-                                                    const name = student.email ? student.email.split('@')[0] : 'Alumno';
-                                                    const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
+                                                const currentPodium = isTop3 ? podiumStyles[index] : null;
 
-                                                    const originalIndex = rankingData.findIndex(r => r.student.id === student.id);
-                                                    const isTop3 = originalIndex < 3;
-                                                    const podiumStyles = [
-                                                        { bg: 'bg-yellow-500/10 border-yellow-500/30 hover:border-yellow-500/50 shadow-yellow-500/5', label: '🥇 1er Lugar' },
-                                                        { bg: 'bg-slate-400/10 border-slate-400/30 hover:border-slate-400/50 shadow-slate-400/5', label: '🥈 2do Lugar' },
-                                                        { bg: 'bg-amber-700/10 border-amber-700/30 hover:border-amber-700/50 shadow-amber-700/5', label: '🥉 3er Lugar' }
-                                                    ];
+                                                return (
+                                                    <div 
+                                                        key={student.id} 
+                                                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
+                                                            currentPodium 
+                                                                ? `${currentPodium.bg} shadow-md` 
+                                                                : 'bg-card-bg/40 border-border hover:border-foreground/20'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                            {/* Posición / Rank index */}
+                                                            <div className="flex items-center justify-center w-8 shrink-0">
+                                                                {isTop3 ? (
+                                                                    <span className="text-xl font-bold select-none">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
+                                                                ) : (
+                                                                    <span className="text-sm font-semibold text-muted select-none">#{index + 1}</span>
+                                                                )}
+                                                            </div>
 
-                                                    const currentPodium = isTop3 ? podiumStyles[originalIndex] : null;
+                                                            {/* Avatar */}
+                                                            <div className="relative shrink-0">
+                                                                <div className={`h-11 w-11 rounded-full flex items-center justify-center font-bold text-sm shadow-inner transition-colors ${
+                                                                    index === 0 
+                                                                        ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' 
+                                                                        : index === 1 
+                                                                            ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30' 
+                                                                            : index === 2 
+                                                                                ? 'bg-amber-700/20 text-amber-500 border border-amber-700/30' 
+                                                                                : 'bg-primary/10 text-primary border border-primary/20'
+                                                                }`}>
+                                                                    {initials}
+                                                                </div>
+                                                                <span 
+                                                                    className={`absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 transition-colors duration-300 ${
+                                                                        currentPodium ? 'border-card-bg' : 'border-card'
+                                                                    } ${
+                                                                        isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
+                                                                    }`}
+                                                                    title={isOnline ? 'Activo ahora' : 'Desconectado'}
+                                                                />
+                                                            </div>
 
-                                                    return (
-                                                        <div 
-                                                            key={student.id} 
-                                                            className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
-                                                                currentPodium 
-                                                                    ? `${currentPodium.bg} shadow-md` 
-                                                                    : 'bg-card-bg/40 border-border hover:border-foreground/20'
-                                                            }`}
-                                                        >
-                                                            <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                                {/* Posición / Rank index */}
-                                                                <div className="flex items-center justify-center w-8 shrink-0">
-                                                                    {isTop3 ? (
-                                                                        <span className="text-xl font-bold select-none">{originalIndex === 0 ? '🥇' : originalIndex === 1 ? '🥈' : '🥉'}</span>
-                                                                    ) : (
-                                                                        <span className="text-sm font-semibold text-muted select-none">#{originalIndex + 1}</span>
+                                                            {/* Nombre y correo */}
+                                                            <div className="flex flex-col min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-semibold text-sm text-foreground truncate capitalize">
+                                                                        {name}
+                                                                    </span>
+                                                                    {currentPodium && (
+                                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-background/60 border border-border/40 uppercase tracking-wider scale-90">
+                                                                            {currentPodium.label}
+                                                                        </span>
                                                                     )}
                                                                 </div>
-
-                                                                {/* Avatar */}
-                                                                <div className="relative shrink-0">
-                                                                    <div className={`h-11 w-11 rounded-xl flex items-center justify-center font-bold text-sm shadow-inner transition-colors ${
-                                                                        originalIndex === 0 
-                                                                            ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' 
-                                                                            : originalIndex === 1 
-                                                                                ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30' 
-                                                                                : originalIndex === 2 
-                                                                                    ? 'bg-amber-700/20 text-amber-500 border border-amber-700/30' 
-                                                                                    : 'bg-primary/10 text-primary border border-primary/20'
-                                                                    }`}>
-                                                                        {initials}
-                                                                    </div>
-                                                                    <span 
-                                                                        className={`absolute -bottom-1 -right-1 block h-3 w-3 rounded-full border-2 transition-colors duration-300 ${
-                                                                            currentPodium ? 'border-card-bg' : 'border-card'
-                                                                        } ${
-                                                                            isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
-                                                                        }`}
-                                                                        title={isOnline ? 'Activo ahora' : 'Desconectado'}
-                                                                    />
-                                                                </div>
-
-                                                                {/* Nombre y correo */}
-                                                                <div className="flex flex-col min-w-0">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="font-semibold text-sm text-foreground truncate capitalize">
-                                                                            {name}
-                                                                        </span>
-                                                                        {currentPodium && (
-                                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-background/60 border border-border/40 uppercase tracking-wider scale-90">
-                                                                                {currentPodium.label}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                    <span className="text-xs text-muted-foreground truncate">
-                                                                        {student.email}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Puntos y Progreso */}
-                                                            <div className="flex items-center gap-6 mt-4 sm:mt-0 shrink-0 pl-12 sm:pl-0">
-                                                                {/* Progreso bar & fraction */}
-                                                                <div className="flex flex-col items-end text-right">
-                                                                    <span className="text-xs text-muted-foreground font-medium mb-1">
-                                                                        {points} de {totalLessons} lecciones
-                                                                    </span>
-                                                                    <div className="w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
-                                                                        <div 
-                                                                            className={`h-full rounded-full transition-all duration-1000 ${
-                                                                                originalIndex === 0 
-                                                                                    ? 'bg-yellow-500' 
-                                                                                    : originalIndex === 1 
-                                                                                        ? 'bg-slate-300' 
-                                                                                        : originalIndex === 2 
-                                                                                            ? 'bg-amber-600' 
-                                                                                            : 'bg-primary'
-                                                                            }`}
-                                                                            style={{ width: `${progressPercentage}%` }}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Puntos de Clasificación Badge */}
-                                                                <div className={`h-12 w-20 rounded-xl flex flex-col items-center justify-center border font-bold select-none ${
-                                                                    originalIndex === 0 
-                                                                        ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-500' 
-                                                                        : originalIndex === 1 
-                                                                            ? 'bg-slate-400/20 border-slate-400/40 text-slate-300' 
-                                                                            : originalIndex === 2 
-                                                                                ? 'bg-amber-700/20 border-amber-700/40 text-amber-500' 
-                                                                                : 'bg-secondary/40 border-border text-foreground'
-                                                                }`}>
-                                                                    <span className="text-lg leading-none">{points}</span>
-                                                                    <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">pts</span>
-                                                                </div>
+                                                                <span className="text-xs text-muted-foreground truncate">
+                                                                    {student.email}
+                                                                </span>
                                                             </div>
                                                         </div>
-                                                    );
-                                                });
-                                            })()}
+
+                                                        {/* Puntos y Progreso */}
+                                                        <div className="flex items-center gap-6 mt-4 sm:mt-0 shrink-0 pl-12 sm:pl-0">
+                                                            {/* Progreso bar & fraction */}
+                                                            <div className="flex flex-col items-end text-right">
+                                                                <span className="text-xs text-muted-foreground font-medium mb-1">
+                                                                    {points} de {totalLessons} lecciones
+                                                                </span>
+                                                                <div className="w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
+                                                                    <div 
+                                                                        className={`h-full rounded-full transition-all duration-1000 ${
+                                                                            index === 0 
+                                                                                ? 'bg-yellow-500' 
+                                                                                : index === 1 
+                                                                                    ? 'bg-slate-300' 
+                                                                                    : index === 2 
+                                                                                        ? 'bg-amber-600' 
+                                                                                        : 'bg-primary'
+                                                                        }`}
+                                                                        style={{ width: `${progressPercentage}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Puntos de Clasificación Badge */}
+                                                            <div className={`h-12 w-20 rounded-xl flex flex-col items-center justify-center border font-bold select-none ${
+                                                                index === 0 
+                                                                    ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-500' 
+                                                                    : index === 1 
+                                                                        ? 'bg-slate-400/20 border-slate-400/40 text-slate-300' 
+                                                                        : index === 2 
+                                                                            ? 'bg-amber-700/20 border-amber-700/40 text-amber-500' 
+                                                                            : 'bg-secondary/40 border-border text-foreground'
+                                                            }`}>
+                                                                <span className="text-lg leading-none">{points}</span>
+                                                                <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">pts</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}

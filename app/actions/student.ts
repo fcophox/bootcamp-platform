@@ -138,7 +138,7 @@ export async function removeStudent(studentId: number, bootcampId: number) {
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
 }
 
-export async function updateStudentStatus(studentId: number, bootcampId: number, status: 'invited' | 'active' | 'completed') {
+export async function updateStudentStatus(studentId: number, bootcampId: number, status: 'invited' | 'active' | 'completed' | 'frozen') {
     const supabase = await createClient();
     const { error } = await supabase
         .from('BootcampStudent')
