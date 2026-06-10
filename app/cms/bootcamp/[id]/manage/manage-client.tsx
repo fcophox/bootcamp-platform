@@ -1315,8 +1315,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
     // Compute SVG constants for line chart
     const svgWidth = 500;
-    const svgHeight = 180;
-    const svgPadding = { top: 20, right: 20, bottom: 30, left: 35 };
+    const svgHeight = 120;
+    const svgPadding = { top: 15, right: 15, bottom: 25, left: 30 };
     const chartWidth = svgWidth - svgPadding.left - svgPadding.right;
     const chartHeight = svgHeight - svgPadding.top - svgPadding.bottom;
     const maxChartValue = Math.max(...chartData.map(d => d.value), 4);
@@ -2199,7 +2199,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                             <div className="relative w-full">
                                                 <svg 
                                                     viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
-                                                    className="w-full h-auto aspect-[500/180] overflow-visible"
+                                                    className="w-full h-auto aspect-[500/120] overflow-visible"
                                                 >
                                                     <defs>
                                                         <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
@@ -2231,9 +2231,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                 x={svgPadding.left - 8} 
                                                                 y={line.y + 3} 
                                                                 fill="rgba(255,255,255,0.35)" 
-                                                                fontSize="8" 
+                                                                fontSize="10" 
                                                                 textAnchor="end"
-                                                                className="font-mono"
+                                                                className="font-mono text-[10px]"
                                                             >
                                                                 {line.value}
                                                             </text>
@@ -2260,11 +2260,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                         <text 
                                                             key={idx}
                                                             x={pt.x}
-                                                            y={svgHeight - 6}
+                                                            y={svgHeight - 4}
                                                             fill="rgba(255,255,255,0.35)"
-                                                            fontSize="8"
+                                                            fontSize="10"
                                                             textAnchor="middle"
-                                                            className="font-semibold"
+                                                            className="font-semibold text-[10px]"
                                                         >
                                                             {chartMode === 'day' ? pt.label.slice(0, 3) : pt.label}
                                                         </text>
