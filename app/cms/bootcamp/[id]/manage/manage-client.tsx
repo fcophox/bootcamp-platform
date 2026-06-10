@@ -120,6 +120,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [completionsList, setCompletionsList] = useState<{ studentId: number; lessonId: number; completedAt: string }[]>([]);
     const [chartMode, setChartMode] = useState<'day' | 'week'>('day');
     const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
+    const [showOnlyOnline, setShowOnlyOnline] = useState(false);
 
     useEffect(() => {
         async function fetchRanking() {
@@ -2170,29 +2171,18 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     </p>
                                                 </div>
 
-                                                {/* Chart Mode Toggle */}
-                                                <div className="flex items-center bg-secondary/30 border border-border/40 p-0.5 rounded-lg self-start sm:self-center">
-                                                    <button 
-                                                        onClick={() => setChartMode('day')}
-                                                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                                                            chartMode === 'day' 
-                                                                ? 'bg-primary text-white shadow-md shadow-primary/10' 
-                                                                : 'text-muted-foreground hover:text-foreground'
-                                                        }`}
-                                                    >
-                                                        Día de la semana
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => setChartMode('week')}
-                                                        className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                                                            chartMode === 'week' 
-                                                                ? 'bg-primary text-white shadow-md shadow-primary/10' 
-                                                                                : 'text-muted-foreground hover:text-foreground'
-                                                        }`}
-                                                    >
-                                                        Semana a semana
-                                                    </button>
-                                                </div>
+                                                {/* Online Filter Button */}
+                                                <button
+                                                    onClick={() => setShowOnlyOnline(!showOnlyOnline)}
+                                                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-300 flex items-center gap-2 self-start sm:self-center ${
+                                                        showOnlyOnline 
+                                                            ? 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20 shadow-md shadow-green-500/5' 
+                                                            : 'bg-secondary/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                                                    }`}
+                                                >
+                                                    <span className={`w-2 h-2 rounded-full ${showOnlyOnline ? 'bg-green-500 animate-pulse' : 'bg-neutral-500'}`} />
+                                                    <span>{showOnlyOnline ? 'Ver Todo el Ranking' : 'Ver Ranking Online'}</span>
+                                                </button>
                                             </div>
 
                                             {/* Line Chart Canvas */}
@@ -2228,12 +2218,12 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                 strokeWidth="1"
                                                             />
                                                             <text 
-                                                                x={svgPadding.left - 8} 
+                                                                x={svgPadding.left - 5} 
                                                                 y={line.y + 3} 
                                                                 fill="rgba(255,255,255,0.35)" 
                                                                 fontSize="8" 
                                                                 textAnchor="end"
-                                                                className="font-mono text-[8px]"
+                                                                className="font-mono text-[5px]"
                                                             >
                                                                 {line.value}
                                                             </text>
@@ -2264,7 +2254,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                             fill="rgba(255,255,255,0.35)"
                                                             fontSize="8"
                                                             textAnchor="middle"
-                                                            className="font-semibold text-[8px]"
+                                                            className="font-semibold text-[5px]"
                                                         >
                                                             {chartMode === 'day' ? pt.label.slice(0, 3) : pt.label}
                                                         </text>
@@ -2354,131 +2344,154 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 <span>Tabla de Posiciones</span>
                                             </h3>
                                             <span className="text-xs text-muted-foreground bg-secondary/30 px-3 py-1 rounded-full border border-border/40 font-medium">
-                                                Total alumnos: {rankingData.length}
+                                                {showOnlyOnline ? 'Conectados' : 'Total alumnos'}: {
+                                                    showOnlyOnline 
+                                                        ? rankingData.filter(item => Object.values(onlineUsers).some((u: any) => u.email && item.student.email && u.email.trim().toLowerCase() === item.student.email.trim().toLowerCase())).length
+                                                        : rankingData.length
+                                                }
                                             </span>
                                         </div>
 
                                         <div className="grid grid-cols-1 gap-3">
-                                            {rankingData.map((item, index) => {
-                                                const { student, points } = item;
-                                                const totalLessons = modules.flatMap(m => m.lessons || []).length;
-                                                const progressPercentage = totalLessons > 0 ? Math.round((points / totalLessons) * 100) : 0;
-                                                const isOnline = Object.values(onlineUsers).some(
-                                                    (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
-                                                );
-                                                const name = student.email ? student.email.split('@')[0] : 'Alumno';
-                                                const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
+                                            {(() => {
+                                                const displayedData = showOnlyOnline
+                                                    ? rankingData.filter(item => {
+                                                        const { student } = item;
+                                                        return Object.values(onlineUsers).some(
+                                                            (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
+                                                        );
+                                                    })
+                                                    : rankingData;
 
-                                                // Top 3 styles
-                                                const isTop3 = index < 3;
-                                                const podiumStyles = [
-                                                    { bg: 'bg-yellow-500/10 border-yellow-500/30 hover:border-yellow-500/50 shadow-yellow-500/5', label: '🥇 1er Lugar' },
-                                                    { bg: 'bg-slate-400/10 border-slate-400/30 hover:border-slate-400/50 shadow-slate-400/5', label: '🥈 2do Lugar' },
-                                                    { bg: 'bg-amber-700/10 border-amber-700/30 hover:border-amber-700/50 shadow-amber-700/5', label: '🥉 3er Lugar' }
-                                                ];
+                                                if (displayedData.length === 0) {
+                                                    return (
+                                                        <div className="flex flex-col items-center justify-center p-8 bg-card-bg/25 border border-border/50 rounded-xl">
+                                                            <p className="text-sm text-muted-foreground">No hay alumnos conectados en este momento</p>
+                                                        </div>
+                                                    );
+                                                }
 
-                                                const currentPodium = isTop3 ? podiumStyles[index] : null;
+                                                return displayedData.map((item, index) => {
+                                                    const { student, points } = item;
+                                                    const totalLessons = modules.flatMap(m => m.lessons || []).length;
+                                                    const progressPercentage = totalLessons > 0 ? Math.round((points / totalLessons) * 100) : 0;
+                                                    const isOnline = Object.values(onlineUsers).some(
+                                                        (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
+                                                    );
+                                                    const name = student.email ? student.email.split('@')[0] : 'Alumno';
+                                                    const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
 
-                                                return (
-                                                    <div 
-                                                        key={student.id} 
-                                                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
-                                                            currentPodium 
-                                                                ? `${currentPodium.bg} shadow-md` 
-                                                                : 'bg-card-bg/40 border-border hover:border-foreground/20'
-                                                        }`}
-                                                    >
-                                                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                            {/* Posición / Rank index */}
-                                                            <div className="flex items-center justify-center w-8 shrink-0">
-                                                                {isTop3 ? (
-                                                                    <span className="text-xl font-bold select-none">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
-                                                                ) : (
-                                                                    <span className="text-sm font-semibold text-muted select-none">#{index + 1}</span>
-                                                                )}
-                                                            </div>
+                                                    const originalIndex = rankingData.findIndex(r => r.student.id === student.id);
+                                                    const isTop3 = originalIndex < 3;
+                                                    const podiumStyles = [
+                                                        { bg: 'bg-yellow-500/10 border-yellow-500/30 hover:border-yellow-500/50 shadow-yellow-500/5', label: '🥇 1er Lugar' },
+                                                        { bg: 'bg-slate-400/10 border-slate-400/30 hover:border-slate-400/50 shadow-slate-400/5', label: '🥈 2do Lugar' },
+                                                        { bg: 'bg-amber-700/10 border-amber-700/30 hover:border-amber-700/50 shadow-amber-700/5', label: '🥉 3er Lugar' }
+                                                    ];
 
-                                                            {/* Avatar */}
-                                                            <div className="relative shrink-0">
-                                                                <div className={`h-11 w-11 rounded-xl flex items-center justify-center font-bold text-sm shadow-inner transition-colors ${
-                                                                    index === 0 
-                                                                        ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' 
-                                                                        : index === 1 
-                                                                            ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30' 
-                                                                            : index === 2 
-                                                                                ? 'bg-amber-700/20 text-amber-500 border border-amber-700/30' 
-                                                                                : 'bg-primary/10 text-primary border border-primary/20'
-                                                                }`}>
-                                                                    {initials}
-                                                                </div>
-                                                                <span 
-                                                                    className={`absolute -bottom-1 -right-1 block h-3 w-3 rounded-full border-2 transition-colors duration-300 ${
-                                                                        currentPodium ? 'border-card-bg' : 'border-card'
-                                                                    } ${
-                                                                        isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
-                                                                    }`}
-                                                                    title={isOnline ? 'Activo ahora' : 'Desconectado'}
-                                                                />
-                                                            </div>
+                                                    const currentPodium = isTop3 ? podiumStyles[originalIndex] : null;
 
-                                                            {/* Nombre y correo */}
-                                                            <div className="flex flex-col min-w-0">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="font-semibold text-sm text-foreground truncate capitalize">
-                                                                        {name}
-                                                                    </span>
-                                                                    {currentPodium && (
-                                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-background/60 border border-border/40 uppercase tracking-wider scale-90">
-                                                                            {currentPodium.label}
-                                                                        </span>
+                                                    return (
+                                                        <div 
+                                                            key={student.id} 
+                                                            className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
+                                                                currentPodium 
+                                                                    ? `${currentPodium.bg} shadow-md` 
+                                                                    : 'bg-card-bg/40 border-border hover:border-foreground/20'
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                                {/* Posición / Rank index */}
+                                                                <div className="flex items-center justify-center w-8 shrink-0">
+                                                                    {isTop3 ? (
+                                                                        <span className="text-xl font-bold select-none">{originalIndex === 0 ? '🥇' : originalIndex === 1 ? '🥈' : '🥉'}</span>
+                                                                    ) : (
+                                                                        <span className="text-sm font-semibold text-muted select-none">#{originalIndex + 1}</span>
                                                                     )}
                                                                 </div>
-                                                                <span className="text-xs text-muted-foreground truncate">
-                                                                    {student.email}
-                                                                </span>
-                                                            </div>
-                                                        </div>
 
-                                                        {/* Puntos y Progreso */}
-                                                        <div className="flex items-center gap-6 mt-4 sm:mt-0 shrink-0 pl-12 sm:pl-0">
-                                                            {/* Progreso bar & fraction */}
-                                                            <div className="flex flex-col items-end text-right">
-                                                                <span className="text-xs text-muted-foreground font-medium mb-1">
-                                                                    {points} de {totalLessons} lecciones
-                                                                </span>
-                                                                <div className="w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
-                                                                    <div 
-                                                                        className={`h-full rounded-full transition-all duration-1000 ${
-                                                                            index === 0 
-                                                                                ? 'bg-yellow-500' 
-                                                                                : index === 1 
-                                                                                    ? 'bg-slate-300' 
-                                                                                    : index === 2 
-                                                                                        ? 'bg-amber-600' 
-                                                                                        : 'bg-primary'
+                                                                {/* Avatar */}
+                                                                <div className="relative shrink-0">
+                                                                    <div className={`h-11 w-11 rounded-xl flex items-center justify-center font-bold text-sm shadow-inner transition-colors ${
+                                                                        originalIndex === 0 
+                                                                            ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' 
+                                                                            : originalIndex === 1 
+                                                                                ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30' 
+                                                                                : originalIndex === 2 
+                                                                                    ? 'bg-amber-700/20 text-amber-500 border border-amber-700/30' 
+                                                                                    : 'bg-primary/10 text-primary border border-primary/20'
+                                                                    }`}>
+                                                                        {initials}
+                                                                    </div>
+                                                                    <span 
+                                                                        className={`absolute -bottom-1 -right-1 block h-3 w-3 rounded-full border-2 transition-colors duration-300 ${
+                                                                            currentPodium ? 'border-card-bg' : 'border-card'
+                                                                        } ${
+                                                                            isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
                                                                         }`}
-                                                                        style={{ width: `${progressPercentage}%` }}
+                                                                        title={isOnline ? 'Activo ahora' : 'Desconectado'}
                                                                     />
+                                                                </div>
+
+                                                                {/* Nombre y correo */}
+                                                                <div className="flex flex-col min-w-0">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="font-semibold text-sm text-foreground truncate capitalize">
+                                                                            {name}
+                                                                        </span>
+                                                                        {currentPodium && (
+                                                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-background/60 border border-border/40 uppercase tracking-wider scale-90">
+                                                                                {currentPodium.label}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <span className="text-xs text-muted-foreground truncate">
+                                                                        {student.email}
+                                                                    </span>
                                                                 </div>
                                                             </div>
 
-                                                            {/* Puntos de Clasificación Badge */}
-                                                            <div className={`h-12 w-20 rounded-xl flex flex-col items-center justify-center border font-bold select-none ${
-                                                                index === 0 
-                                                                    ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-500' 
-                                                                    : index === 1 
-                                                                        ? 'bg-slate-400/20 border-slate-400/40 text-slate-300' 
-                                                                        : index === 2 
-                                                                            ? 'bg-amber-700/20 border-amber-700/40 text-amber-500' 
-                                                                            : 'bg-secondary/40 border-border text-foreground'
-                                                            }`}>
-                                                                <span className="text-lg leading-none">{points}</span>
-                                                                <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">pts</span>
+                                                            {/* Puntos y Progreso */}
+                                                            <div className="flex items-center gap-6 mt-4 sm:mt-0 shrink-0 pl-12 sm:pl-0">
+                                                                {/* Progreso bar & fraction */}
+                                                                <div className="flex flex-col items-end text-right">
+                                                                    <span className="text-xs text-muted-foreground font-medium mb-1">
+                                                                        {points} de {totalLessons} lecciones
+                                                                    </span>
+                                                                    <div className="w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
+                                                                        <div 
+                                                                            className={`h-full rounded-full transition-all duration-1000 ${
+                                                                                originalIndex === 0 
+                                                                                    ? 'bg-yellow-500' 
+                                                                                    : originalIndex === 1 
+                                                                                        ? 'bg-slate-300' 
+                                                                                        : originalIndex === 2 
+                                                                                            ? 'bg-amber-600' 
+                                                                                            : 'bg-primary'
+                                                                            }`}
+                                                                            style={{ width: `${progressPercentage}%` }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Puntos de Clasificación Badge */}
+                                                                <div className={`h-12 w-20 rounded-xl flex flex-col items-center justify-center border font-bold select-none ${
+                                                                    originalIndex === 0 
+                                                                        ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-500' 
+                                                                        : originalIndex === 1 
+                                                                            ? 'bg-slate-400/20 border-slate-400/40 text-slate-300' 
+                                                                            : originalIndex === 2 
+                                                                                ? 'bg-amber-700/20 border-amber-700/40 text-amber-500' 
+                                                                                : 'bg-secondary/40 border-border text-foreground'
+                                                                }`}>
+                                                                    <span className="text-lg leading-none">{points}</span>
+                                                                    <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">pts</span>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
+                                                    );
+                                                });
+                                            })()}
                                         </div>
                                     </div>
                                 )}
