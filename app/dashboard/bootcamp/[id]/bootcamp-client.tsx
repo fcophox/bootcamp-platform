@@ -504,24 +504,33 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
 
                                                                                 <div className={`self-center flex items-center gap-4 transition-opacity px-2 ${isCompleted(lesson.id) && (bootcamp.enableChecklist !== false) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                                                                                     {(bootcamp.enableChecklist !== false) && (
-                                                                                        <button 
-                                                                                            onClick={(e) => {
-                                                                                                e.preventDefault();
-                                                                                                e.stopPropagation();
-                                                                                                toggleClassCompletion(lesson.id);
-                                                                                            }}
-                                                                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                                                                                                isCompleted(lesson.id) ? 'bg-green-500' : 'bg-border'
-                                                                                            }`}
-                                                                                            title={isCompleted(lesson.id) ? "Marcar como no visto" : "Marcar como visto"}
-                                                                                        >
-                                                                                            <span className="sr-only">Marcar como visto</span>
-                                                                                            <span
-                                                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                                                                                    isCompleted(lesson.id) ? 'translate-x-4' : 'translate-x-1'
+                                                                                        <>
+                                                                                            <span className={`text-xs font-medium select-none whitespace-nowrap transition-all duration-300 ${
+                                                                                                isCompleted(lesson.id) 
+                                                                                                    ? 'text-muted-foreground/40' 
+                                                                                                    : 'text-muted-foreground/80'
+                                                                                            }`}>
+                                                                                                {isCompleted(lesson.id) ? 'Lección lista' : '¿Ya viste el contenido?'}
+                                                                                            </span>
+                                                                                            <button 
+                                                                                                onClick={(e) => {
+                                                                                                    e.preventDefault();
+                                                                                                    e.stopPropagation();
+                                                                                                    toggleClassCompletion(lesson.id);
+                                                                                                }}
+                                                                                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                                                                                    isCompleted(lesson.id) ? 'bg-green-500' : 'bg-border'
                                                                                                 }`}
-                                                                                            />
-                                                                                        </button>
+                                                                                                title={isCompleted(lesson.id) ? "Marcar como no visto" : "Marcar como visto"}
+                                                                                            >
+                                                                                                <span className="sr-only">Marcar como visto</span>
+                                                                                                <span
+                                                                                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                                                                        isCompleted(lesson.id) ? 'translate-x-4' : 'translate-x-1'
+                                                                                                    }`}
+                                                                                                />
+                                                                                            </button>
+                                                                                        </>
                                                                                     )}
                                                                                     <ChevronRight size={18} className="text-muted" />
                                                                                 </div>
