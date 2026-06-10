@@ -2231,9 +2231,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                 x={svgPadding.left - 8} 
                                                                 y={line.y + 3} 
                                                                 fill="rgba(255,255,255,0.35)" 
-                                                                fontSize="10" 
+                                                                fontSize="8" 
                                                                 textAnchor="end"
-                                                                className="font-mono text-[10px]"
+                                                                className="font-mono text-[8px]"
                                                             >
                                                                 {line.value}
                                                             </text>
@@ -2262,9 +2262,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                             x={pt.x}
                                                             y={svgHeight - 4}
                                                             fill="rgba(255,255,255,0.35)"
-                                                            fontSize="10"
+                                                            fontSize="8"
                                                             textAnchor="middle"
-                                                            className="font-semibold text-[10px]"
+                                                            className="font-semibold text-[8px]"
                                                         >
                                                             {chartMode === 'day' ? pt.label.slice(0, 3) : pt.label}
                                                         </text>
