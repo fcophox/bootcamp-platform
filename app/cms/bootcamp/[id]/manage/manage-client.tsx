@@ -2187,7 +2187,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                         className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                                                             chartMode === 'week' 
                                                                 ? 'bg-primary text-white shadow-md shadow-primary/10' 
-                                                                : 'text-muted-foreground hover:text-foreground'
+                                                                                : 'text-muted-foreground hover:text-foreground'
                                                         }`}
                                                     >
                                                         Semana a semana
@@ -2196,11 +2196,10 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                             </div>
 
                                             {/* Line Chart Canvas */}
-                                            <div className="relative w-full h-[200px]">
+                                            <div className="relative w-full">
                                                 <svg 
                                                     viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
-                                                    className="w-full h-full overflow-visible"
-                                                    preserveAspectRatio="none"
+                                                    className="w-full h-auto aspect-[500/180] overflow-visible"
                                                 >
                                                     <defs>
                                                         <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
