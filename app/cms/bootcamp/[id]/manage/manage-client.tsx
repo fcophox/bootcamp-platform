@@ -2171,17 +2171,19 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     </p>
                                                 </div>
 
-                                                {/* Online Filter Button */}
+                                                {/* Ver Ranking Button */}
                                                 <button
-                                                    onClick={() => setShowOnlyOnline(!showOnlyOnline)}
-                                                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-300 flex items-center gap-2 self-start sm:self-center ${
-                                                        showOnlyOnline 
-                                                            ? 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20 shadow-md shadow-green-500/5' 
-                                                            : 'bg-secondary/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-                                                    }`}
+                                                    onClick={() => {
+                                                        const slug = bootcamp.title.toLowerCase()
+                                                            .replace(/[^a-z0-9]+/g, '-')
+                                                            .replace(/(^-|-$)/g, '');
+                                                        const url = `/ranking/${bootcamp.id}-${slug}`;
+                                                        window.open(url, '_blank');
+                                                    }}
+                                                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border/40 bg-secondary/30 text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all duration-300 flex items-center gap-1.5 self-start sm:self-center"
                                                 >
-                                                    <span className={`w-2 h-2 rounded-full ${showOnlyOnline ? 'bg-green-500 animate-pulse' : 'bg-neutral-500'}`} />
-                                                    <span>{showOnlyOnline ? 'Ver Todo el Ranking' : 'Ver Ranking Online'}</span>
+                                                    <Trophy size={12} className="text-yellow-500" />
+                                                    <span>Ver Ranking</span>
                                                 </button>
                                             </div>
 
@@ -2338,18 +2340,31 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                             </div>
                                         </div>
 
-                                        <div className="flex justify-between items-center mb-4 px-2">
+                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 border-b border-border/30 pb-4 px-2">
                                             <h3 className="text-lg font-semibold flex items-center gap-2">
                                                 <Trophy size={20} className="text-primary" />
                                                 <span>Tabla de Posiciones</span>
                                             </h3>
-                                            <span className="text-xs text-muted-foreground bg-secondary/30 px-3 py-1 rounded-full border border-border/40 font-medium">
-                                                {showOnlyOnline ? 'Conectados' : 'Total alumnos'}: {
-                                                    showOnlyOnline 
-                                                        ? rankingData.filter(item => Object.values(onlineUsers).some((u: any) => u.email && item.student.email && u.email.trim().toLowerCase() === item.student.email.trim().toLowerCase())).length
-                                                        : rankingData.length
-                                                }
-                                            </span>
+                                            <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-start">
+                                                <span className="text-xs text-muted-foreground bg-secondary/30 px-3 py-1.5 rounded-full border border-border/40 font-medium">
+                                                    {showOnlyOnline ? 'Conectados' : 'Total alumnos'}: {
+                                                        showOnlyOnline 
+                                                            ? rankingData.filter(item => Object.values(onlineUsers).some((u: any) => u.email && item.student.email && u.email.trim().toLowerCase() === item.student.email.trim().toLowerCase())).length
+                                                            : rankingData.length
+                                                    }
+                                                </span>
+                                                <button
+                                                    onClick={() => setShowOnlyOnline(!showOnlyOnline)}
+                                                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-300 flex items-center gap-2 ${
+                                                        showOnlyOnline 
+                                                            ? 'bg-green-500/10 border-green-500/30 text-green-500 hover:bg-green-500/20 shadow-md shadow-green-500/5' 
+                                                            : 'bg-secondary/30 border-border/40 text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                                                    }`}
+                                                >
+                                                    <span className={`w-2 h-2 rounded-full ${showOnlyOnline ? 'bg-green-500 animate-pulse' : 'bg-neutral-500'}`} />
+                                                    <span>{showOnlyOnline ? 'Ver Todo' : 'Ver Online'}</span>
+                                                </button>
+                                            </div>
                                         </div>
 
                                         <div className="grid grid-cols-1 gap-3">
