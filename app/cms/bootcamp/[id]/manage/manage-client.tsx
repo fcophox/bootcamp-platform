@@ -102,13 +102,95 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const router = useRouter();
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'content' | 'students' | 'room'>('content');
+    const [activeTab, setActiveTab] = useState<'content' | 'students' | 'room' | 'ranking'>('content');
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const [openModuleMenuId, setOpenModuleMenuId] = useState<number | null>(null);
     const moduleMenuRef = useRef<HTMLDivElement>(null);
 
     const { onlineUsers } = useOnlineUsers();
+
+    // Ranking State
+    const [rankingData, setRankingData] = useState<{
+        student: Student;
+        points: number;
+        completedLessonIds: number[];
+    }[]>([]);
+    const [isRankingLoading, setIsRankingLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchRanking() {
+            if (initialStudents.length === 0) {
+                setRankingData([]);
+                setIsRankingLoading(false);
+                return;
+            }
+            try {
+                const supabase = createClient();
+                const studentIds = initialStudents.map(s => s.id);
+                
+                // Get all lesson IDs in this bootcamp
+                const lessonIds = modules.flatMap(m => m.lessons || []).map(l => l.id);
+                
+                if (lessonIds.length === 0) {
+                    setRankingData(initialStudents.map(student => ({
+                        student,
+                        points: 0,
+                        completedLessonIds: []
+                    })));
+                    setIsRankingLoading(false);
+                    return;
+                }
+
+                // Query LessonCompletion for all students of this bootcamp
+                const { data: completions, error } = await supabase
+                    .from('LessonCompletion')
+                    .select('studentId, lessonId')
+                    .in('studentId', studentIds)
+                    .in('lessonId', lessonIds);
+
+                if (error) {
+                    console.error('Error fetching completions for ranking:', error);
+                    return;
+                }
+
+                // Group completions by studentId
+                const completionsMap: Record<number, number[]> = {};
+                studentIds.forEach(id => {
+                    completionsMap[id] = [];
+                });
+
+                completions?.forEach((c: any) => {
+                    if (completionsMap[c.studentId]) {
+                        completionsMap[c.studentId].push(c.lessonId);
+                    }
+                });
+
+                // Map students to ranking data
+                const mappedRanking = initialStudents.map(student => {
+                    const studentCompletions = completionsMap[student.id] || [];
+                    return {
+                        student,
+                        points: studentCompletions.length,
+                        completedLessonIds: studentCompletions
+                    };
+                });
+
+                // Sort by points descending
+                mappedRanking.sort((a, b) => b.points - a.points);
+
+                setRankingData(mappedRanking);
+            } catch (err) {
+                console.error('Error in fetchRanking:', err);
+            } finally {
+                setIsRankingLoading(false);
+            }
+        }
+
+        if (activeTab === 'ranking') {
+            fetchRanking();
+        }
+    }, [activeTab, initialStudents, modules]);
 
     // Content Management State
     const [expandedModule, setExpandedModule] = useState<number | null>(null);
@@ -1318,6 +1400,15 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                 >
                                     Alumnos
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('ranking')}
+                                    className={`pb-3 px-1 text-sm font-medium transition-all ${activeTab === 'ranking'
+                                        ? 'text-primary border-b-2 border-primary'
+                                        : 'text-muted hover:text-foreground'
+                                        }`}
+                                >
+                                    Ranking
+                                </button>
                                 {/* TODO: Oculto temporalmente
                                 <button
                                     onClick={() => setActiveTab('room')}
@@ -1923,6 +2014,168 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         )}
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* RANKING TAB */}
+                        {activeTab === 'ranking' && (
+                            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                {isRankingLoading ? (
+                                    <div className="flex flex-col items-center justify-center min-h-[350px]">
+                                        <Loader2 size={36} className="animate-spin text-primary mb-4" />
+                                        <p className="text-muted text-sm">Cargando tabla de posiciones...</p>
+                                    </div>
+                                ) : rankingData.length === 0 ? (
+                                    <div className="relative flex flex-col items-center justify-center min-h-[400px] p-8 md:p-16 border border-dashed border-primary/20 rounded-2xl bg-card-bg/30 mt-6 overflow-hidden shadow-sm">
+                                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+                                        
+                                        <div className="relative z-10 flex flex-col items-center max-w-lg text-center">
+                                            <div className="w-16 h-16 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-primary/5">
+                                                <Trophy size={32} className="text-primary" />
+                                            </div>
+                                            
+                                            <h3 className="text-2xl font-bold text-foreground mb-3 tracking-tight">Tabla de Posiciones</h3>
+                                            <p className="text-muted-foreground text-sm leading-relaxed mb-6">
+                                                Aún no hay alumnos inscritos en este bootcamp para mostrar en el ranking.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="mt-6 space-y-4">
+                                        <div className="flex justify-between items-center mb-4 px-2">
+                                            <h3 className="text-lg font-semibold flex items-center gap-2">
+                                                <Trophy size={20} className="text-primary" />
+                                                <span>Tabla de Posiciones</span>
+                                            </h3>
+                                            <span className="text-xs text-muted-foreground bg-secondary/30 px-3 py-1 rounded-full border border-border/40 font-medium">
+                                                Total alumnos: {rankingData.length}
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 gap-3">
+                                            {rankingData.map((item, index) => {
+                                                const { student, points } = item;
+                                                const totalLessons = modules.flatMap(m => m.lessons || []).length;
+                                                const progressPercentage = totalLessons > 0 ? Math.round((points / totalLessons) * 100) : 0;
+                                                const isOnline = Object.values(onlineUsers).some(
+                                                    (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
+                                                );
+                                                const name = student.email ? student.email.split('@')[0] : 'Alumno';
+                                                const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
+
+                                                // Top 3 styles
+                                                const isTop3 = index < 3;
+                                                const podiumStyles = [
+                                                    { bg: 'bg-yellow-500/10 border-yellow-500/30 hover:border-yellow-500/50 shadow-yellow-500/5', label: '🥇 1er Lugar' },
+                                                    { bg: 'bg-slate-400/10 border-slate-400/30 hover:border-slate-400/50 shadow-slate-400/5', label: '🥈 2do Lugar' },
+                                                    { bg: 'bg-amber-700/10 border-amber-700/30 hover:border-amber-700/50 shadow-amber-700/5', label: '🥉 3er Lugar' }
+                                                ];
+
+                                                const currentPodium = isTop3 ? podiumStyles[index] : null;
+
+                                                return (
+                                                    <div 
+                                                        key={student.id} 
+                                                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
+                                                            currentPodium 
+                                                                ? `${currentPodium.bg} shadow-md` 
+                                                                : 'bg-card-bg/40 border-border hover:border-foreground/20'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                            {/* Posición / Rank index */}
+                                                            <div className="flex items-center justify-center w-8 shrink-0">
+                                                                {isTop3 ? (
+                                                                    <span className="text-xl font-bold select-none">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
+                                                                ) : (
+                                                                    <span className="text-sm font-semibold text-muted select-none">#{index + 1}</span>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Avatar */}
+                                                            <div className="relative shrink-0">
+                                                                <div className={`h-11 w-11 rounded-xl flex items-center justify-center font-bold text-sm shadow-inner transition-colors ${
+                                                                    index === 0 
+                                                                        ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' 
+                                                                        : index === 1 
+                                                                            ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30' 
+                                                                            : index === 2 
+                                                                                ? 'bg-amber-700/20 text-amber-500 border border-amber-700/30' 
+                                                                                : 'bg-primary/10 text-primary border border-primary/20'
+                                                                }`}>
+                                                                    {initials}
+                                                                </div>
+                                                                <span 
+                                                                    className={`absolute -bottom-1 -right-1 block h-3 w-3 rounded-full border-2 transition-colors duration-300 ${
+                                                                        currentPodium ? 'border-card-bg' : 'border-card'
+                                                                    } ${
+                                                                        isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
+                                                                    }`}
+                                                                    title={isOnline ? 'Activo ahora' : 'Desconectado'}
+                                                                />
+                                                            </div>
+
+                                                            {/* Nombre y correo */}
+                                                            <div className="flex flex-col min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-semibold text-sm text-foreground truncate capitalize">
+                                                                        {name}
+                                                                    </span>
+                                                                    {currentPodium && (
+                                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-background/60 border border-border/40 uppercase tracking-wider scale-90">
+                                                                            {currentPodium.label}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <span className="text-xs text-muted-foreground truncate">
+                                                                    {student.email}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Puntos y Progreso */}
+                                                        <div className="flex items-center gap-6 mt-4 sm:mt-0 shrink-0 pl-12 sm:pl-0">
+                                                            {/* Progreso bar & fraction */}
+                                                            <div className="flex flex-col items-end text-right">
+                                                                <span className="text-xs text-muted-foreground font-medium mb-1">
+                                                                    {points} de {totalLessons} lecciones
+                                                                </span>
+                                                                <div className="w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
+                                                                    <div 
+                                                                        className={`h-full rounded-full transition-all duration-1000 ${
+                                                                            index === 0 
+                                                                                ? 'bg-yellow-500' 
+                                                                                : index === 1 
+                                                                                    ? 'bg-slate-300' 
+                                                                                    : index === 2 
+                                                                                        ? 'bg-amber-600' 
+                                                                                        : 'bg-primary'
+                                                                        }`}
+                                                                        style={{ width: `${progressPercentage}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Puntos de Clasificación Badge */}
+                                                            <div className={`h-12 w-20 rounded-xl flex flex-col items-center justify-center border font-bold select-none ${
+                                                                index === 0 
+                                                                    ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-500' 
+                                                                    : index === 1 
+                                                                        ? 'bg-slate-400/20 border-slate-400/40 text-slate-300' 
+                                                                        : index === 2 
+                                                                            ? 'bg-amber-700/20 border-amber-700/40 text-amber-500' 
+                                                                            : 'bg-secondary/40 border-border text-foreground'
+                                                            }`}>
+                                                                <span className="text-lg leading-none">{points}</span>
+                                                                <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">pts</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
