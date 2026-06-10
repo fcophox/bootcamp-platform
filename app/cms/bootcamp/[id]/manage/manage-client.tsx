@@ -117,11 +117,18 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         completedLessonIds: number[];
     }[]>([]);
     const [isRankingLoading, setIsRankingLoading] = useState(true);
+    const [timelineData, setTimelineData] = useState<{
+        dateStr: string;
+        dateKey: string;
+        points: number;
+        completions: { studentEmail: string; lessonTitle: string }[];
+    }[]>([]);
 
     useEffect(() => {
         async function fetchRanking() {
             if (initialStudents.length === 0) {
                 setRankingData([]);
+                setTimelineData([]);
                 setIsRankingLoading(false);
                 return;
             }
@@ -138,14 +145,15 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                         points: 0,
                         completedLessonIds: []
                     })));
+                    setTimelineData([]);
                     setIsRankingLoading(false);
                     return;
                 }
 
-                // Query LessonCompletion for all students of this bootcamp
+                // Query LessonCompletion for all students of this bootcamp, including completedAt
                 const { data: completions, error } = await supabase
                     .from('LessonCompletion')
-                    .select('studentId, lessonId')
+                    .select('studentId, lessonId, completedAt')
                     .in('studentId', studentIds)
                     .in('lessonId', lessonIds);
 
@@ -179,7 +187,99 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 // Sort by points descending
                 mappedRanking.sort((a, b) => b.points - a.points);
 
+                // Compute timeline data
+                // Determine start date
+                let startDate = bootcamp.startDate ? new Date(bootcamp.startDate) : null;
+                
+                // If invalid start date, find earliest completion
+                if (!startDate || isNaN(startDate.getTime())) {
+                    if (completions && completions.length > 0) {
+                        const dates = completions
+                            .map((c: any) => new Date(c.completedAt).getTime())
+                            .filter((t: number) => !isNaN(t));
+                        if (dates.length > 0) {
+                            startDate = new Date(Math.min(...dates));
+                        }
+                    }
+                }
+                
+                // Fallback if still null or invalid
+                if (!startDate || isNaN(startDate.getTime())) {
+                    startDate = new Date();
+                    startDate.setDate(startDate.getDate() - 7);
+                }
+
+                // Reset time to start of day in local time
+                startDate.setHours(0, 0, 0, 0);
+
+                const endDate = new Date();
+                endDate.setHours(23, 59, 59, 999);
+
+                // Generate date range
+                const dailyData: {
+                    dateStr: string;
+                    dateKey: string;
+                    points: number;
+                    completions: { studentEmail: string; lessonTitle: string }[];
+                }[] = [];
+
+                // Lesson & student maps for labels
+                const lessonTitleMap: Record<number, string> = {};
+                modules.forEach(m => {
+                    m.lessons?.forEach(l => {
+                        lessonTitleMap[l.id] = l.title;
+                    });
+                });
+                const studentEmailMap: Record<number, string> = {};
+                initialStudents.forEach(s => {
+                    studentEmailMap[s.id] = s.email;
+                });
+
+                // Group completions by date key (YYYY-MM-DD in local time)
+                const completionsByDate: Record<string, any[]> = {};
+                completions?.forEach((c: any) => {
+                    if (!c.completedAt) return;
+                    const d = new Date(c.completedAt);
+                    if (isNaN(d.getTime())) return;
+                    
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const key = `${year}-${month}-${day}`;
+                    
+                    if (!completionsByDate[key]) {
+                        completionsByDate[key] = [];
+                    }
+                    completionsByDate[key].push(c);
+                });
+
+                // Loop through dates chronologically
+                const curDate = new Date(startDate);
+                while (curDate <= endDate) {
+                    const year = curDate.getFullYear();
+                    const month = String(curDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(curDate.getDate()).padStart(2, '0');
+                    const key = `${year}-${month}-${day}`;
+
+                    const dayCompletions = completionsByDate[key] || [];
+                    const label = curDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+
+                    dailyData.push({
+                        dateStr: label,
+                        dateKey: key,
+                        points: dayCompletions.length,
+                        completions: dayCompletions.map((c: any) => ({
+                            studentEmail: studentEmailMap[c.studentId] || 'Alumno',
+                            lessonTitle: lessonTitleMap[c.lessonId] || 'Lección'
+                        }))
+                    });
+
+                    // Advance 1 day
+                    curDate.setDate(curDate.getDate() + 1);
+                }
+
                 setRankingData(mappedRanking);
+                setTimelineData(dailyData);
             } catch (err) {
                 console.error('Error in fetchRanking:', err);
             } finally {
@@ -190,7 +290,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         if (activeTab === 'ranking') {
             fetchRanking();
         }
-    }, [activeTab, initialStudents, modules]);
+    }, [activeTab, initialStudents, modules, bootcamp.startDate]);
 
     // Content Management State
     const [expandedModule, setExpandedModule] = useState<number | null>(null);
@@ -2041,140 +2141,243 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="mt-6 space-y-4">
-                                        <div className="flex justify-between items-center mb-4 px-2">
-                                            <h3 className="text-lg font-semibold flex items-center gap-2">
-                                                <Trophy size={20} className="text-primary" />
-                                                <span>Tabla de Posiciones</span>
-                                            </h3>
-                                            <span className="text-xs text-muted-foreground bg-secondary/30 px-3 py-1 rounded-full border border-border/40 font-medium">
-                                                Total alumnos: {rankingData.length}
-                                            </span>
-                                        </div>
+                                    (() => {
+                                        const maxPoints = Math.max(...timelineData.map(d => d.points), 0);
+                                        return (
+                                            <div className="mt-6 space-y-6">
+                                                {/* Gráfico de Línea de Tiempo / Avance Diario */}
+                                                <div className="bg-card-bg/25 border border-border/40 rounded-2xl p-6 shadow-sm relative overflow-hidden backdrop-blur-sm">
+                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+                                                    
+                                                    <div className="flex justify-between items-center mb-4">
+                                                        <div>
+                                                            <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                                                                <BarChart3 size={18} className="text-primary" />
+                                                                Avance de Alumnos por Día
+                                                            </h4>
+                                                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                                                                Visualización de contenidos completados desde el inicio del bootcamp (Eje Y: Días, Eje X: Puntos acumulados)
+                                                            </p>
+                                                        </div>
+                                                        {maxPoints > 0 && (
+                                                            <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">
+                                                                Pico máximo: {maxPoints} pts
+                                                            </span>
+                                                        )}
+                                                    </div>
 
-                                        <div className="grid grid-cols-1 gap-3">
-                                            {rankingData.map((item, index) => {
-                                                const { student, points } = item;
-                                                const totalLessons = modules.flatMap(m => m.lessons || []).length;
-                                                const progressPercentage = totalLessons > 0 ? Math.round((points / totalLessons) * 100) : 0;
-                                                const isOnline = Object.values(onlineUsers).some(
-                                                    (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
-                                                );
-                                                const name = student.email ? student.email.split('@')[0] : 'Alumno';
-                                                const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
+                                                    {/* Ejes y Barras del Gráfico */}
+                                                    <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar border-l border-border/40 pl-3">
+                                                        {timelineData.map((item) => {
+                                                            const isPeak = item.points === maxPoints && maxPoints > 0;
+                                                            // Width calculation: if maxPoints is 0, width is 0. Else scale.
+                                                            const barWidth = maxPoints > 0 ? (item.points / maxPoints) * 85 : 0;
+                                                            
+                                                            return (
+                                                                <div key={item.dateKey} className="relative group flex items-center gap-4 py-1 px-2 rounded-lg hover:bg-white/[0.02] transition-colors">
+                                                                    {/* Eje Y: Fecha */}
+                                                                    <div className="w-16 text-[11px] text-muted-foreground font-semibold shrink-0">
+                                                                        {item.dateStr}
+                                                                    </div>
 
-                                                // Top 3 styles
-                                                const isTop3 = index < 3;
-                                                const podiumStyles = [
-                                                    { bg: 'bg-yellow-500/10 border-yellow-500/30 hover:border-yellow-500/50 shadow-yellow-500/5', label: '🥇 1er Lugar' },
-                                                    { bg: 'bg-slate-400/10 border-slate-400/30 hover:border-slate-400/50 shadow-slate-400/5', label: '🥈 2do Lugar' },
-                                                    { bg: 'bg-amber-700/10 border-amber-700/30 hover:border-amber-700/50 shadow-amber-700/5', label: '🥉 3er Lugar' }
-                                                ];
+                                                                    {/* Eje X: Barra */}
+                                                                    <div className="flex-1 relative h-6 flex items-center min-w-[150px]">
+                                                                        {item.points > 0 ? (
+                                                                            <div 
+                                                                                className={`h-3.5 rounded-md transition-all duration-500 relative flex items-center pl-2 ${
+                                                                                    isPeak
+                                                                                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 shadow-md shadow-orange-500/10'
+                                                                                        : 'bg-gradient-to-r from-primary to-indigo-500'
+                                                                                }`}
+                                                                                style={{ width: `${Math.max(barWidth, 6)}%` }} // min 6% to show small indicator
+                                                                            >
+                                                                                {/* Shine effect on peak day */}
+                                                                                {isPeak && (
+                                                                                    <span className="absolute inset-0 bg-white/10 animate-pulse rounded-md" />
+                                                                                )}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="h-0.5 w-6 bg-neutral-800 rounded-full" /> // Flat line for zero completions
+                                                                        )}
+                                                                        
+                                                                        {/* Eje X valor / Puntos */}
+                                                                        {item.points > 0 && (
+                                                                            <span className={`text-[10px] font-bold ml-2 shrink-0 ${isPeak ? 'text-amber-500' : 'text-foreground'}`}>
+                                                                                +{item.points} {item.points === 1 ? 'punto' : 'puntos'}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
 
-                                                const currentPodium = isTop3 ? podiumStyles[index] : null;
-
-                                                return (
-                                                    <div 
-                                                        key={student.id} 
-                                                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
-                                                            currentPodium 
-                                                                ? `${currentPodium.bg} shadow-md` 
-                                                                : 'bg-card-bg/40 border-border hover:border-foreground/20'
-                                                        }`}
-                                                    >
-                                                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                            {/* Posición / Rank index */}
-                                                            <div className="flex items-center justify-center w-8 shrink-0">
-                                                                {isTop3 ? (
-                                                                    <span className="text-xl font-bold select-none">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
-                                                                ) : (
-                                                                    <span className="text-sm font-semibold text-muted select-none">#{index + 1}</span>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Avatar */}
-                                                            <div className="relative shrink-0">
-                                                                <div className={`h-11 w-11 rounded-xl flex items-center justify-center font-bold text-sm shadow-inner transition-colors ${
-                                                                    index === 0 
-                                                                        ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' 
-                                                                        : index === 1 
-                                                                            ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30' 
-                                                                            : index === 2 
-                                                                                ? 'bg-amber-700/20 text-amber-500 border border-amber-700/30' 
-                                                                                : 'bg-primary/10 text-primary border border-primary/20'
-                                                                }`}>
-                                                                    {initials}
-                                                                </div>
-                                                                <span 
-                                                                    className={`absolute -bottom-1 -right-1 block h-3 w-3 rounded-full border-2 transition-colors duration-300 ${
-                                                                        currentPodium ? 'border-card-bg' : 'border-card'
-                                                                    } ${
-                                                                        isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
-                                                                    }`}
-                                                                    title={isOnline ? 'Activo ahora' : 'Desconectado'}
-                                                                />
-                                                            </div>
-
-                                                            {/* Nombre y correo */}
-                                                            <div className="flex flex-col min-w-0">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="font-semibold text-sm text-foreground truncate capitalize">
-                                                                        {name}
-                                                                    </span>
-                                                                    {currentPodium && (
-                                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-background/60 border border-border/40 uppercase tracking-wider scale-90">
-                                                                            {currentPodium.label}
+                                                                    {/* Tag para el día pico */}
+                                                                    {isPeak && (
+                                                                        <span className="text-[9px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider shrink-0 hidden sm:inline-block">
+                                                                            🔥 Pico
                                                                         </span>
                                                                     )}
-                                                                </div>
-                                                                <span className="text-xs text-muted-foreground truncate">
-                                                                    {student.email}
-                                                                </span>
-                                                            </div>
-                                                        </div>
 
-                                                        {/* Puntos y Progreso */}
-                                                        <div className="flex items-center gap-6 mt-4 sm:mt-0 shrink-0 pl-12 sm:pl-0">
-                                                            {/* Progreso bar & fraction */}
-                                                            <div className="flex flex-col items-end text-right">
-                                                                <span className="text-xs text-muted-foreground font-medium mb-1">
-                                                                    {points} de {totalLessons} lecciones
-                                                                </span>
-                                                                <div className="w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
-                                                                    <div 
-                                                                        className={`h-full rounded-full transition-all duration-1000 ${
-                                                                            index === 0 
-                                                                                ? 'bg-yellow-500' 
-                                                                                : index === 1 
-                                                                                    ? 'bg-slate-300' 
-                                                                                    : index === 2 
-                                                                                        ? 'bg-amber-600' 
-                                                                                        : 'bg-primary'
-                                                                        }`}
-                                                                        style={{ width: `${progressPercentage}%` }}
-                                                                    />
+                                                                    {/* Tooltip con los detalles de alumnos y clases completadas */}
+                                                                    {item.completions.length > 0 && (
+                                                                        <div className="absolute bottom-full left-12 mb-2 w-64 bg-background/95 border border-border rounded-xl shadow-2xl p-3 z-[100] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none translate-y-1 group-hover:translate-y-0 max-h-48 overflow-y-auto custom-scrollbar">
+                                                                            <div className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 border-b border-border/40 pb-1 flex justify-between">
+                                                                                <span>Detalle del Día</span>
+                                                                                <span className="text-muted-foreground">{item.dateStr}</span>
+                                                                            </div>
+                                                                            <div className="space-y-1.5">
+                                                                                {item.completions.map((comp, idx) => (
+                                                                                    <div key={idx} className="text-[11px] leading-relaxed text-foreground/90">
+                                                                                        <span className="font-semibold text-primary-light capitalize">
+                                                                                            {comp.studentEmail.split('@')[0]}
+                                                                                        </span>
+                                                                                        <span className="text-muted-foreground"> completó </span>
+                                                                                        <span className="font-medium text-foreground">
+                                                                                            "{comp.lessonTitle}"
+                                                                                        </span>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
-                                                            </div>
-
-                                                            {/* Puntos de Clasificación Badge */}
-                                                            <div className={`h-12 w-20 rounded-xl flex flex-col items-center justify-center border font-bold select-none ${
-                                                                index === 0 
-                                                                    ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-500' 
-                                                                    : index === 1 
-                                                                        ? 'bg-slate-400/20 border-slate-400/40 text-slate-300' 
-                                                                        : index === 2 
-                                                                            ? 'bg-amber-700/20 border-amber-700/40 text-amber-500' 
-                                                                            : 'bg-secondary/40 border-border text-foreground'
-                                                            }`}>
-                                                                <span className="text-lg leading-none">{points}</span>
-                                                                <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">pts</span>
-                                                            </div>
-                                                        </div>
+                                                            );
+                                                        })}
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+                                                </div>
+
+                                                <div className="flex justify-between items-center mb-4 px-2">
+                                                    <h3 className="text-base font-semibold flex items-center gap-2">
+                                                        <Trophy size={18} className="text-primary" />
+                                                        <span>Tabla de Posiciones</span>
+                                                    </h3>
+                                                    <span className="text-xs text-muted-foreground bg-secondary/30 px-3 py-1 rounded-full border border-border/40 font-medium">
+                                                        Total alumnos: {rankingData.length}
+                                                    </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-3">
+                                                    {rankingData.map((item, index) => {
+                                                        const { student, points } = item;
+                                                        const totalLessons = modules.flatMap(m => m.lessons || []).length;
+                                                        const progressPercentage = totalLessons > 0 ? Math.round((points / totalLessons) * 100) : 0;
+                                                        const isOnline = Object.values(onlineUsers).some(
+                                                            (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
+                                                        );
+                                                        const name = student.email ? student.email.split('@')[0] : 'Alumno';
+                                                        const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
+
+                                                        // Top 3 styles
+                                                        const isTop3 = index < 3;
+                                                        const podiumStyles = [
+                                                            { bg: 'bg-yellow-500/10 border-yellow-500/30 hover:border-yellow-500/50 shadow-yellow-500/5', label: '🥇 1er Lugar' },
+                                                            { bg: 'bg-slate-400/10 border-slate-400/30 hover:border-slate-400/50 shadow-slate-400/5', label: '🥈 2do Lugar' },
+                                                            { bg: 'bg-amber-700/10 border-amber-700/30 hover:border-amber-700/50 shadow-amber-700/5', label: '🥉 3er Lugar' }
+                                                        ];
+
+                                                        const currentPodium = isTop3 ? podiumStyles[index] : null;
+
+                                                        return (
+                                                            <div 
+                                                                key={student.id} 
+                                                                className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
+                                                                    currentPodium 
+                                                                        ? `${currentPodium.bg} shadow-md` 
+                                                                        : 'bg-card-bg/40 border-border hover:border-foreground/20'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                                    {/* Posición / Rank index */}
+                                                                    <div className="flex items-center justify-center w-8 shrink-0">
+                                                                        {isTop3 ? (
+                                                                            <span className="text-xl font-bold select-none">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
+                                                                        ) : (
+                                                                            <span className="text-sm font-semibold text-muted select-none">#{index + 1}</span>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {/* Avatar */}
+                                                                    <div className="relative shrink-0">
+                                                                        <div className={`h-11 w-11 rounded-xl flex items-center justify-center font-bold text-sm shadow-inner transition-colors ${
+                                                                            index === 0 
+                                                                                ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' 
+                                                                                : index === 1 
+                                                                                    ? 'bg-slate-400/20 text-slate-300 border border-slate-400/30' 
+                                                                                    : index === 2 
+                                                                                        ? 'bg-amber-700/20 text-amber-500 border border-amber-700/30' 
+                                                                                        : 'bg-primary/10 text-primary border border-primary/20'
+                                                                        }`}>
+                                                                            {initials}
+                                                                        </div>
+                                                                        <span 
+                                                                            className={`absolute -bottom-1 -right-1 block h-3 w-3 rounded-full border-2 transition-colors duration-300 ${
+                                                                                currentPodium ? 'border-card-bg' : 'border-card'
+                                                                            } ${
+                                                                                isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
+                                                                            }`}
+                                                                            title={isOnline ? 'Activo ahora' : 'Desconectado'}
+                                                                        />
+                                                                    </div>
+
+                                                                    {/* Nombre y correo */}
+                                                                    <div className="flex flex-col min-w-0">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="font-semibold text-sm text-foreground truncate capitalize">
+                                                                                {name}
+                                                                            </span>
+                                                                            {currentPodium && (
+                                                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-background/60 border border-border/40 uppercase tracking-wider scale-90">
+                                                                                    {currentPodium.label}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <span className="text-xs text-muted-foreground truncate">
+                                                                            {student.email}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Puntos y Progreso */}
+                                                                <div className="flex items-center gap-6 mt-4 sm:mt-0 shrink-0 pl-12 sm:pl-0">
+                                                                    {/* Progreso bar & fraction */}
+                                                                    <div className="flex flex-col items-end text-right">
+                                                                        <span className="text-xs text-muted-foreground font-medium mb-1">
+                                                                            {points} de {totalLessons} lecciones
+                                                                        </span>
+                                                                        <div className="w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
+                                                                            <div 
+                                                                                className={`h-full rounded-full transition-all duration-1000 ${
+                                                                                    index === 0 
+                                                                                        ? 'bg-yellow-500' 
+                                                                                        : index === 1 
+                                                                                            ? 'bg-slate-300' 
+                                                                                            : index === 2 
+                                                                                                ? 'bg-amber-600' 
+                                                                                                : 'bg-primary'
+                                                                                }`}
+                                                                                style={{ width: `${progressPercentage}%` }}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Puntos de Clasificación Badge */}
+                                                                    <div className={`h-12 w-20 rounded-xl flex flex-col items-center justify-center border font-bold select-none ${
+                                                                        index === 0 
+                                                                            ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-500' 
+                                                                            : index === 1 
+                                                                                ? 'bg-slate-400/20 border-slate-400/40 text-slate-300' 
+                                                                                : index === 2 
+                                                                                    ? 'bg-amber-700/20 border-amber-700/40 text-amber-500' 
+                                                                                    : 'bg-secondary/40 border-border text-foreground'
+                                                                    }`}>
+                                                                        <span className="text-lg leading-none">{points}</span>
+                                                                        <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">pts</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()
                                 )}
                             </div>
                         )}
