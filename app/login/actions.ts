@@ -26,6 +26,29 @@ export async function login(formData: FormData, inviteId?: string | null, token?
 
     console.log('Login successful for:', email, 'User ID:', data.user.id);
 
+    // Auto-link userId in BootcampStudent if it's missing
+    if (data.user) {
+        try {
+            const { data: studentRecords } = await supabase
+                .from('BootcampStudent')
+                .select('id, userId')
+                .eq('email', email);
+
+            if (studentRecords) {
+                for (const record of studentRecords) {
+                    if (!record.userId) {
+                        await supabase
+                            .from('BootcampStudent')
+                            .update({ userId: data.user.id })
+                            .eq('id', record.id);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Error auto-linking userId on login:', e);
+        }
+    }
+
     // Join bootcamp if inviteId or token is present
     if (token && data.user) {
         console.log('Processing token for login:', token);
