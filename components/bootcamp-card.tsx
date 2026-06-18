@@ -46,6 +46,7 @@ export interface BootcampCardProps {
     icon?: string;
     color?: string;
     isFrozen?: boolean;
+    imageUrl?: string;
 }
 
 export function BootcampCard({
@@ -62,7 +63,8 @@ export function BootcampCard({
     onDelete,
     icon,
     color,
-    isFrozen
+    isFrozen,
+    imageUrl
 }: BootcampCardProps) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -85,14 +87,14 @@ export function BootcampCard({
 
     return (
         <div
-            className={`relative group rounded-3xl border border-border bg-card-bg p-6 transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 ${className || ''}`}
+            className={`relative group rounded-3xl border border-border bg-card-bg transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 ${imageUrl ? 'overflow-hidden flex flex-col p-0' : 'p-6'} ${className || ''}`}
         >
             {/* Dots Menu */}
             {onDelete && (
-                <div className="absolute top-4 right-4" ref={menuRef}>
+                <div className="absolute top-4 right-4 z-10" ref={menuRef}>
                     <button
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
-                        className="p-1.5 rounded-full hover:bg-white/5 text-muted hover:text-foreground transition-colors"
+                        className={`p-1.5 rounded-full hover:bg-white/5 text-muted hover:text-foreground transition-colors ${imageUrl ? 'bg-black/40 backdrop-blur-sm' : ''}`}
                     >
                         <MoreVertical size={20} />
                     </button>
@@ -114,67 +116,92 @@ export function BootcampCard({
                 </div>
             )}
 
-            <div className="flex gap-4 mb-4">
-                {IconComponent && (
-                    <div className={`w-12 h-12 rounded-full ${bgClass} flex items-center justify-center flex-shrink-0 text-white shadow-lg shadow-black/10`}>
-                        <IconComponent size={24} />
-                    </div>
-                )}
-                <div className="pr-8">
-                    <h3 className="text-base font-semibold text-foreground mb-1 line-clamp-1">
-                        {title}
-                    </h3>
-                    <div 
-                        className="text-sm text-muted line-clamp-2 leading-relaxed prose prose-sm dark:prose-invert max-w-none"
-                        dangerouslySetInnerHTML={{ __html: description }}
+            {imageUrl && (
+                <div className="relative w-full h-44 overflow-hidden shrink-0">
+                    <img 
+                        src={imageUrl} 
+                        alt={title} 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
                     />
+                    {/* Top gradient overlay to fade out/in from card background */}
+                    <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-card-bg to-transparent pointer-events-none" />
+                    {/* Bottom gradient overlay to fade out/in from card background */}
+                    <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-card-bg to-transparent pointer-events-none" />
+                    
+                    {/* Absolutely positioned icon circle */}
+                    {IconComponent && (
+                        <div className={`absolute top-4 left-4 w-12 h-12 rounded-full ${bgClass} flex items-center justify-center text-white shadow-lg shadow-black/30 z-10 border border-white/10`}>
+                            <IconComponent size={24} />
+                        </div>
+                    )}
                 </div>
-            </div>
+            )}
 
-            <div className="space-y-3 mb-6">
-                <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted">Duración:</span>
-                    <span className="text-foreground font-medium">{duration}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted">Nivel:</span>
-                    <div className="flex items-center gap-2">
-                        {isFrozen && (
-                            <span className="inline-flex items-center rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-400 border border-cyan-500/20">
-                                Congelado
-                            </span>
+            <div className={imageUrl ? 'p-6 flex-1 flex flex-col justify-between' : 'h-full flex flex-col justify-between'}>
+                <div>
+                    <div className="flex gap-4 mb-4">
+                        {(!imageUrl && IconComponent) && (
+                            <div className={`w-12 h-12 rounded-full ${bgClass} flex items-center justify-center flex-shrink-0 text-white shadow-lg shadow-black/10`}>
+                                <IconComponent size={24} />
+                            </div>
                         )}
-                        <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary border border-primary/20">
-                            {level}
-                        </span>
+                        <div className={`${!imageUrl ? 'pr-8' : ''} flex-1 min-w-0`}>
+                            <h3 className="text-base font-semibold text-foreground mb-1 line-clamp-1">
+                                {title}
+                            </h3>
+                            <div 
+                                className="text-xs text-muted line-clamp-2 leading-tighter prose prose-sm dark:prose-invert max-w-none mt-2"
+                                dangerouslySetInnerHTML={{ __html: description }}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-3 mb-6">
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted">Duración:</span>
+                            <span className="text-foreground font-medium">{duration}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted">Nivel:</span>
+                            <div className="flex items-center gap-2">
+                                {isFrozen && (
+                                    <span className="inline-flex items-center rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-400 border border-cyan-500/20">
+                                        Congelado
+                                    </span>
+                                )}
+                                <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary border border-primary/20">
+                                    {level}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted">Estudiantes:</span>
+                            <span className="text-foreground font-medium">{students}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted">Inicio:</span>
+                            <span className="text-foreground font-medium">{startDate}</span>
+                        </div>
                     </div>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted">Estudiantes:</span>
-                    <span className="text-foreground font-medium">{students}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted">Inicio:</span>
-                    <span className="text-foreground font-medium">{startDate}</span>
-                </div>
-            </div>
 
-            <div className="flex gap-3">
-                {isFrozen ? (
-                    <button
-                        disabled
-                        className="flex-1 block text-center rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm font-semibold text-muted/60 cursor-not-allowed"
-                    >
-                        Acceso Congelado
-                    </button>
-                ) : (
-                    <Link
-                        href={linkHref}
-                        className="flex-1 block text-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary/20"
-                    >
-                        {linkText}
-                    </Link>
-                )}
+                <div className="flex gap-3 mt-auto">
+                    {isFrozen ? (
+                        <button
+                            disabled
+                            className="flex-1 block text-center rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm font-semibold text-muted/60 cursor-not-allowed"
+                        >
+                            Acceso Congelado
+                        </button>
+                    ) : (
+                        <Link
+                            href={linkHref}
+                            className="flex-1 block text-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary/20"
+                        >
+                            {linkText}
+                        </Link>
+                    )}
+                </div>
             </div>
         </div>
     );

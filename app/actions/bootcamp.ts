@@ -16,6 +16,7 @@ export async function createBootcamp(formData: FormData) {
     const color = formData.get('color') as string || 'green';
     const enableChecklist = formData.get('enableChecklist') !== 'false'; // Defaults to true unless explicitly 'false'
     const enableRanking = formData.get('enableRanking') !== 'false'; // Defaults to true unless explicitly 'false'
+    const imageUrl = formData.get('imageUrl') as string || null;
 
     if (!title || !description || !duration || !level || !startDate) {
         throw new Error('Todos los campos son obligatorios');
@@ -39,6 +40,7 @@ export async function createBootcamp(formData: FormData) {
             color,
             enableChecklist,
             enableRanking,
+            imageUrl,
             updatedAt: new Date().toISOString(),
         })
         .select()
@@ -71,7 +73,7 @@ export async function deleteBootcamp(id: number) {
     revalidatePath('/cms');
 }
 
-export async function updateBootcamp(id: number, updates: { title?: string; icon?: string; color?: string; description?: string; duration?: string; level?: string; startDate?: string; enableChecklist?: boolean; enableRanking?: boolean }) {
+export async function updateBootcamp(id: number, updates: { title?: string; icon?: string; color?: string; description?: string; duration?: string; level?: string; startDate?: string; enableChecklist?: boolean; enableRanking?: boolean; imageUrl?: string | null }) {
 
     const supabase = await createClient();
 

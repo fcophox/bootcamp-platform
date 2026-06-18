@@ -14,7 +14,8 @@ import {
     Trash2, Edit2, ChevronDown, ChevronUp, GripVertical, MonitorPlay,
     Headphones, FileUp, Users, Trophy, Check, X, Clock, Loader2,
     Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase,
-    MoreHorizontal, BarChart3, Radio, BookOpen, Calendar, Snowflake
+    MoreHorizontal, BarChart3, Radio, BookOpen, Calendar, Snowflake,
+    Upload
 } from 'lucide-react';
 
 import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson, reorderLessons, reorderModules } from '@/app/actions/module';
@@ -71,6 +72,7 @@ interface ManageBootcampClientProps {
         startDate?: string;
         enableChecklist?: boolean;
         enableRanking?: boolean;
+        imageUrl?: string;
     };
 
     modules: Module[];
@@ -219,6 +221,36 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
     const [tempIcon, setTempIcon] = useState(bootcamp.icon || 'code');
     const [tempColor, setTempColor] = useState(bootcamp.color || 'blue');
+    const [tempImageUrl, setTempImageUrl] = useState(bootcamp.imageUrl || '');
+    const [isUploadingCover, setIsUploadingCover] = useState(false);
+
+    const handleCoverImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        
+        setIsUploadingCover(true);
+        const supabase = createClient();
+        
+        const fileExt = file.name.split('.').pop();
+        const fileName = `bootcamp-cover-${Date.now()}.${fileExt}`;
+        const filePath = `bootcamps/${fileName}`;
+
+        try {
+            const { error: uploadError } = await supabase.storage
+                .from('media')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage.from('media').getPublicUrl(filePath);
+            setTempImageUrl(data.publicUrl);
+        } catch (error) {
+            console.error('Upload error:', error);
+            alert('Error al subir la imagen. Asegúrate de tener configurado el bucket "media" en Supabase.');
+        } finally {
+            setIsUploadingCover(false);
+        }
+    };
     const [editingModuleId, setEditingModuleId] = useState<number | null>(null);
     const [editingModuleTitle, setEditingModuleTitle] = useState('');
     const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
@@ -601,7 +633,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             tempLevel === (bootcamp.level || '') &&
             tempStartDate === (bootcamp.startDate || '') &&
             tempEnableChecklist === (bootcamp.enableChecklist ?? true) &&
-            tempEnableRanking === (bootcamp.enableRanking ?? true)
+            tempEnableRanking === (bootcamp.enableRanking ?? true) &&
+            tempImageUrl === (bootcamp.imageUrl || '')
         ) {
             setIsEditingBootcampModalOpen(false);
             return;
@@ -616,7 +649,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 level: tempLevel,
                 startDate: tempStartDate,
                 enableChecklist: tempEnableChecklist,
-                enableRanking: tempEnableRanking
+                enableRanking: tempEnableRanking,
+                imageUrl: tempImageUrl || null
             });
             setIsEditingBootcampModalOpen(false);
             router.refresh();
@@ -1484,6 +1518,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 setTempStartDate(bootcamp.startDate || '');
                                                 setTempEnableChecklist(bootcamp.enableChecklist ?? true);
                                                 setTempEnableRanking(bootcamp.enableRanking ?? true);
+                                                setTempImageUrl(bootcamp.imageUrl || '');
                                                 setIsEditingBootcampModalOpen(true);
                                             }}
                                         >
@@ -2685,6 +2720,58 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         </span>
                                     </div>
                                 </div>
+                            </div>
+
+                            <div className="pt-4 border-t border-border/50">
+                                <label className="block text-sm font-medium mb-3 text-foreground font-semibold">Imagen de Portada (Opcional)</label>
+                                {tempImageUrl ? (
+                                    <div className="relative w-full h-44 rounded-lg overflow-hidden border border-border">
+                                        <img
+                                            src={tempImageUrl}
+                                            alt="Cover preview"
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setTempImageUrl('')}
+                                            className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleCoverImageUpload}
+                                            className="hidden"
+                                            id="cover-upload-edit"
+                                            disabled={isUploadingCover}
+                                        />
+                                        <label
+                                            htmlFor="cover-upload-edit"
+                                            className={`flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all ${
+                                                isUploadingCover ? 'opacity-50 cursor-not-allowed' : ''
+                                            }`}
+                                        >
+                                            {isUploadingCover ? (
+                                                <>
+                                                    <Loader2 size={24} className="text-primary animate-spin" />
+                                                    <span className="text-sm text-muted">Subiendo portada...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload size={24} className="text-muted" />
+                                                    <div className="text-center">
+                                                        <p className="text-sm font-medium text-foreground">Subir imagen de portada</p>
+                                                        <p className="text-xs text-muted mt-1">PNG, JPG o WEBP</p>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </label>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="p-6 border-t border-border bg-background/50 mt-auto flex items-center justify-end gap-3">

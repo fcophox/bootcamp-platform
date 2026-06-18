@@ -17,6 +17,9 @@ interface Bootcamp {
     level: string;
     students: number;
     startDate: string;
+    icon?: string;
+    color?: string;
+    imageUrl?: string;
 }
 
 interface CmsClientProps {

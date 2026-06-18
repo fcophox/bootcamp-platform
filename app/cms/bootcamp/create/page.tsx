@@ -5,9 +5,10 @@ import { BootcampCard } from '@/components/bootcamp-card';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
 import { RichTextEditor } from '@/components/rich-text-editor';
-import { ChevronRight, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary } from 'lucide-react';
+import { ChevronRight, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Upload, X, Loader2 } from 'lucide-react';
 import { createBootcamp } from '@/app/actions/bootcamp';
 import Link from 'next/link';
+import { createClient } from '@/utils/supabase/client';
 import { formatDateString } from '@/utils/date';
 
 // Map of icon names to components
@@ -57,6 +58,37 @@ export default function CreateBootcampPage() {
         enableChecklist: true
     });
 
+    const [isUploading, setIsUploading] = useState(false);
+    const [imageUrl, setImageUrl] = useState('');
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        
+        setIsUploading(true);
+        const supabase = createClient();
+        
+        const fileExt = file.name.split('.').pop();
+        const fileName = `bootcamp-cover-${Date.now()}.${fileExt}`;
+        const filePath = `bootcamps/${fileName}`;
+
+        try {
+            const { error: uploadError } = await supabase.storage
+                .from('media')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage.from('media').getPublicUrl(filePath);
+            setImageUrl(data.publicUrl);
+        } catch (error) {
+            console.error('Upload error:', error);
+            alert('Error al subir la imagen. Asegúrate de tener configurado el bucket "media" en Supabase.');
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({
@@ -101,6 +133,7 @@ export default function CreateBootcampPage() {
                                 <form action={createBootcamp} className="space-y-6">
                                     <input type="hidden" name="icon" value={formData.icon} />
                                     <input type="hidden" name="color" value={formData.color} />
+                                    <input type="hidden" name="imageUrl" value={imageUrl} />
 
                                     <div className="space-y-6 bg-card-bg p-6 rounded-lg border border-border">
                                         <h2 className="text-sm font-medium border-b border-border pb-4 mb-4">Información General</h2>
@@ -167,6 +200,58 @@ export default function CreateBootcampPage() {
                                                     />
                                                 ))}
                                             </div>
+                                        </div>
+
+                                        <div className="pt-4 border-t border-border/50">
+                                            <label className="block text-sm font-medium mb-3">Imagen de Portada (Opcional)</label>
+                                            {imageUrl ? (
+                                                <div className="relative w-full h-44 rounded-lg overflow-hidden border border-border">
+                                                    <img
+                                                        src={imageUrl}
+                                                        alt="Cover preview"
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setImageUrl('')}
+                                                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="relative">
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handleImageUpload}
+                                                        className="hidden"
+                                                        id="cover-upload"
+                                                        disabled={isUploading}
+                                                    />
+                                                    <label
+                                                        htmlFor="cover-upload"
+                                                        className={`flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all ${
+                                                            isUploading ? 'opacity-50 cursor-not-allowed' : ''
+                                                        }`}
+                                                    >
+                                                        {isUploading ? (
+                                                            <>
+                                                                <Loader2 size={24} className="text-primary animate-spin" />
+                                                                <span className="text-sm text-muted">Subiendo portada...</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Upload size={24} className="text-muted" />
+                                                                <div className="text-center">
+                                                                    <p className="text-sm font-medium text-foreground">Subir imagen de portada</p>
+                                                                    <p className="text-xs text-muted mt-1">PNG, JPG o WEBP</p>
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </label>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
@@ -273,6 +358,7 @@ export default function CreateBootcampPage() {
                                         className="bg-card-bg shadow-xl"
                                         icon={formData.icon}
                                         color={formData.color}
+                                        imageUrl={imageUrl || undefined}
                                     />
 
                                     <div className="mt-4 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm text-blue-400">

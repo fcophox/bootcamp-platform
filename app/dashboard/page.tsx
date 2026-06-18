@@ -48,7 +48,7 @@ export default async function DashboardPage() {
 
     if (error) {
         console.error('Error fetching enrolled bootcamps:', error);
-        return <DashboardClient bootcamps={[]} userName={userName} />;
+        return <DashboardClient bootcamps={[]} userName={userName} continueLearning={null} />;
     }
 
     const cleanedBootcamps = bootcamps?.map(b => {
@@ -63,5 +63,106 @@ export default async function DashboardPage() {
         };
     }) || [];
 
-    return <DashboardClient bootcamps={cleanedBootcamps} userName={userName} />;
+    // Fetch progress and lessons to build the "continue learning" section
+    const bootcampIds = bootcamps?.map(b => b.id) || [];
+    let continueLearning = null;
+
+    if (bootcampIds.length > 0) {
+        // Fetch all modules with lessons for these bootcamps
+        const { data: modulesData } = await supabase
+            .from('Module')
+            .select(`
+                id,
+                bootcampId,
+                Lesson (
+                    id,
+                    title,
+                    type,
+                    order
+                )
+            `)
+            .in('bootcampId', bootcampIds);
+
+        // Group lessons by bootcamp
+        const lessonsMap: Record<number, any[]> = {};
+        if (modulesData) {
+            modulesData.forEach((mod: any) => {
+                const bId = mod.bootcampId;
+                if (!lessonsMap[bId]) {
+                    lessonsMap[bId] = [];
+                }
+                if (mod.Lesson) {
+                    lessonsMap[bId].push(...mod.Lesson);
+                }
+            });
+        }
+
+        // Fetch student completions
+        const studentIds = bootcamps.map(b => {
+            const studentRecord = Array.isArray(b.BootcampStudent) ? b.BootcampStudent[0] : b.BootcampStudent;
+            return studentRecord?.id;
+        }).filter(Boolean);
+
+        const completionsMap: Record<number, number[]> = {};
+        if (studentIds.length > 0) {
+            const { data: completionsData } = await supabase
+                .from('LessonCompletion')
+                .select('studentId, lessonId')
+                .in('studentId', studentIds);
+
+            if (completionsData) {
+                completionsData.forEach((comp: any) => {
+                    const studentRecord = bootcamps.find(b => {
+                        const rec = Array.isArray(b.BootcampStudent) ? b.BootcampStudent[0] : b.BootcampStudent;
+                        return rec?.id === comp.studentId;
+                    });
+                    if (studentRecord) {
+                        const bId = studentRecord.id;
+                        if (!completionsMap[bId]) {
+                            completionsMap[bId] = [];
+                        }
+                        completionsMap[bId].push(comp.lessonId);
+                    }
+                });
+            }
+        }
+
+        // Find the first bootcamp with progress or next lesson
+        for (const b of cleanedBootcamps) {
+            const lessons = lessonsMap[b.id] || [];
+            const completedIds = completionsMap[b.id] || [];
+            
+            // Filter out subtitles
+            const realLessons = lessons.filter(l => l.type !== 'subtitle');
+            if (realLessons.length === 0) continue;
+
+            // Sort lessons by order, then id
+            realLessons.sort((a, b) => {
+                if (a.order !== b.order) return a.order - b.order;
+                return a.id - b.id;
+            });
+
+            // First incomplete lesson
+            let nextLesson = realLessons.find(l => !completedIds.includes(l.id));
+            if (!nextLesson && realLessons.length > 0) {
+                nextLesson = realLessons[realLessons.length - 1]; // fallback to last
+            }
+
+            if (nextLesson) {
+                continueLearning = {
+                    bootcampId: b.id,
+                    bootcampTitle: b.title,
+                    lessonId: nextLesson.id,
+                    lessonTitle: nextLesson.title,
+                    completedCount: completedIds.length,
+                    totalCount: realLessons.length,
+                    icon: b.icon,
+                    color: b.color
+                };
+                break;
+            }
+        }
+    }
+
+    return <DashboardClient bootcamps={cleanedBootcamps} userName={userName} continueLearning={continueLearning} />;
 }
