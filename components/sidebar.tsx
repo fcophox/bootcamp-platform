@@ -268,7 +268,27 @@ export function Sidebar() {
                     </div>
                     {!isCollapsed && (
                         <div className="flex-1 min-w-0 text-left">
-                            <p className="text-sm font-medium text-foreground truncate">{userName}</p>
+                            <p className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
+                                <span className="truncate">{userName}</span>
+                                {role === 'superadmin' && (
+                                    <span 
+                                        className="flex-shrink-0 flex items-center justify-center rounded-full bg-red-500/15 border border-red-500/30 text-[10px] font-extrabold text-red-600 dark:text-red-400" 
+                                        style={{ width: '18px', height: '18px' }}
+                                        title="Administrador"
+                                    >
+                                        A
+                                    </span>
+                                )}
+                                {role === 'docente' && (
+                                    <span 
+                                        className="flex-shrink-0 flex items-center justify-center rounded-full bg-blue-500/15 border border-blue-500/30 text-[10px] font-extrabold text-blue-600 dark:text-blue-400" 
+                                        style={{ width: '18px', height: '18px' }}
+                                        title="Docente"
+                                    >
+                                        D
+                                    </span>
+                                )}
+                            </p>
                             <p className="text-xs text-muted truncate">{userEmail}</p>
                         </div>
                     )}
@@ -279,7 +299,27 @@ export function Sidebar() {
                     <div className={`absolute bottom-full mb-2 rounded-lg border border-border bg-background shadow-lg overflow-hidden z-50 ${isCollapsed ? 'left-full ml-2 w-56' : 'left-4 right-4'}`}>
                         {/* User Info Header */}
                         <div className="px-4 py-3 border-b border-border">
-                            <p className="text-base font-medium text-foreground">{userName}</p>
+                            <p className="text-base font-medium text-foreground flex items-center gap-1.5">
+                                <span className="truncate">{userName}</span>
+                                {role === 'superadmin' && (
+                                    <span 
+                                        className="flex-shrink-0 flex items-center justify-center rounded-full bg-red-500/15 border border-red-500/30 text-[10px] font-extrabold text-red-600 dark:text-red-400" 
+                                        style={{ width: '18px', height: '18px' }}
+                                        title="Administrador"
+                                    >
+                                        A
+                                    </span>
+                                )}
+                                {role === 'docente' && (
+                                    <span 
+                                        className="flex-shrink-0 flex items-center justify-center rounded-full bg-blue-500/15 border border-blue-500/30 text-[10px] font-extrabold text-blue-600 dark:text-blue-400" 
+                                        style={{ width: '18px', height: '18px' }}
+                                        title="Docente"
+                                    >
+                                        D
+                                    </span>
+                                )}
+                            </p>
                             <p className="text-sm text-muted">{userEmail}</p>
                         </div>
 
