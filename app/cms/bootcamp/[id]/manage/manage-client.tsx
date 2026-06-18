@@ -1314,75 +1314,74 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         </div>
     );
 
-    // Process chart data based on active mode
+    // Process chart data - timeline from start date to current date
     const chartData = (() => {
-        if (completionsList.length === 0) {
-            if (chartMode === 'day') {
-                return ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(label => ({ label, value: 0 }));
-            } else {
-                return ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4'].map(label => ({ label, value: 0 }));
+        const parseStartDate = (startDateStr?: string | null): Date => {
+            if (!startDateStr) {
+                return new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
             }
+            const parts = startDateStr.split('-');
+            if (parts.length === 3) {
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const day = parseInt(parts[2], 10);
+                if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+                    return new Date(year, month, day);
+                }
+            }
+            const date = new Date(startDateStr);
+            if (!isNaN(date.getTime())) {
+                return date;
+            }
+            return new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
+        };
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let start = parseStartDate(bootcamp.startDate);
+        start.setHours(0, 0, 0, 0);
+
+        if (start > today) {
+            start = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+        } else if (start.getTime() === today.getTime()) {
+            start = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
         }
 
-        if (chartMode === 'day') {
-            const daysOfWeekLabels = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-            const dayMapping = [6, 0, 1, 2, 3, 4, 5]; // Sunday=0 -> idx 6, Monday=1 -> idx 0, etc.
-            const dayCounts = Array(7).fill(0);
-            
-            completionsList.forEach(c => {
-                if (c.completedAt) {
-                    const date = new Date(c.completedAt);
-                    if (!isNaN(date.getTime())) {
-                        const dayIndex = dayMapping[date.getDay()];
-                        dayCounts[dayIndex]++;
-                    }
-                }
-            });
+        const getLocalDateString = (d: Date) => {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
 
-            return daysOfWeekLabels.map((label, idx) => ({
-                label,
-                value: dayCounts[idx]
-            }));
-        } else {
-            // Week mode
-            let start = bootcamp.startDate ? new Date(bootcamp.startDate) : null;
-            if (!start && completionsList.length > 0) {
-                const dates = completionsList.map(c => new Date(c.completedAt).getTime()).filter(t => !isNaN(t));
-                if (dates.length > 0) {
-                    start = new Date(Math.min(...dates));
+        const counts: Record<string, number> = {};
+        completionsList.forEach(c => {
+            if (c.completedAt) {
+                const date = new Date(c.completedAt);
+                if (!isNaN(date.getTime())) {
+                    const key = getLocalDateString(date);
+                    counts[key] = (counts[key] || 0) + 1;
                 }
             }
-            if (!start) {
-                start = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000);
-            }
-            
-            start.setHours(0, 0, 0, 0);
-            
-            const now = new Date();
-            const diffTime = Math.abs(now.getTime() - start.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            const numWeeks = Math.max(Math.ceil(diffDays / 7), 4); // show at least 4 weeks
-            
-            const weekCounts = Array(numWeeks).fill(0);
-            completionsList.forEach(c => {
-                if (c.completedAt) {
-                    const date = new Date(c.completedAt);
-                    if (!isNaN(date.getTime())) {
-                        const msDiff = date.getTime() - start!.getTime();
-                        const dayDiff = msDiff / (1000 * 60 * 60 * 24);
-                        const weekIdx = Math.floor(dayDiff / 7);
-                        if (weekIdx >= 0 && weekIdx < numWeeks) {
-                            weekCounts[weekIdx]++;
-                        }
-                    }
-                }
-            });
+        });
 
-            return weekCounts.map((value, idx) => ({
-                label: `Semana ${idx + 1}`,
-                value
-            }));
+        const data = [];
+        const current = new Date(start.getTime());
+        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        
+        let safety = 0;
+        while (current <= today && safety < 1000) {
+            safety++;
+            const key = getLocalDateString(current);
+            data.push({
+                label: `${current.getDate()} ${months[current.getMonth()]}`,
+                value: counts[key] || 0
+            });
+            current.setDate(current.getDate() + 1);
         }
+
+        return data;
     })();
 
     // Compute SVG constants for line chart
@@ -2273,7 +2272,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                         <span>Frecuencia de lecturas</span>
                                                     </h4>
                                                     <p className="text-xs text-muted-foreground mt-0.5">
-                                                        Distribución de lecciones vistas en el bootcamp
+                                                        Histórico de lecciones vistas en el bootcamp desde el inicio hasta hoy
                                                     </p>
                                                 </div>
 
@@ -2379,19 +2378,29 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     )}
 
                                                     {/* X Axis Labels */}
-                                                    {chartPoints.map((pt, idx) => (
-                                                        <text 
-                                                            key={idx}
-                                                            x={pt.x}
-                                                            y={svgHeight - 4}
-                                                            fill="rgba(255,255,255,0.35)"
-                                                            fontSize="8"
-                                                            textAnchor="middle"
-                                                            className="font-semibold text-[5px]"
-                                                        >
-                                                            {chartMode === 'day' ? pt.label.slice(0, 3) : pt.label}
-                                                        </text>
-                                                    ))}
+                                                    {chartPoints.map((pt, idx) => {
+                                                        const step = Math.max(1, Math.ceil(chartPoints.length / 8));
+                                                        const isLast = idx === chartPoints.length - 1;
+                                                        const isFirst = idx === 0;
+                                                        const isStep = idx % step === 0;
+                                                        const showLabel = isFirst || (isStep && (chartPoints.length - 1 - idx) >= step / 2) || isLast;
+                                                        
+                                                        if (!showLabel) return null;
+                                                        
+                                                        return (
+                                                            <text 
+                                                                key={idx}
+                                                                x={pt.x}
+                                                                y={svgHeight - 4}
+                                                                fill="rgba(255,255,255,0.35)"
+                                                                fontSize="8"
+                                                                textAnchor="middle"
+                                                                className="font-semibold text-[5px]"
+                                                            >
+                                                                {pt.label}
+                                                            </text>
+                                                        );
+                                                    })}
 
                                                     {/* Interactive Dotted Line and Glowing Points on Hover */}
                                                     {hoveredPointIndex !== null && chartPoints[hoveredPointIndex] && (

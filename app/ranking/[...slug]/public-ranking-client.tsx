@@ -106,30 +106,74 @@ export function PublicRankingClient({
     const activeStudentIds = new Set(students.filter(s => s.status === 'active').map(s => s.id));
     const completionsList = initialCompletions.filter(c => activeStudentIds.has(c.studentId));
 
-    // Process chart data (day mode by default, since week toggle was removed)
+    // Process chart data - timeline from start date to current date
     const chartData = (() => {
-        if (completionsList.length === 0) {
-            return ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(label => ({ label, value: 0 }));
+        const parseStartDate = (startDateStr?: string | null): Date => {
+            if (!startDateStr) {
+                return new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
+            }
+            const parts = startDateStr.split('-');
+            if (parts.length === 3) {
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const day = parseInt(parts[2], 10);
+                if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+                    return new Date(year, month, day);
+                }
+            }
+            const date = new Date(startDateStr);
+            if (!isNaN(date.getTime())) {
+                return date;
+            }
+            return new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
+        };
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let start = parseStartDate(bootcamp.startDate);
+        start.setHours(0, 0, 0, 0);
+
+        if (start > today) {
+            start = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+        } else if (start.getTime() === today.getTime()) {
+            start = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
         }
 
-        const daysOfWeekLabels = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-        const dayMapping = [6, 0, 1, 2, 3, 4, 5]; // Sunday=0 -> idx 6, Monday=1 -> idx 0, etc.
-        const dayCounts = Array(7).fill(0);
-        
+        const getLocalDateString = (d: Date) => {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+
+        const counts: Record<string, number> = {};
         completionsList.forEach(c => {
             if (c.completedAt) {
                 const date = new Date(c.completedAt);
                 if (!isNaN(date.getTime())) {
-                    const dayIndex = dayMapping[date.getDay()];
-                    dayCounts[dayIndex]++;
+                    const key = getLocalDateString(date);
+                    counts[key] = (counts[key] || 0) + 1;
                 }
             }
         });
 
-        return daysOfWeekLabels.map((label, idx) => ({
-            label,
-            value: dayCounts[idx]
-        }));
+        const data = [];
+        const current = new Date(start.getTime());
+        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        
+        let safety = 0;
+        while (current <= today && safety < 1000) {
+            safety++;
+            const key = getLocalDateString(current);
+            data.push({
+                label: `${current.getDate()} ${months[current.getMonth()]}`,
+                value: counts[key] || 0
+            });
+            current.setDate(current.getDate() + 1);
+        }
+
+        return data;
     })();
 
     // Compute SVG constants for line chart
@@ -265,7 +309,7 @@ export function PublicRankingClient({
                                 <span>Frecuencia de lecturas</span>
                             </h2>
                             <p className="text-xs text-muted-foreground">
-                                Distribución de lecciones vistas en el bootcamp por día de la semana
+                                Histórico de lecciones vistas en el bootcamp desde el inicio hasta hoy
                             </p>
                         </div>
                     </div>
@@ -334,19 +378,29 @@ export function PublicRankingClient({
                             )}
 
                             {/* X Axis Labels */}
-                            {chartPoints.map((pt, idx) => (
-                                <text 
-                                    key={idx}
-                                    x={pt.x}
-                                    y={svgHeight - 4}
-                                    fill="rgba(255,255,255,0.35)"
-                                    fontSize="8"
-                                    textAnchor="middle"
-                                    className="font-semibold text-[5px]"
-                                >
-                                    {pt.label.slice(0, 3)}
-                                </text>
-                            ))}
+                            {chartPoints.map((pt, idx) => {
+                                const step = Math.max(1, Math.ceil(chartPoints.length / 8));
+                                const isLast = idx === chartPoints.length - 1;
+                                const isFirst = idx === 0;
+                                const isStep = idx % step === 0;
+                                const showLabel = isFirst || (isStep && (chartPoints.length - 1 - idx) >= step / 2) || isLast;
+                                
+                                if (!showLabel) return null;
+                                
+                                return (
+                                    <text 
+                                        key={idx}
+                                        x={pt.x}
+                                        y={svgHeight - 4}
+                                        fill="rgba(255,255,255,0.35)"
+                                        fontSize="8"
+                                        textAnchor="middle"
+                                        className="font-semibold text-[5px]"
+                                    >
+                                        {pt.label}
+                                    </text>
+                                );
+                            })}
 
                             {/* Interactive Dotted Line and Glowing Points on Hover */}
                             {hoveredPointIndex !== null && chartPoints[hoveredPointIndex] && (
