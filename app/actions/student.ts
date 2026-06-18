@@ -145,37 +145,79 @@ export async function removeStudent(studentId: number, bootcampId: number) {
     }
 
     // 3. If the user is registered in Supabase Auth, check if they have other enrollments left
-    if (student && student.userId) {
-        const { data: otherEnrollments } = await supabase
-            .from('BootcampStudent')
-            .select('id')
-            .eq('userId', student.userId);
-
+    if (student) {
+        let targetUserId = student.userId;
         const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        
-        // If they have no other bootcamps, and we have the service role key, we can delete them from auth.users
-        if (serviceRoleKey && (!otherEnrollments || otherEnrollments.length === 0)) {
+
+        // If targetUserId is missing but we have the service role key, resolve it
+        if (!targetUserId && serviceRoleKey) {
             try {
-                const { createClient: createAdminClient } = await import('@supabase/supabase-js');
-                const adminClient = createAdminClient(
-                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                    serviceRoleKey,
-                    { auth: { autoRefreshToken: false, persistSession: false } }
-                );
-                
-                const { error: deleteError } = await adminClient.auth.admin.deleteUser(student.userId);
-                if (deleteError) {
-                    console.error(`Error deleting auth user ${student.userId} from Supabase Auth:`, deleteError);
+                // A. Try UserRole table first
+                const { data: roleRecord } = await supabase
+                    .from('UserRole')
+                    .select('id')
+                    .eq('email', student.email)
+                    .maybeSingle();
+
+                if (roleRecord) {
+                    targetUserId = roleRecord.id;
                 } else {
-                    console.log(`Successfully deleted auth user ${student.userId} (${student.email}) from Supabase Auth.`);
+                    // B. Fallback to listing auth users using adminClient
+                    const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+                    const adminClient = createAdminClient(
+                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                        serviceRoleKey,
+                        { auth: { autoRefreshToken: false, persistSession: false } }
+                    );
+                    const { data: listData } = await adminClient.auth.admin.listUsers();
+                    if (listData && listData.users) {
+                        const matchedUser = listData.users.find(u => u.email?.toLowerCase() === student.email.toLowerCase());
+                        if (matchedUser) {
+                            targetUserId = matchedUser.id;
+                        }
+                    }
                 }
-            } catch (e) {
-                console.error(`Exception while deleting auth user ${student.userId} from Supabase Auth:`, e);
+            } catch (err) {
+                console.error('Error resolving userId for email:', student.email, err);
             }
-        } else if (!serviceRoleKey) {
-            console.log(`Student deleted from bootcamp, but Auth deletion skipped: SUPABASE_SERVICE_ROLE_KEY is not configured.`);
-        } else {
-            console.log(`Student deleted from bootcamp, but Auth deletion skipped: they are enrolled in other bootcamps.`);
+        }
+
+        if (targetUserId) {
+            const { data: otherEnrollments } = await supabase
+                .from('BootcampStudent')
+                .select('id')
+                .eq('email', student.email);
+
+            // If they have no other bootcamps, and we have the service role key, delete them from auth.users and UserRole
+            if (serviceRoleKey && (!otherEnrollments || otherEnrollments.length === 0)) {
+                try {
+                    const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+                    const adminClient = createAdminClient(
+                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                        serviceRoleKey,
+                        { auth: { autoRefreshToken: false, persistSession: false } }
+                    );
+
+                    const { error: deleteError } = await adminClient.auth.admin.deleteUser(targetUserId);
+                    if (deleteError) {
+                        console.error(`Error deleting auth user ${targetUserId} from Supabase Auth:`, deleteError);
+                    } else {
+                        console.log(`Successfully deleted auth user ${targetUserId} (${student.email}) from Supabase Auth.`);
+                        
+                        // Clean up UserRole table as well
+                        await adminClient
+                            .from('UserRole')
+                            .delete()
+                            .eq('id', targetUserId);
+                    }
+                } catch (e) {
+                    console.error(`Exception while deleting auth user ${targetUserId} from Supabase Auth:`, e);
+                }
+            } else if (!serviceRoleKey) {
+                console.log(`Student deleted from bootcamp, but Auth deletion skipped: SUPABASE_SERVICE_ROLE_KEY is not configured.`);
+            } else {
+                console.log(`Student deleted from bootcamp, but Auth deletion skipped: they are enrolled in other bootcamps.`);
+            }
         }
     }
 
