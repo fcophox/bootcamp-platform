@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { ManageBootcampClient } from './manage-client';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,37 @@ export default async function ManageBootcampPage({
     const resolvedParams = await Promise.resolve(params);
     const id = parseInt(resolvedParams.id);
     const supabase = await createClient();
+
+    // 1. Verification of the user session
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return redirect('/login');
+
+    // 2. Check user's role
+    const { data: roleData } = await supabase
+        .from('UserRole')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    const role = roleData?.role || 'alumno';
+
+    if (role === 'alumno') {
+        return redirect('/dashboard');
+    }
+
+    if (role === 'docente') {
+        // Verify that this teacher is invited to this specific bootcamp
+        const { data: enrollment } = await supabase
+            .from('BootcampStudent')
+            .select('id')
+            .eq('bootcampId', id)
+            .eq('email', user.email || '')
+            .maybeSingle();
+
+        if (!enrollment) {
+            return redirect('/cms');
+        }
+    }
 
     // Fetch bootcamp with modules and lessons
     // Note: The relation names depend on how Supabase introspected the foreign keys.

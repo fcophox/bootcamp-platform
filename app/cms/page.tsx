@@ -26,9 +26,26 @@ export default async function CmsPage() {
         return redirect('/dashboard');
     }
 
-    const { data: bootcamps, error } = await supabase
+    let bootcampsQuery = supabase
         .from('Bootcamp')
-        .select('*')
+        .select('*');
+
+    if (role === 'docente') {
+        const { data: enrollments } = await supabase
+            .from('BootcampStudent')
+            .select('bootcampId')
+            .eq('email', user.email || '');
+
+        const allowedBootcampIds = enrollments?.map(e => e.bootcampId) || [];
+        
+        if (allowedBootcampIds.length === 0) {
+            return <CmsClient bootcamps={[]} />;
+        }
+        
+        bootcampsQuery = bootcampsQuery.in('id', allowedBootcampIds);
+    }
+
+    const { data: bootcamps, error } = await bootcampsQuery
         .order('createdAt', { ascending: false });
 
     if (error) {
