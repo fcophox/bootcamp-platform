@@ -6,7 +6,7 @@ import { FileText, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { BootcampCard } from '@/components/bootcamp-card';
 
-import { deleteBootcamp } from '@/app/actions/bootcamp';
+import { deleteBootcamp, cloneBootcamp } from '@/app/actions/bootcamp';
 import { useRouter } from 'next/navigation';
 
 interface Bootcamp {
@@ -35,10 +35,15 @@ export function CmsClient({ bootcamps }: CmsClientProps) {
     const { isCollapsed } = useSidebar();
     const router = useRouter();
 
-    // Modal state
+    // Modal state for deletion
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [bootcampToDelete, setBootcampToDelete] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Modal state for cloning
+    const [isCloneModalOpen, setIsCloneModalOpen] = useState(false);
+    const [bootcampToClone, setBootcampToClone] = useState<number | null>(null);
+    const [isCloning, setIsCloning] = useState(false);
 
     const handleDeleteClick = (id: number) => {
         setBootcampToDelete(id);
@@ -66,6 +71,35 @@ export function CmsClient({ bootcamps }: CmsClientProps) {
         if (!isDeleting) {
             setIsModalOpen(false);
             setBootcampToDelete(null);
+        }
+    };
+
+    const handleCloneClick = (id: number) => {
+        setBootcampToClone(id);
+        setIsCloneModalOpen(true);
+    };
+
+    const handleConfirmClone = async () => {
+        if (bootcampToClone === null) return;
+
+        setIsCloning(true);
+        try {
+            await cloneBootcamp(bootcampToClone);
+            router.refresh();
+            setIsCloneModalOpen(false);
+        } catch (error) {
+            console.error('Error al clonar:', error);
+            alert('Ocurrió un error al clonar el bootcamp.');
+        } finally {
+            setIsCloning(false);
+            setBootcampToClone(null);
+        }
+    };
+
+    const handleCloseCloneModal = () => {
+        if (!isCloning) {
+            setIsCloneModalOpen(false);
+            setBootcampToClone(null);
         }
     };
 
@@ -133,6 +167,7 @@ export function CmsClient({ bootcamps }: CmsClientProps) {
                                         href={`/cms/bootcamp/${bootcamp.id}/manage`}
                                         buttonText="Editar"
                                         onDelete={handleDeleteClick}
+                                        onClone={handleCloneClick}
                                     />
                                 ))}
                             </div>
@@ -151,7 +186,7 @@ export function CmsClient({ bootcamps }: CmsClientProps) {
                 </main>
             </div>
 
-            {/* Confirmation Modal */}
+            {/* Confirmation Modal for Deletion */}
             <ConfirmationModal
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
@@ -160,6 +195,19 @@ export function CmsClient({ bootcamps }: CmsClientProps) {
                 message="¿Estás seguro de que deseas eliminar este bootcamp? Esta acción no se puede deshacer y perderás todo el contenido asociado."
                 isLoading={isDeleting}
             />
+
+            {/* Confirmation Modal for Cloning */}
+            <ConfirmationModal
+                isOpen={isCloneModalOpen}
+                onClose={handleCloseCloneModal}
+                onConfirm={handleConfirmClone}
+                title="Clonar Bootcamp"
+                message="¿Estás seguro de que deseas clonar este bootcamp? Se creará una copia idéntica del curso con todos sus módulos y lecciones."
+                confirmText="Clonar"
+                variant="primary"
+                isLoading={isCloning}
+            />
         </div>
     );
 }
+

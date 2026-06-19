@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, MoreVertical, Trash2 } from 'lucide-react';
+import { Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, MoreVertical, Trash2, Copy } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,6 +43,7 @@ export interface BootcampCardProps {
     href?: string;
     buttonText?: string;
     onDelete?: (id: number) => void;
+    onClone?: (id: number) => void;
     icon?: string;
     color?: string;
     isFrozen?: boolean;
@@ -61,6 +62,7 @@ export function BootcampCard({
     href,
     buttonText,
     onDelete,
+    onClone,
     icon,
     color,
     isFrozen,
@@ -90,7 +92,7 @@ export function BootcampCard({
             className={`relative group rounded-3xl border border-border bg-card-bg transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 ${imageUrl ? 'overflow-hidden flex flex-col p-0' : 'p-6'} ${className || ''}`}
         >
             {/* Dots Menu */}
-            {onDelete && (
+            {(onDelete || onClone) && (
                 <div className="absolute top-4 right-4 z-10" ref={menuRef}>
                     <button
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -101,20 +103,35 @@ export function BootcampCard({
 
                     {isMenuOpen && (
                         <div className="absolute right-0 mt-2 w-48 rounded-md bg-card-bg border border-border shadow-xl z-20 py-1 backdrop-blur-sm">
-                            <button
-                                onClick={() => {
-                                    setIsMenuOpen(false);
-                                    onDelete(id);
-                                }}
-                                className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
-                            >
-                                <Trash2 size={16} />
-                                Eliminar
-                            </button>
+                            {onClone && (
+                                <button
+                                    onClick={() => {
+                                        setIsMenuOpen(false);
+                                        onClone(id);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-white/5 flex items-center gap-2 transition-colors"
+                                >
+                                    <Copy size={16} className="text-muted" />
+                                    Clonar
+                                </button>
+                            )}
+                            {onDelete && (
+                                <button
+                                    onClick={() => {
+                                        setIsMenuOpen(false);
+                                        onDelete(id);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+                                >
+                                    <Trash2 size={16} />
+                                    Eliminar
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
             )}
+
 
             {imageUrl && (
                 <div className="relative w-full h-44 overflow-hidden shrink-0">
