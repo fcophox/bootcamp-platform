@@ -11,6 +11,7 @@
     "watch-design": "node scripts/sync-design.js --watch"
   },
   "dependencies": {
+    "@azure/storage-blob": "^12.32.0",
     "@floating-ui/dom": "^1.7.5",
     "@floating-ui/react": "^0.27.17",
     "@supabase/ssr": "^0.8.0",

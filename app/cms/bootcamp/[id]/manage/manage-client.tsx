@@ -21,6 +21,7 @@ import {
 import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson, reorderLessons, reorderModules } from '@/app/actions/module';
 import { updateBootcamp } from '@/app/actions/bootcamp';
 import { createClient } from '@/utils/supabase/client';
+import { uploadToAzure } from '@/lib/azure-upload';
 import { removeStudent, updateStudentStatus } from '@/app/actions/student';
 import { useOnlineUsers } from '@/contexts/OnlineUsersContext';
 import { formatDateString } from '@/utils/date';
@@ -229,21 +230,14 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         const file = e.target.files[0];
         
         setIsUploadingCover(true);
-        const supabase = createClient();
-        
+
         const fileExt = file.name.split('.').pop();
         const fileName = `bootcamp-cover-${Date.now()}.${fileExt}`;
         const filePath = `bootcamps/${fileName}`;
 
         try {
-            const { error: uploadError } = await supabase.storage
-                .from('media')
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            const { data } = supabase.storage.from('media').getPublicUrl(filePath);
-            setTempImageUrl(data.publicUrl);
+            const publicUrl = await uploadToAzure(file, filePath);
+            setTempImageUrl(publicUrl);
         } catch (error) {
             console.error('Upload error:', error);
             alert('Error al subir la imagen. Asegúrate de tener configurado el bucket "media" en Supabase.');
@@ -836,7 +830,6 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'audio' | 'pdf' | 'video') => {
         if (!e.target.files || e.target.files.length === 0) return;
         const file = e.target.files[0];
-        const supabase = createClient();
         setIsUploading(true);
 
         const fileExt = file.name.split('.').pop();
@@ -849,14 +842,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         else if (type === 'video') filePath = `videos/${fileName}`;
 
         try {
-            const { error: uploadError } = await supabase.storage
-                .from('media') // Same bucket for all media types
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            const { data } = supabase.storage.from('media').getPublicUrl(filePath);
-            setResourceContent(data.publicUrl);
+            const publicUrl = await uploadToAzure(file, filePath);
+            setResourceContent(publicUrl);
         } catch (error) {
             console.error('Upload error:', error);
             alert(`Error subiendo el archivo. Asegúrate de tener configurado el bucket "media" en Supabase.`);

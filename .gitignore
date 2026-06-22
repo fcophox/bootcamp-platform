@@ -41,3 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# Artefactos generados por la migración a Azure (salidas de ejecución)
+scripts/media-manifest.json
+scripts/rewrite-urls.sql
+scripts/url-rewrite-backup.json

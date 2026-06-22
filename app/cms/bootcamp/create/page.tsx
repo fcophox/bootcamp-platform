@@ -8,7 +8,7 @@ import { RichTextEditor } from '@/components/rich-text-editor';
 import { ChevronRight, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Upload, X, Loader2 } from 'lucide-react';
 import { createBootcamp } from '@/app/actions/bootcamp';
 import Link from 'next/link';
-import { createClient } from '@/utils/supabase/client';
+import { uploadToAzure } from '@/lib/azure-upload';
 import { formatDateString } from '@/utils/date';
 
 // Map of icon names to components
@@ -66,21 +66,14 @@ export default function CreateBootcampPage() {
         const file = e.target.files[0];
         
         setIsUploading(true);
-        const supabase = createClient();
-        
+
         const fileExt = file.name.split('.').pop();
         const fileName = `bootcamp-cover-${Date.now()}.${fileExt}`;
         const filePath = `bootcamps/${fileName}`;
 
         try {
-            const { error: uploadError } = await supabase.storage
-                .from('media')
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            const { data } = supabase.storage.from('media').getPublicUrl(filePath);
-            setImageUrl(data.publicUrl);
+            const publicUrl = await uploadToAzure(file, filePath);
+            setImageUrl(publicUrl);
         } catch (error) {
             console.error('Upload error:', error);
             alert('Error al subir la imagen. Asegúrate de tener configurado el bucket "media" en Supabase.');

@@ -7,7 +7,7 @@ import { ArrowLeft, Upload, Award, Save, Loader2, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createCertificate } from '@/app/actions/certificate';
-import { createClient } from '@/utils/supabase/client';
+import { uploadToAzure } from '@/lib/azure-upload';
 
 interface Bootcamp {
     id: number;
@@ -19,8 +19,7 @@ interface Bootcamp {
 export function CreateCertificateClient({ bootcamps }: { bootcamps: Bootcamp[] }) {
     const { isCollapsed } = useSidebar();
     const router = useRouter();
-    const supabase = createClient();
-    
+
     const [isLoading, setIsLoading] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     
@@ -53,14 +52,8 @@ export function CreateCertificateClient({ bootcamps }: { bootcamps: Bootcamp[] }
         const filePath = `certificates/${fileName}`;
 
         try {
-            const { error: uploadError } = await supabase.storage
-                .from('media')
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            const { data } = supabase.storage.from('media').getPublicUrl(filePath);
-            setBackgroundImageUrl(data.publicUrl);
+            const publicUrl = await uploadToAzure(file, filePath);
+            setBackgroundImageUrl(publicUrl);
         } catch (error) {
             console.error('Upload error:', error);
             alert('Error al subir la imagen. Asegúrate de tener configurado el bucket "media" en Supabase.');
@@ -84,18 +77,12 @@ export function CreateCertificateClient({ bootcamps }: { bootcamps: Bootcamp[] }
         const filePath = `certificates/signatures/${fileName}`;
 
         try {
-            const { error: uploadError } = await supabase.storage
-                .from('media')
-                .upload(filePath, file);
+            const publicUrl = await uploadToAzure(file, filePath);
 
-            if (uploadError) throw uploadError;
-
-            const { data } = supabase.storage.from('media').getPublicUrl(filePath);
-            
             if (type === 'instructor') {
-                setInstructorSignatureUrl(data.publicUrl);
+                setInstructorSignatureUrl(publicUrl);
             } else {
-                setDirectorSignatureUrl(data.publicUrl);
+                setDirectorSignatureUrl(publicUrl);
             }
         } catch (error) {
             console.error('Upload error:', error);
