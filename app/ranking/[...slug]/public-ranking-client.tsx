@@ -530,7 +530,7 @@ export function PublicRankingClient({
                                 >
                                     <div className="flex items-center gap-4 flex-1 min-w-0">
                                         {/* Posición / Rank index */}
-                                        <div className="flex items-center justify-center w-8 shrink-0">
+                                        <div className="flex items-center justify-center w-8 shrink-0 hidden sm:flex">
                                             {isTop3 ? (
                                                 <span className="text-xl font-bold select-none">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
                                             ) : (

@@ -103,8 +103,13 @@ const getMenuItems = (currentRole: string) => {
 export function Sidebar() {
     const pathname = usePathname();
     const router = useRouter(); // Initialize router
-    const { isCollapsed, toggleSidebar } = useSidebar();
+    const { isCollapsed, toggleSidebar, isMobileOpen, setIsMobileOpen } = useSidebar();
     const { setTheme, resolvedTheme } = useTheme();
+
+    // Close mobile sidebar on route change
+    useEffect(() => {
+        setIsMobileOpen(false);
+    }, [pathname, setIsMobileOpen]);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [isHoveringBorder, setIsHoveringBorder] = useState(false);
@@ -164,30 +169,38 @@ export function Sidebar() {
     const menuItems = getMenuItems(role);
 
     return (
-        <aside className={`fixed left-0 top-0 h-screen border-r border-border bg-background flex flex-col z-40 transition-all duration-300 overflow-x-visible ${isCollapsed ? 'w-16' : 'w-64'}`}>
-
-            {/* Interactive Right Border - Full Height */}
-            <div
-                className="absolute right-0 top-0 h-full w-3 cursor-pointer z-[999] group"
-                onMouseEnter={() => setIsHoveringBorder(true)}
-                onMouseLeave={() => setIsHoveringBorder(false)}
-                onClick={toggleSidebar}
-            >
-                {/* Hover indicator line */}
-                <div className={`absolute right-0 top-0 h-full w-0.5 transition-all duration-200 ${isHoveringBorder ? 'bg-foreground/20' : 'bg-transparent'}`} />
-                
-                {/* Chevron button - appears on hover, centered vertically */}
+        <>
+            {/* Backdrop for mobile */}
+            {isMobileOpen && (
                 <div
-                    className={`absolute -right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full border border-border bg-hover-bg hover:bg-background transition-all duration-200 flex items-center justify-center shadow-sm ${isHoveringBorder ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}
-                    title={isCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-45 md:hidden transition-opacity duration-300"
+                    onClick={() => setIsMobileOpen(false)}
+                />
+            )}
+            <aside className={`fixed left-0 top-0 h-screen border-r border-border bg-background flex flex-col z-50 transition-all duration-300 overflow-x-visible -translate-x-full md:translate-x-0 md:z-40 ${isCollapsed ? 'md:w-16' : 'md:w-64'} ${isMobileOpen ? 'translate-x-0 w-64' : ''}`}>
+
+                {/* Interactive Right Border - Full Height */}
+                <div
+                    className="absolute right-0 top-0 h-full w-3 cursor-pointer z-[999] group hidden md:block"
+                    onMouseEnter={() => setIsHoveringBorder(true)}
+                    onMouseLeave={() => setIsHoveringBorder(false)}
+                    onClick={toggleSidebar}
                 >
-                    {isCollapsed ? (
-                        <ChevronRight size={14} className="text-foreground" />
-                    ) : (
-                        <ChevronLeft size={14} className="text-foreground" />
-                    )}
+                    {/* Hover indicator line */}
+                    <div className={`absolute right-0 top-0 h-full w-0.5 transition-all duration-200 ${isHoveringBorder ? 'bg-foreground/20' : 'bg-transparent'}`} />
+                    
+                    {/* Chevron button - appears on hover, centered vertically */}
+                    <div
+                        className={`absolute -right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full border border-border bg-hover-bg hover:bg-background transition-all duration-200 flex items-center justify-center shadow-sm ${isHoveringBorder ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}
+                        title={isCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
+                    >
+                        {isCollapsed ? (
+                            <ChevronRight size={14} className="text-foreground" />
+                        ) : (
+                            <ChevronLeft size={14} className="text-foreground" />
+                        )}
+                    </div>
                 </div>
-            </div>
 
             {/* Logo */}
             <div className="h-[60px] border-b border-border relative flex items-center px-4 md:px-4">
@@ -358,5 +371,6 @@ export function Sidebar() {
                 )}
             </div>
         </aside>
+        </>
     );
 }

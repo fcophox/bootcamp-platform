@@ -6,7 +6,7 @@ import { useSidebar } from '@/components/sidebar-context';
 import {
     ThumbsUp, ThumbsDown, MessageSquare, User,
     Calendar, Search, Filter, ChevronRight, ChevronDown, X, GraduationCap,
-    Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary
+    Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Menu
 } from 'lucide-react';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -78,7 +78,7 @@ interface FeedbackItem {
 
 export function FeedbackClient({ initialFeedbacks, slug }: { initialFeedbacks: FeedbackItem[], slug?: string }) {
     const router = useRouter();
-    const { isCollapsed } = useSidebar();
+    const { isCollapsed, setIsMobileOpen } = useSidebar();
     const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>(initialFeedbacks);
 
     
@@ -202,12 +202,18 @@ export function FeedbackClient({ initialFeedbacks, slug }: { initialFeedbacks: F
         <div className="min-h-screen bg-background">
             <Sidebar />
 
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 md:${isCollapsed ? 'ml-16' : 'ml-64'}`}>
                 {/* Header - Fixed */}
-                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background/80 backdrop-blur-md transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
+                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background/80 backdrop-blur-md transition-all duration-300 left-0 md:${isCollapsed ? 'left-16' : 'left-64'}`}>
                     <div className="px-6 h-full border-b border-border">
                         <div className="flex items-center justify-between h-full">
                             <div className="flex items-center gap-4">
+                                <button
+                                    onClick={() => setIsMobileOpen(true)}
+                                    className="p-1.5 rounded-lg border border-border bg-hover-bg md:hidden hover:bg-background text-foreground"
+                                >
+                                    <Menu size={20} />
+                                </button>
                                 <h2 className="text-sm font-light text-foreground">
                                     Feedback
                                 </h2>

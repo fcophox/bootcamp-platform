@@ -7,6 +7,7 @@ import { BootcampCard } from '@/components/bootcamp-card';
 import { BookOpen, PlayCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { MobileMenuButton } from '@/components/mobile-menu-button';
 
 interface Bootcamp {
     id: number;
@@ -107,14 +108,17 @@ export function DashboardClient({ bootcamps, userName = 'Francisco', continueLea
             <Sidebar />
 
             {/* Main Content - with left margin for sidebar */}
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 md:${isCollapsed ? 'ml-16' : 'ml-64'}`}>
                 {/* Header - Fixed */}
-                <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
+                <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background transition-all duration-300 left-0 md:${isCollapsed ? 'left-16' : 'left-64'}`}>
                     <div className="px-6 h-full border-b border-border">
                         <div className="flex items-center justify-between h-full">
-                            <h2 className="text-sm font-light text-foreground">
-                                {/* Dashboard */}
-                            </h2>
+                            <div className="flex items-center gap-3">
+                                <MobileMenuButton />
+                                <h2 className="text-sm font-light text-foreground">
+                                    {/* Dashboard */}
+                                </h2>
+                            </div>
                             <div className="flex items-center gap-4">
                                 {/* Platform Status Badge */}
                                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
@@ -156,23 +160,23 @@ export function DashboardClient({ bootcamps, userName = 'Francisco', continueLea
                             {continueLearning ? (
                                 <Link 
                                     href={`/dashboard/bootcamp/${continueLearning.bootcampId}/clase/${continueLearning.lessonId}`}
-                                    className="group flex flex-col sm:flex-row items-center justify-between p-4 bg-background border border-border rounded-2xl hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300"
+                                    className="group flex flex-col sm:flex-row items-center justify-between p-3 sm:p-4 bg-background border border-border rounded-xl sm:rounded-2xl hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300"
                                 >
-                                    <div className="flex items-center gap-4 w-full sm:w-auto">
-                                        <div className="w-14 h-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 group-hover:scale-105 transition-transform duration-300">
-                                            <PlayCircle size={28} className="fill-primary/10" />
+                                    <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto min-w-0">
+                                        <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 group-hover:scale-105 transition-transform duration-300">
+                                            <PlayCircle className="h-5 w-5 sm:h-7 sm:w-7 fill-primary/10" />
                                         </div>
-                                        <div className="min-w-0">
-                                            <span className="text-[10px] text-primary font-bold tracking-wider uppercase">{continueLearning.bootcampTitle}</span>
-                                            <h3 className="text-base font-bold text-foreground truncate mt-0.5 group-hover:text-primary transition-colors duration-300">
+                                        <div className="min-w-0 flex-1">
+                                            <span className="text-[9px] sm:text-[10px] text-primary font-bold tracking-wider uppercase block leading-tight">{continueLearning.bootcampTitle}</span>
+                                            <h3 className="text-sm sm:text-base font-bold text-foreground truncate mt-0.5 group-hover:text-primary transition-colors duration-300">
                                                 {continueLearning.lessonTitle}
                                             </h3>
-                                            <p className="text-xs text-muted mt-1">
+                                            <p className="text-[11px] sm:text-xs text-muted mt-0.5 sm:mt-1">
                                                 {continueLearning.completedCount} de {continueLearning.totalCount} lecciones
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1 text-xs font-semibold text-primary mt-4 sm:mt-0 group-hover:translate-x-1 transition-transform duration-300">
+                                    <div className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-primary mt-3 sm:mt-0 group-hover:translate-x-1 transition-transform duration-300">
                                         <span>Ir a siguiente lección</span>
                                         <ChevronRight size={14} />
                                     </div>

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
-import { User, ShieldCheck, GraduationCap, Mail, Search, Users, ShieldAlert, MoreHorizontal, Trash2, Loader2, UserPlus, UserMinus, AlertTriangle, X } from 'lucide-react';
+import { User, ShieldCheck, GraduationCap, Mail, Search, Users, ShieldAlert, MoreHorizontal, Trash2, Loader2, UserPlus, UserMinus, AlertTriangle, X, Menu } from 'lucide-react';
 
 import { getAllUsersWithRoles } from '@/utils/roles-client';
 import { deleteUser, updateUserRole } from './actions';
@@ -75,7 +75,7 @@ function ConfirmModal({ isOpen, onClose, onConfirm, title, description, confirmT
 }
 
 export default function UsuariosCMSPage() {
-    const { isCollapsed } = useSidebar();
+    const { isCollapsed, setIsMobileOpen } = useSidebar();
     interface UserWithRoles {
         id: string;
         email: string;
@@ -185,9 +185,15 @@ export default function UsuariosCMSPage() {
     return (
         <div className="min-h-screen bg-background">
             <Sidebar />
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
-                <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background/80 backdrop-blur-md transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
-                    <div className="px-6 h-full border-b border-border flex items-center justify-between">
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 md:${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background/80 backdrop-blur-md transition-all duration-300 left-0 md:${isCollapsed ? 'left-16' : 'left-64'}`}>
+                    <div className="px-6 h-full border-b border-border flex items-center gap-3">
+                        <button
+                            onClick={() => setIsMobileOpen(true)}
+                            className="p-1.5 rounded-lg border border-border bg-hover-bg md:hidden hover:bg-background text-foreground"
+                        >
+                            <Menu size={20} />
+                        </button>
                         <h2 className="text-sm font-light text-foreground">
                             Gestión de Usuarios
                         </h2>

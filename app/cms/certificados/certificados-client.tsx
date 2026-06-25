@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
-import { Plus, Award, Search, MoreHorizontal, Edit2, Trash2, Check, X, Eye } from 'lucide-react';
+import { Plus, Award, Search, MoreHorizontal, Edit2, Trash2, Check, X, Eye, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { deleteCertificate, activateCertificate, deactivateCertificate } from '@/app/actions/certificate';
 import { useRouter } from 'next/navigation';
@@ -31,7 +31,7 @@ interface Bootcamp {
 }
 
 export function CertificadosClient({ certificates, bootcamps }: { certificates: Certificate[], bootcamps: Bootcamp[] }) {
-    const { isCollapsed } = useSidebar();
+    const { isCollapsed, setIsMobileOpen } = useSidebar();
     const router = useRouter();
     const [searchTerm, setSearchTerm] = useState('');
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -67,11 +67,17 @@ export function CertificadosClient({ certificates, bootcamps }: { certificates: 
         <div className="min-h-screen bg-background">
             <Sidebar />
 
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 md:${isCollapsed ? 'ml-16' : 'ml-64'}`}>
                 {/* Header */}
-                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
+                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background transition-all duration-300 left-0 md:${isCollapsed ? 'left-16' : 'left-64'}`}>
                     <div className="px-6 h-full border-b border-border">
-                        <div className="flex items-center justify-between h-full">
+                        <div className="flex items-center gap-3 h-full">
+                            <button
+                                onClick={() => setIsMobileOpen(true)}
+                                className="p-1.5 rounded-lg border border-border bg-hover-bg md:hidden hover:bg-background text-foreground"
+                            >
+                                <Menu size={20} />
+                            </button>
                             <h2 className="text-sm font-light text-foreground">Certificados</h2>
                         </div>
                     </div>

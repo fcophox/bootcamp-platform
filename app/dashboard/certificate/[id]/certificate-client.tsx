@@ -2,6 +2,7 @@
 
 import { useSidebar } from '@/components/sidebar-context';
 import { Sidebar } from '@/components/sidebar';
+import { MobileMenuButton } from '@/components/mobile-menu-button';
 import Link from 'next/link';
 import { ArrowLeft, Download, CheckCircle, Award, Loader2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
@@ -78,7 +79,7 @@ export function CertificateClient({ bootcamp, userName, customCertificate }: Cer
         return () => clearInterval(interval);
     }, [mounted]);
 
-    const sidebarWidthClass = !mounted ? 'ml-64' : (isCollapsed ? 'ml-16' : 'ml-64');
+    const sidebarWidthClass = !mounted ? 'ml-0 md:ml-64' : (isCollapsed ? 'ml-0 md:ml-16' : 'ml-0 md:ml-64');
 
     // Completion date
     const completionDate = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -157,6 +158,7 @@ export function CertificateClient({ bootcamp, userName, customCertificate }: Cer
                 {/* Header */}
                 <header className="h-[60px] border-b border-border flex items-center px-6 justify-between bg-card-bg/50 backdrop-blur-sm sticky top-0 z-10">
                     <div className="flex items-center gap-4">
+                        <MobileMenuButton />
                         <Link href={`/dashboard/bootcamp/${bootcamp.id}`} className="text-muted hover:text-foreground transition-colors">
                             <ArrowLeft size={20} />
                         </Link>

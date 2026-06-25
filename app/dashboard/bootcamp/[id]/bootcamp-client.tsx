@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSidebar } from '@/components/sidebar-context';
-
+import { MobileMenuButton } from '@/components/mobile-menu-button';
 import { Sidebar } from '@/components/sidebar';
 import {
     ChevronRight, ChevronDown, ChevronUp,
@@ -214,19 +214,19 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
 
 
     return (
-        <div className="min-h-screen bg-background mt-16">
+        <div className="min-h-screen bg-background">
             {/* Sidebar */}
             <Sidebar />
 
             {/* Main Content - with left margin for sidebar */}
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 md:${isCollapsed ? 'ml-16' : 'ml-64'}`}>
 
                 {/* Header - Fixed */}
-                <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background transition-all duration-300 border-b border-border ${isCollapsed ? 'left-16' : 'left-64'}`}>
+                <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background transition-all duration-300 border-b border-border left-0 md:${isCollapsed ? 'left-16' : 'left-64'}`}>
                     <div className="px-6 h-full">
                         <div className="flex items-center justify-between h-full">
                             <div className="flex items-center gap-4">
-
+                                <MobileMenuButton />
                                 <nav className="flex items-center text-sm">
                                     <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors">
                                         Dashboard
@@ -255,15 +255,15 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                     <div className="max-w-5xl mx-auto">
 
                         {/* Bootcamp Hero */}
-                        <div className="mb-12">
+                        <div className="mb-6 md:mb-12">
                             <div className="flex flex-col md:flex-row justify-between gap-8 mb-8">
                                 <div className="flex-1">
                                     {/* Logo / Icon */}
-                                    <div className={`h-12 w-12 rounded-full ${bgClass} mb-6 flex items-center justify-center shadow-lg text-white`}>
-                                        <IconComponent size={24} />
+                                    <div className={`h-10 w-10 md:h-12 md:w-12 rounded-full ${bgClass} mb-4 md:mb-6 flex items-center justify-center shadow-lg text-white`}>
+                                        <IconComponent className="h-5 w-5 md:h-6 md:w-6" />
                                     </div>
 
-                                    <h1 className="text-4xl font-bold text-foreground mb-4 tracking-tight">{bootcamp.title}</h1>
+                                    <h1 className="text-2xl md:text-4xl font-bold text-foreground mb-2 md:mb-4 tracking-tight">{bootcamp.title}</h1>
 
                                     {/* Rating */}
                                     <div className="flex items-center gap-2 mb-2">
@@ -278,10 +278,10 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                         <span className="text-muted text-sm border-l border-border pl-2 ml-1">1006 opiniones</span>
                                         {/* <ChevronRight size={14} className="text-muted" /> */}
                                     </div>
-                                    <p className="text-xs text-muted mb-6">Inicia: {formatDateString(bootcamp.startDate)}</p>
+                                    <p className="text-xs text-muted mb-4 md:mb-6">Inicia: {formatDateString(bootcamp.startDate)}</p>
 
                                     {/* Metadata Tags */}
-                                    <div className="flex flex-wrap gap-3 mb-8">
+                                    <div className="flex flex-wrap gap-3 mb-4 md:mb-8">
                                         <div className="flex items-center gap-2 px-4 py-2 bg-background/50 rounded-lg border border-border/50 text-xs text-foreground">
                                             <BookOpen size={14} />
                                             <span>{totalModules} Módulos</span>
@@ -301,7 +301,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                     </div>
 
                                     <div 
-                                        className="text-muted text-base leading-relaxed max-w-3xl prose prose-sm dark:prose-invert"
+                                        className="text-muted text-sm md:text-base leading-relaxed max-w-3xl prose prose-sm md:prose-base dark:prose-invert"
                                         dangerouslySetInnerHTML={{ __html: bootcamp.description }}
                                     />
                                 </div>
@@ -353,20 +353,21 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                         {modulesToDisplay && modulesToDisplay.length > 0 ? (
                             <>
                                 {!searchQuery.trim() && (
-                                    <div className="flex items-center gap-8 mb-8 border-b border-border overflow-x-auto">
+                                    <div className="flex items-center gap-4 md:gap-8 mb-8 border-b border-border overflow-x-auto w-full">
                                         {modulesToDisplay.map((module: { id: number; title: string }) => (
 
                                             <button
                                                 key={module.id}
                                                 onClick={() => setActiveModule(module.id)}
                                                 className={`
-                                                    pb-4 text-sm font-medium transition-all relative whitespace-nowrap
+                                                    pb-4 text-sm font-medium transition-all relative flex-1 min-w-0 md:flex-initial text-center
                                                     ${activeModule === module.id
                                                         ? 'text-foreground border-b-2 border-foreground'
                                                         : 'text-muted hover:text-foreground/80'}
                                                 `}
+                                                title={module.title}
                                             >
-                                                {module.title}
+                                                <span className="block truncate w-full">{module.title}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -420,14 +421,14 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                                 </div>
 
                                                                                 {/* Content */}
-                                                                                <div className="flex flex-1 items-start gap-6">
+                                                                                <div className="flex flex-1 items-start gap-3 md:gap-6">
                                                                                     {/* Thumbnail */}
-                                                                                    <div className="h-20 w-20 bg-gradient-to-br from-violet-900/40 to-background rounded-lg flex-shrink-0 border border-violet-500/30 relative overflow-hidden flex items-center justify-center group-hover:border-violet-500/50 transition-colors">
+                                                                                    <div className="hidden md:flex h-20 w-20 bg-gradient-to-br from-violet-900/40 to-background rounded-lg flex-shrink-0 border border-violet-500/30 relative overflow-hidden items-center justify-center group-hover:border-violet-500/50 transition-colors">
                                                                                         <div className="absolute inset-0 bg-violet-500/10 mix-blend-overlay"></div>
                                                                                         <Trophy size={24} className="text-violet-300 relative z-10" />
                                                                                     </div>
 
-                                                                                    <div className="pt-1 flex-1">
+                                                                                    <div className="pt-1 flex-1 min-w-0">
                                                                                         <h3 className="text-base font-bold text-foreground mb-1 group-hover:text-violet-300 transition-colors">
                                                                                             {lesson.title}
                                                                                         </h3>
@@ -466,73 +467,128 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                         <Link
                                                                             href={`/dashboard/bootcamp/${bootcamp.id}/clase/${lesson.id}`}
                                                                             key={lesson.id}
-                                                                            className="flex items-start gap-6 group cursor-pointer hover:bg-hover-bg/30 p-2 rounded-xl transition-colors -mx-2 block"
+                                                                            className="flex flex-col gap-3 group cursor-pointer bg-card-bg/40 border border-border/50 md:bg-transparent md:border-transparent p-4 md:p-2 rounded-xl transition-colors -mx-2 block hover:bg-hover-bg/30 md:flex-row md:items-start md:gap-6"
                                                                         >
-                                                                            {/* Number Badge */}
-                                                                            <div className="h-8 w-8 rounded-full bg-border/50 flex items-center justify-center text-xs font-medium text-muted mt-5 flex-shrink-0">
-                                                                                {index}
+                                                                            {/* Mobile View: Row 1 */}
+                                                                            <div className="flex items-center gap-3 w-full md:hidden">
+                                                                                <div className="h-8 w-8 rounded-full bg-border/50 flex items-center justify-center text-xs font-medium text-muted flex-shrink-0">
+                                                                                    {index}
+                                                                                </div>
+                                                                                <h3 className="text-base font-medium text-foreground flex-1 min-w-0 truncate">
+                                                                                    {lesson.title}
+                                                                                </h3>
+                                                                                <ChevronRight size={18} className="text-muted flex-shrink-0" />
                                                                             </div>
 
-                                                                            {/* Content */}
-                                                                            <div className="flex flex-1 items-start gap-6">
-                                                                                {/* Thumbnail Placeholder - Square */}
-                                                                                <div className="h-20 w-20 bg-card-bg/80 rounded-xl flex-shrink-0 border border-border/50 relative overflow-hidden group-hover:border-violet-500/30 transition-colors flex items-center justify-center">
-                                                                                    <div className="h-10 w-10 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm border border-white/10 opacity-50">
-                                                                                        {getTypeIcon(lesson.type)}
-                                                                                    </div>
-                                                                                </div>
-
-                                                                                <div className="pt-2 flex-1">
-                                                                                    <h3 className="text-base font-medium text-foreground mb-2 group-hover:text-violet-400 transition-colors line-clamp-1">
-                                                                                        {lesson.title}
-                                                                                    </h3>
-                                                                                    <p className="text-xs text-muted flex items-center gap-3">
-                                                                                        <span className="flex items-center gap-1">
-                                                                                            <Clock size={12} />
-                                                                                            {getLessonDurationInfo(lesson)}
-                                                                                        </span>
-                                                                                        {(isCompleted(lesson.id) || lesson.completed) && (
-                                                                                            <>
-                                                                                                <span className="w-1 h-1 rounded-full bg-border"></span>
-                                                                                                <span className="text-green-500 flex items-center gap-1 font-medium">
-                                                                                                    <CheckCircle size={10} /> Completado
-                                                                                                </span>
-                                                                                            </>
-                                                                                        )}
-                                                                                    </p>
-                                                                                </div>
-
-                                                                                <div className={`self-center flex items-center gap-4 transition-opacity px-2 ${isCompleted(lesson.id) && (bootcamp.enableChecklist !== false) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                                                                                    {(bootcamp.enableChecklist !== false) && (
+                                                                            {/* Mobile View: Row 2 */}
+                                                                            <div className="flex items-center justify-between w-full md:hidden pl-11">
+                                                                                <div className="text-xs text-muted flex items-center gap-2">
+                                                                                    <span className="flex items-center gap-1">
+                                                                                        <Clock size={12} />
+                                                                                        {getLessonDurationInfo(lesson)}
+                                                                                    </span>
+                                                                                    {(isCompleted(lesson.id) || lesson.completed) && (
                                                                                         <>
-                                                                                            <span className={`text-xs font-medium select-none whitespace-nowrap transition-all duration-300 ${
-                                                                                                isCompleted(lesson.id) 
-                                                                                                    ? 'text-muted-foreground/40' 
-                                                                                                    : 'text-muted-foreground/80'
-                                                                                            }`}>
-                                                                                                {isCompleted(lesson.id) ? 'Lección lista' : '¿Ya viste el contenido?'}
-                                                                                            </span>
-                                                                                            <button 
-                                                                                                onClick={(e) => {
-                                                                                                    e.preventDefault();
-                                                                                                    e.stopPropagation();
-                                                                                                    toggleClassCompletion(lesson.id);
-                                                                                                }}
-                                                                                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                                                                                                    isCompleted(lesson.id) ? 'bg-green-500' : 'bg-border'
-                                                                                                }`}
-                                                                                                title={isCompleted(lesson.id) ? "Marcar como no visto" : "Marcar como visto"}
-                                                                                            >
-                                                                                                <span className="sr-only">Marcar como visto</span>
-                                                                                                <span
-                                                                                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                                                                                        isCompleted(lesson.id) ? 'translate-x-4' : 'translate-x-1'
-                                                                                                    }`}
-                                                                                                />
-                                                                                            </button>
+                                                                                            <span className="w-1 h-1 rounded-full bg-border"></span>
+                                                                                            <CheckCircle size={14} className="text-green-500 flex-shrink-0" />
                                                                                         </>
                                                                                     )}
-                                                                                    <ChevronRight size={18} className="text-muted" />
+                                                                                </div>
+                                                                                {(bootcamp.enableChecklist !== false) && (
+                                                                                    <div className="flex items-center gap-3">
+                                                                                        <span className="text-xs font-medium select-none text-muted-foreground/80 whitespace-nowrap">
+                                                                                            Lección lista
+                                                                                        </span>
+                                                                                        <button 
+                                                                                            onClick={(e) => {
+                                                                                                e.preventDefault();
+                                                                                                e.stopPropagation();
+                                                                                                toggleClassCompletion(lesson.id);
+                                                                                            }}
+                                                                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                                                                                isCompleted(lesson.id) ? 'bg-green-500' : 'bg-border'
+                                                                                            }`}
+                                                                                            title={isCompleted(lesson.id) ? "Marcar como no visto" : "Marcar como visto"}
+                                                                                        >
+                                                                                            <span className="sr-only">Marcar como visto</span>
+                                                                                            <span
+                                                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                                                                    isCompleted(lesson.id) ? 'translate-x-4' : 'translate-x-1'
+                                                                                                }`}
+                                                                                            />
+                                                                                        </button>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+
+                                                                            {/* Desktop View */}
+                                                                            <div className="hidden md:flex items-start gap-6 w-full flex-1">
+                                                                                {/* Number Badge */}
+                                                                                <div className="h-8 w-8 rounded-full bg-border/50 flex items-center justify-center text-xs font-medium text-muted mt-5 flex-shrink-0">
+                                                                                    {index}
+                                                                                </div>
+
+                                                                                {/* Content */}
+                                                                                <div className="flex flex-1 items-start gap-6">
+                                                                                    {/* Thumbnail Placeholder - Square */}
+                                                                                    <div className="h-20 w-20 bg-card-bg/80 rounded-xl flex-shrink-0 border border-border/50 relative overflow-hidden group-hover:border-violet-500/30 transition-colors flex items-center justify-center">
+                                                                                        <div className="h-10 w-10 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm border border-white/10 opacity-50">
+                                                                                            {getTypeIcon(lesson.type)}
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                    <div className="pt-2 flex-1 min-w-0">
+                                                                                        <h3 className="text-base font-medium text-foreground mb-2 group-hover:text-violet-400 transition-colors line-clamp-1">
+                                                                                            {lesson.title}
+                                                                                        </h3>
+                                                                                        <p className="text-xs text-muted flex items-center gap-3">
+                                                                                            <span className="flex items-center gap-1">
+                                                                                                <Clock size={12} />
+                                                                                                {getLessonDurationInfo(lesson)}
+                                                                                            </span>
+                                                                                            {(isCompleted(lesson.id) || lesson.completed) && (
+                                                                                                <>
+                                                                                                    <span className="w-1 h-1 rounded-full bg-border"></span>
+                                                                                                    <span className="text-green-500 flex items-center gap-1 font-medium">
+                                                                                                        <CheckCircle size={10} /> Completado
+                                                                                                    </span>
+                                                                                                </>
+                                                                                            )}
+                                                                                        </p>
+                                                                                    </div>
+
+                                                                                    <div className={`self-center flex items-center gap-4 transition-opacity px-2 opacity-0 group-hover:opacity-100`}>
+                                                                                        {(bootcamp.enableChecklist !== false) && (
+                                                                                            <>
+                                                                                                <span className={`text-xs font-medium select-none whitespace-nowrap transition-all duration-300 ${
+                                                                                                    isCompleted(lesson.id) 
+                                                                                                        ? 'text-muted-foreground/40' 
+                                                                                                        : 'text-muted-foreground/80'
+                                                                                                }`}>
+                                                                                                    {isCompleted(lesson.id) ? 'Lección lista' : '¿Ya viste el contenido?'}
+                                                                                                </span>
+                                                                                                <button 
+                                                                                                    onClick={(e) => {
+                                                                                                        e.preventDefault();
+                                                                                                        e.stopPropagation();
+                                                                                                        toggleClassCompletion(lesson.id);
+                                                                                                    }}
+                                                                                                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                                                                                        isCompleted(lesson.id) ? 'bg-green-500' : 'bg-border'
+                                                                                                    }`}
+                                                                                                    title={isCompleted(lesson.id) ? "Marcar como no visto" : "Marcar como visto"}
+                                                                                                >
+                                                                                                    <span className="sr-only">Marcar como visto</span>
+                                                                                                    <span
+                                                                                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                                                                                            isCompleted(lesson.id) ? 'translate-x-4' : 'translate-x-1'
+                                                                                                        }`}
+                                                                                                    />
+                                                                                                </button>
+                                                                                            </>
+                                                                                        )}
+                                                                                        <ChevronRight size={18} className="text-muted" />
+                                                                                    </div>
                                                                                 </div>
                                                                             </div>
                                                                         </Link>

@@ -7,6 +7,7 @@ import { useTheme } from "next-themes";
 import { useState, useEffect, useRef } from 'react';
 import { useSidebar } from '@/components/sidebar-context';
 import { Sidebar } from '@/components/sidebar';
+import { MobileMenuButton } from '@/components/mobile-menu-button';
 import { LessonExamPlayer } from '@/components/lesson-exam-player';
 import {
     ChevronRight,
@@ -98,7 +99,7 @@ export default function ClassPlayerPage() {
     const [currentClass, setCurrentClass] = useState<ClassItem | null>(null);
     const [currentModule, setCurrentModule] = useState<Module | null>(null);
     const [mounted, setMounted] = useState(false);
-    const [isPlaylistCollapsed, setIsPlaylistCollapsed] = useState(false);
+    const [isPlaylistCollapsed, setIsPlaylistCollapsed] = useState(true);
     const [modules, setModules] = useState<Module[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [userFeedback, setUserFeedback] = useState<{ isLiked: boolean | null, comment: string | null } | null>(null);
@@ -413,10 +414,11 @@ export default function ClassPlayerPage() {
         <div className="h-screen bg-background overflow-hidden flex flex-col">
             <Sidebar />
 
-            <div className={`flex flex-col h-full transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className={`flex flex-col h-full transition-all duration-300 ml-0 md:${isCollapsed ? 'ml-16' : 'ml-64'}`}>
 
                 <header className="h-[60px] border-b border-border bg-background flex-shrink-0 z-10 px-6 flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <MobileMenuButton />
                         <nav className="flex items-center text-sm truncate">
                             <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors hidden md:block flex-shrink-0">
                                 Dashboard
@@ -431,15 +433,15 @@ export default function ClassPlayerPage() {
                     </div>
                     {/* Dark Mode Toggle if needed */}
                     <button
-                        onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-                        className="p-2 rounded-lg text-muted hover:text-foreground transition-all ml-4"
-                        title="Cambiar tema"
+                        onClick={() => setIsPlaylistCollapsed(!isPlaylistCollapsed)}
+                        className="p-2 rounded-lg text-muted hover:text-foreground transition-all ml-4 flex items-center justify-center"
+                        title={isPlaylistCollapsed ? "Mostrar contenido del módulo" : "Ocultar contenido del módulo"}
                     >
-                        {mounted && resolvedTheme === 'dark' ? <Link href="#" className="flex"><BookOpen size={20} /></Link> : <Link href="#" className="flex"><BookOpen size={20} /></Link>}
+                        <BookOpen size={20} />
                     </button>
                 </header>
 
-                <main className="flex-1 flex overflow-hidden bg-background">
+                <main className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-background">
                     {currentClass.type === 'exam' ? (
                         <div className="w-full h-full">
                             {(() => {
@@ -733,7 +735,15 @@ export default function ClassPlayerPage() {
                                 </div>
                             </div>
 
-                            <div className={`border-t lg:border-t-0 lg:border-l border-border bg-card-bg/50 overflow-y-auto overflow-x-hidden h-full flex-shrink-0 custom-scrollbar z-20 transition-all duration-300 ${isPlaylistCollapsed ? 'w-full lg:w-14' : 'w-full lg:w-96'}`}>
+                            {/* Playlist Backdrop for mobile */}
+                            {!isPlaylistCollapsed && (
+                                <div
+                                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-45 lg:hidden transition-opacity duration-300 animate-in fade-in"
+                                    onClick={() => setIsPlaylistCollapsed(true)}
+                                />
+                            )}
+
+                            <div className={`fixed right-0 top-0 h-screen z-50 bg-background border-l border-border overflow-y-auto overflow-x-hidden transition-transform duration-300 ease-in-out shadow-2xl w-[300px] sm:w-[350px] lg:static lg:translate-x-0 lg:shadow-none lg:h-full lg:z-20 lg:border-t-0 bg-card-bg/50 custom-scrollbar ${isPlaylistCollapsed ? 'translate-x-full lg:w-14' : 'translate-x-0 lg:w-96'}`}>
                                 <div className={`p-3 border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-10 flex items-center ${isPlaylistCollapsed ? 'justify-center p-2' : 'justify-between'}`}>
                                     {!isPlaylistCollapsed && (
                                         <div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
+import { MobileMenuButton } from '@/components/mobile-menu-button';
 import { ChevronRight, Clock, CheckCircle2, AlertCircle, ArrowRight, ArrowLeft, Send } from 'lucide-react';
 import { ConfirmationModal } from '@/components/confirmation-modal';
 import { submitExam } from '@/app/actions/exam';
@@ -128,10 +129,11 @@ export function ExamClient({ exam, questions }: ExamClientProps) {
         <div className="min-h-screen bg-background text-foreground">
             <Sidebar />
 
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 md:${isCollapsed ? 'ml-16' : 'ml-64'}`}>
                 {/* Header (Simplified for Exam) */}
-                <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background/80 backdrop-blur-md border-b border-border flex items-center px-6 justify-between transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
-                    <div className="flex items-center gap-2 text-sm text-foreground font-medium">
+                <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background/80 backdrop-blur-md border-b border-border flex items-center px-6 justify-between transition-all duration-300 left-0 md:${isCollapsed ? 'left-16' : 'left-64'}`}>
+                    <div className="flex items-center gap-3 text-sm text-foreground font-medium">
+                        <MobileMenuButton />
                         <span>Cuestionario</span>
                         <ChevronRight size={14} className="text-muted" />
                         <span className="text-primary">{exam.title}</span>

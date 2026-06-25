@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Mail, MapPin, Briefcase, Calendar, Award, BookOpen, ShieldCheck, CheckCircle2, Save, X, Edit2, Loader2, Trophy, Clock, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Camera, Building2 } from 'lucide-react';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
+import { MobileMenuButton } from '@/components/mobile-menu-button';
 import { createClient } from '@/utils/supabase/client';
 import { updateProfile } from '@/app/actions/profile';
 import { autoActivateStudents } from '@/app/actions/student';
@@ -228,11 +229,14 @@ export default function ProfilePage() {
         <div className="min-h-screen bg-background">
             <Sidebar />
 
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
-                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background border-b border-border transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 md:${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background border-b border-border transition-all duration-300 left-0 md:${isCollapsed ? 'left-16' : 'left-64'}`}>
                     <div className="px-6 h-full border-b border-border">
                         <div className="flex items-center justify-between h-full">
-                            <h2 className="text-sm font-light text-foreground">Perfil</h2>
+                            <div className="flex items-center gap-3">
+                                <MobileMenuButton />
+                                <h2 className="text-sm font-light text-foreground">Perfil</h2>
+                            </div>
                             <div className="flex items-center gap-4"></div>
                         </div>
                     </div>

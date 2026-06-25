@@ -2,7 +2,7 @@
 
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
-import { FileText, Plus, Search } from 'lucide-react';
+import { FileText, Plus, Search, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { BootcampCard } from '@/components/bootcamp-card';
 
@@ -32,7 +32,7 @@ import { useState } from 'react';
 
 export function CmsClient({ bootcamps }: CmsClientProps) {
 
-    const { isCollapsed } = useSidebar();
+    const { isCollapsed, setIsMobileOpen } = useSidebar();
     const router = useRouter();
 
     // Modal state for deletion
@@ -109,14 +109,22 @@ export function CmsClient({ bootcamps }: CmsClientProps) {
             <Sidebar />
 
             {/* Main Content - with left margin for sidebar */}
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 md:${isCollapsed ? 'ml-16' : 'ml-64'}`}>
                 {/* Header - Fixed */}
-                <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
-                    <div className="px-6 h-full border-b border-border">
+                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background border-b border-border transition-all duration-300 left-0 md:${isCollapsed ? 'left-16' : 'left-64'}`}>
+                    <div className="px-6 h-full">
                         <div className="flex items-center justify-between h-full">
-                            <h2 className="text-sm font-light text-foreground">
-                                Bootcamp
-                            </h2>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setIsMobileOpen(true)}
+                                    className="p-1.5 rounded-lg border border-border bg-hover-bg md:hidden hover:bg-background text-foreground"
+                                >
+                                    <Menu size={20} />
+                                </button>
+                                <h2 className="text-sm font-light text-foreground">
+                                    Bootcamp
+                                </h2>
+                            </div>
                             <div className="flex items-center gap-4">
                                 {/* User Avatar Removed */}
                             </div>

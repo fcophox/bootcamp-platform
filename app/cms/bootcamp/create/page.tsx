@@ -5,7 +5,7 @@ import { BootcampCard } from '@/components/bootcamp-card';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
 import { RichTextEditor } from '@/components/rich-text-editor';
-import { ChevronRight, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Upload, X, Loader2 } from 'lucide-react';
+import { ChevronRight, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Upload, X, Loader2, Menu } from 'lucide-react';
 import { createBootcamp } from '@/app/actions/bootcamp';
 import Link from 'next/link';
 import { uploadToAzure } from '@/lib/azure-upload';
@@ -43,7 +43,7 @@ const COLORS = [
 ];
 
 export default function CreateBootcampPage() {
-    const { isCollapsed } = useSidebar();
+    const { isCollapsed, setIsMobileOpen } = useSidebar();
 
     // State for the form
     const [formData, setFormData] = useState({
@@ -103,9 +103,15 @@ export default function CreateBootcampPage() {
         <div className="min-h-screen bg-background text-foreground">
             <Sidebar />
 
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 md:${isCollapsed ? 'ml-16' : 'ml-64'}`}>
                 {/* Header */}
-                <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background border-b border-border transition-all duration-300 flex items-center px-6 justify-between ${isCollapsed ? 'left-16' : 'left-64'}`}>
+                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background border-b border-border transition-all duration-300 left-0 md:${isCollapsed ? 'left-16' : 'left-64'} flex items-center px-6 gap-3`}>
+                    <button
+                        onClick={() => setIsMobileOpen(true)}
+                        className="p-1.5 rounded-lg border border-border bg-hover-bg md:hidden hover:bg-background text-foreground"
+                    >
+                        <Menu size={20} />
+                    </button>
                     <div className="flex items-center gap-2 text-sm text-muted">
                         <Link href="/cms" className="hover:text-foreground transition-colors">Bootcamp</Link>                        <ChevronRight size={14} />
                         <span className="text-foreground font-medium">Crear Nuevo</span>

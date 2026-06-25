@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Sidebar } from '@/components/sidebar';
 import { ChevronLeft, BarChart3, CheckCircle, Clock, BookOpen, User, Mail, Calendar, Layout } from 'lucide-react';
+import { MobileMenuButton } from '@/components/mobile-menu-button';
 import { getBootcamp } from '@/app/actions/bootcamp';
 import { getStudentById, getStudentCompletions, getStudentExamAttempts } from '@/app/actions/student';
 import { redirect } from 'next/navigation';
@@ -73,8 +74,9 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
     return (
         <div className="min-h-screen bg-background flex">
             <Sidebar />
-            <div className="flex-1 flex flex-col min-h-screen ml-64">
+            <div className="flex-1 flex flex-col min-h-screen ml-0 md:ml-64">
                 <header className="h-[60px] border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-10 flex items-center px-6 gap-4">
+                    <MobileMenuButton />
                     <Link 
                         href={`/cms/bootcamp/${bootcampId}/manage`}
                         className="p-2 hover:bg-white/5 rounded-lg transition-colors text-muted hover:text-foreground"

@@ -15,7 +15,7 @@ import {
     Headphones, FileUp, Users, Trophy, Check, X, Clock, Loader2,
     Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase,
     MoreHorizontal, BarChart3, Radio, BookOpen, Calendar, Snowflake,
-    Upload
+    Upload, Menu
 } from 'lucide-react';
 
 import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson, reorderLessons, reorderModules } from '@/app/actions/module';
@@ -103,7 +103,7 @@ const getGroupedLessons = (lessons: Lesson[]) => {
 };
 
 export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }: ManageBootcampClientProps) {
-    const { isCollapsed } = useSidebar();
+    const { isCollapsed, setIsMobileOpen } = useSidebar();
     const router = useRouter();
 
     // UI State
@@ -1411,13 +1411,19 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         <div className="min-h-screen bg-background text-foreground">
             <Sidebar />
 
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 md:${isCollapsed ? 'ml-16' : 'ml-64'}`}>
                 {/* Header */}
-                <header className={`fixed top-0 right-0 z-1 h-[60px] bg-background border-b border-border flex items-center px-6 justify-between transition-all duration-300 ${isCollapsed ? 'left-16' : 'left-64'}`}>
-                    <div className="flex items-center gap-2 text-sm text-muted">
-                        <Link href="/cms" className="hover:text-foreground transition-colors">Bootcamp</Link>
-                        <ChevronRight size={14} />
-                        <span className="text-foreground font-medium">{bootcamp.title}</span>
+                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background border-b border-border flex items-center px-6 gap-3 transition-all duration-300 left-0 md:${isCollapsed ? 'left-16' : 'left-64'}`}>
+                    <button
+                        onClick={() => setIsMobileOpen(true)}
+                        className="p-1.5 rounded-lg border border-border bg-hover-bg md:hidden hover:bg-background text-foreground flex-shrink-0"
+                    >
+                        <Menu size={20} />
+                    </button>
+                    <div className="flex items-center gap-2 text-sm text-muted min-w-0">
+                        <Link href="/cms" className="hover:text-foreground transition-colors flex-shrink-0">Bootcamp</Link>
+                        <ChevronRight size={14} className="flex-shrink-0" />
+                        <span className="text-foreground font-medium truncate" title={bootcamp.title}>{bootcamp.title}</span>
                     </div>
                 </header>
 
@@ -1428,7 +1434,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                         {/* Title & Tabs */}
                         <div className="flex flex-col gap-6 mb-8">
                             <div className="flex flex-col sm:flex-row justify-between items-start gap-6 w-full">
-                                <div className="flex gap-4 items-start relative w-full sm:w-auto">
+                                <div className="flex flex-col sm:flex-row gap-4 items-start relative w-full sm:w-auto">
                                     {/* Icon & Color Editor */}
                                     <div className="relative">
                                         <button
@@ -1492,10 +1498,10 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         )}
                                     </div>
 
-                                    <div className="flex-1 max-w-2xl">
+                                    <div className="flex-1 w-full max-w-2xl">
 
                                         <div
-                                            className="group flex flex-col mb-1 cursor-pointer w-fit"
+                                            className="group flex flex-col mb-1 cursor-pointer w-fit animate-in fade-in duration-300"
                                             onClick={() => {
                                                 setTempBootcampTitle(bootcamp.title);
                                                 setTempDescription(bootcamp.description || '');
@@ -1509,31 +1515,31 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                             }}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <h1 className="text-2xl font-semibold">{bootcamp.title}</h1>
+                                                <h1 className="text-xl sm:text-2xl font-semibold">{bootcamp.title}</h1>
                                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground p-1 rounded hover:bg-muted/10">
                                                     <Edit2 size={18} />
                                                 </div>
                                             </div>
                                             <div 
-                                                className="text-muted text-sm mt-1 prose prose-sm dark:prose-invert max-w-none line-clamp-3"
+                                                className="text-muted text-xs sm:text-sm mt-1 prose prose-sm dark:prose-invert max-w-none line-clamp-3"
                                                 dangerouslySetInnerHTML={{ __html: bootcamp.description || 'Gestiona el contenido y los alumnos de tu curso.' }}
                                             />
                                             {/* Detalles del curso */}
                                             {(bootcamp.duration || bootcamp.level || bootcamp.startDate) && (
-                                                <div className="flex flex-wrap items-center gap-3 mt-3 text-xs font-medium text-muted-foreground group-hover:text-foreground/80 transition-colors">
+                                                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-3 text-[11px] sm:text-xs font-medium text-muted-foreground group-hover:text-foreground/80 transition-colors">
                                                     {bootcamp.duration && (
-                                                        <span className="flex items-center gap-1.5 bg-background/60 px-2.5 py-1 rounded-md border border-border/50">
-                                                            <Clock size={14} className="text-primary/70" /> {bootcamp.duration}
+                                                        <span className="flex items-center gap-1 bg-background/60 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border border-border/50">
+                                                            <Clock size={12} className="text-primary/70 sm:w-3.5 sm:h-3.5" /> {bootcamp.duration}
                                                         </span>
                                                     )}
                                                     {bootcamp.level && (
-                                                        <span className="flex items-center gap-1.5 bg-background/60 px-2.5 py-1 rounded-md border border-border/50">
-                                                            <BarChart3 size={14} className="text-primary/70" /> {bootcamp.level}
+                                                        <span className="flex items-center gap-1 bg-background/60 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border border-border/50">
+                                                            <BarChart3 size={12} className="text-primary/70 sm:w-3.5 sm:h-3.5" /> {bootcamp.level}
                                                         </span>
                                                     )}
                                                     {bootcamp.startDate && (
-                                                        <span className="flex items-center gap-1.5 bg-background/60 px-2.5 py-1 rounded-md border border-border/50">
-                                                            <Calendar size={14} className="text-primary/70" /> {formatDateString(bootcamp.startDate)}
+                                                        <span className="flex items-center gap-1 bg-background/60 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border border-border/50">
+                                                            <Calendar size={12} className="text-primary/70 sm:w-3.5 sm:h-3.5" /> {formatDateString(bootcamp.startDate)}
                                                         </span>
                                                     )}
                                                 </div>
@@ -1675,11 +1681,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     className={`flex items-center justify-between p-4 bg-card-bg hover:bg-hover-bg transition-colors cursor-pointer ${expandedModule === module.id ? 'rounded-t-xl' : 'rounded-xl'}`}
                                                     onClick={() => toggleModule(module.id)}
                                                 >
-                                                    <div className="flex items-center gap-3 flex-1 mr-4">
+                                                    <div className="flex items-center gap-3 flex-1 mr-4 min-w-0">
                                                         <div className="p-1.5 rounded-md bg-card text-primary flex-shrink-0 cursor-grab active:cursor-grabbing">
                                                             <GripVertical size={16} className="text-muted/50" />
                                                         </div>
-                                                        <div className="p-1.5 rounded-md bg-card text-primary flex-shrink-0">
+                                                        <div className="p-1.5 rounded-md bg-card text-primary flex-shrink-0 hidden sm:block">
                                                             <BookOpen size={20} />
                                                         </div>
 
@@ -1716,9 +1722,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                             </button>
                                                         </div>
                                                     ) : (
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="font-medium text-lg">{module.title}</span>
-                                                            <span className="text-xs px-2 py-0.5 rounded-full bg-input-bg text-muted border border-border">
+                                                        <div className="flex flex-col sm:flex-row sm:items-center items-start gap-1 sm:gap-3 min-w-0 flex-1">
+                                                            <span className="font-medium text-sm sm:text-lg leading-snug truncate w-full sm:flex-1 min-w-0" title={module.title}>{module.title}</span>
+                                                            <span className="text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 rounded-full bg-input-bg text-muted border border-border font-medium flex-shrink-0">
                                                                 {module.lessons?.length || 0} lecciones
                                                             </span>
                                                         </div>
@@ -1899,7 +1905,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                                             <div className="p-1.5 rounded-md bg-secondary/30 text-muted flex-shrink-0">
                                                                                                 {getLessonIcon(lesson.type)}
                                                                                             </div>
-                                                                                            <span className="text-sm font-medium truncate">{lesson.title}</span>
+                                                                                            <span className="text-sm font-medium truncate" title={lesson.title}>{lesson.title}</span>
                                                                                         </div>
                                                                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                                             <button
@@ -1995,8 +2001,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                     </div>
 
                                     <div className="w-full">
-                                        <div className="bg-card-bg border border-border rounded-xl p-6 shadow-sm overflow-hidden">
-                                            <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                                        <div className="bg-transparent md:bg-card-bg border-none md:border md:border-border rounded-xl p-0 shadow-none md:shadow-sm overflow-hidden">
+                                            <h3 className="font-semibold px-0 md:px-6 pt-0 md:pt-6 text-lg mb-4 flex items-center gap-2">
                                                 <Users size={20} className="text-primary" />
                                                 Lista de alumnos
                                             </h3>
@@ -2007,47 +2013,107 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     <p>Aún no has invitado a ningún alumno.</p>
                                                 </div>
                                             ) : (
-                                                <div className="w-full overflow-x-auto rounded-lg border border-border">
-                                                    <table className="w-full text-sm text-left">
-                                                        <thead className="bg-secondary/30 text-muted uppercase text-xs font-semibold">
-                                                            <tr>
-                                                                <th className="px-4 py-3">Alumno</th>
-                                                                <th className="px-4 py-3">Estado</th>
-                                                                <th className="px-4 py-3">Invitado</th>
-                                                                <th className="px-4 py-3 text-right">Acciones</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-border">
-                                                            {initialStudents.map((student) => {
-                                                                const isOnline = Object.values(onlineUsers).some(
-                                                                    (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
-                                                                );
-                                                                const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
+                                                <div className="w-full space-y-4">
+                                                    {/* Desktop Table View */}
+                                                    <div className="hidden md:block overflow-x-auto rounded-lg border border-border">
+                                                        <table className="w-full text-sm text-left">
+                                                            <thead className="bg-secondary/30 text-muted uppercase text-xs font-semibold">
+                                                                <tr>
+                                                                    <th className="px-4 py-3">Alumno</th>
+                                                                    <th className="px-4 py-3">Estado</th>
+                                                                    <th className="px-4 py-3">Invitado</th>
+                                                                    <th className="px-4 py-3 text-right">Acciones</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-border">
+                                                                {initialStudents.map((student) => {
+                                                                    const isOnline = Object.values(onlineUsers).some(
+                                                                        (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
+                                                                    );
+                                                                    const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
 
-                                                                return (
-                                                                    <tr key={student.id} className="bg-card-bg hover:bg-hover-bg transition-colors">
-                                                                        <td className="px-4 py-3 font-medium">
-                                                                            <div className="flex items-center gap-3">
-                                                                                <div className="relative flex-shrink-0">
-                                                                                    <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                                                                                        {initials}
+                                                                    return (
+                                                                        <tr key={student.id} className="bg-card-bg hover:bg-hover-bg transition-colors">
+                                                                            <td className="px-4 py-3 font-medium">
+                                                                                <div className="flex items-center gap-3">
+                                                                                    <div className="relative flex-shrink-0">
+                                                                                        <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                                                                                            {initials}
+                                                                                        </div>
+                                                                                        <span 
+                                                                                            className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full border-2 border-card-bg transition-colors duration-300 ${
+                                                                                                isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
+                                                                                            }`}
+                                                                                            title={isOnline ? 'Activo ahora' : 'Desconectado'}
+                                                                                        />
                                                                                     </div>
-                                                                                    <span 
-                                                                                        className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full border-2 border-card-bg transition-colors duration-300 ${
-                                                                                            isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
-                                                                                        }`}
-                                                                                        title={isOnline ? 'Activo ahora' : 'Desconectado'}
-                                                                                    />
+                                                                                    <span className="truncate">{student.email}</span>
                                                                                 </div>
-                                                                                <span className="truncate">{student.email}</span>
+                                                                            </td>
+                                                                            <td className="px-4 py-3">{getStatusBadge(student.status)}</td>
+                                                                            <td className="px-4 py-3 text-muted">
+                                                                                {new Date(student.invitedAt).toLocaleDateString()}
+                                                                            </td>
+                                                                            <td className="px-4 py-3 text-right relative">
+                                                                                <div className="flex justify-end items-center gap-2">
+                                                                                    <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            if (openMenuId === student.id) {
+                                                                                                setOpenMenuId(null);
+                                                                                                setMenuPosition(null);
+                                                                                            } else {
+                                                                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                                                                setOpenMenuId(student.id);
+                                                                                                setMenuPosition({
+                                                                                                    top: rect.bottom + window.scrollY,
+                                                                                                    left: rect.right - 192 + window.scrollX
+                                                                                                });
+                                                                                            }
+                                                                                        }}
+                                                                                        className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-muted hover:text-foreground transition-all"
+                                                                                    >
+                                                                                        {isActionLoading && openMenuId === student.id ? <Loader2 size={16} className="animate-spin text-primary" /> : <MoreHorizontal size={18} />}
+                                                                                    </button>
+                                                                                </div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+
+                                                    {/* Mobile Card View */}
+                                                    <div className="block md:hidden space-y-3">
+                                                        {initialStudents.map((student) => {
+                                                            const isOnline = Object.values(onlineUsers).some(
+                                                                (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
+                                                            );
+                                                            const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
+
+                                                            return (
+                                                                <div 
+                                                                    key={student.id}
+                                                                    className="bg-card-bg border border-border p-4 rounded-xl space-y-3 relative"
+                                                                >
+                                                                    <div className="flex items-center justify-between gap-3">
+                                                                        <div className="flex items-center gap-2.5 min-w-0">
+                                                                            <div className="relative flex-shrink-0">
+                                                                                <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
+                                                                                    {initials}
+                                                                                </div>
+                                                                                <span 
+                                                                                    className={`absolute bottom-0 right-0 block h-2 w-2 rounded-full border border-card-bg transition-colors duration-300 ${
+                                                                                        isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
+                                                                                    }`}
+                                                                                    title={isOnline ? 'Activo ahora' : 'Desconectado'}
+                                                                                />
                                                                             </div>
-                                                                        </td>
-                                                                        <td className="px-4 py-3">{getStatusBadge(student.status)}</td>
-                                                                        <td className="px-4 py-3 text-muted">
-                                                                        {new Date(student.invitedAt).toLocaleDateString()}
-                                                                    </td>
-                                                                    <td className="px-4 py-3 text-right relative">
-                                                                        <div className="flex justify-end items-center gap-2">
+                                                                            <span className="font-semibold text-sm truncate" title={student.email}>{student.email}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                                            {getStatusBadge(student.status)}
                                                                             <button
                                                                                 onClick={(e) => {
                                                                                     e.stopPropagation();
@@ -2067,89 +2133,99 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                             >
                                                                                 {isActionLoading && openMenuId === student.id ? <Loader2 size={16} className="animate-spin text-primary" /> : <MoreHorizontal size={18} />}
                                                                             </button>
-
-                                                                            {openMenuId === student.id && menuPosition && typeof document !== 'undefined' && createPortal(
-                                                                                <div
-                                                                                    ref={menuRef}
-                                                                                    style={{
-                                                                                        position: 'absolute',
-                                                                                        top: `${menuPosition.top}px`,
-                                                                                        left: `${menuPosition.left}px`,
-                                                                                    }}
-                                                                                    className="w-48 bg-card-bg/95 backdrop-blur-md border border-white/10 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[99999] py-1.5 animate-in fade-in zoom-in-95 duration-200 text-left"
-                                                                                >
-                                                                                    <Link
-                                                                                        href={`/cms/bootcamp/${bootcamp.id}/student/${student.id}`}
-                                                                                        onClick={() => {
-                                                                                            setOpenMenuId(null);
-                                                                                            setMenuPosition(null);
-                                                                                        }}
-                                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-foreground hover:bg-white/5 transition-colors"
-                                                                                    >
-                                                                                        <BarChart3 size={14} className="text-primary" />
-                                                                                        Ver progreso
-                                                                                    </Link>
-
-                                                                                    <button
-                                                                                        onClick={() => {
-                                                                                            setOpenMenuId(null);
-                                                                                            setMenuPosition(null);
-                                                                                            handleToggleStatus(student.id, student.status === 'active' ? 'invited' : 'active');
-                                                                                        }}
-                                                                                        className={`w-full flex items-center gap-2 px-4 py-2.5 text-xs transition-colors ${student.status === 'active' ? 'text-amber-500 hover:bg-amber-500/10' : 'text-green-500 hover:bg-green-500/10'}`}
-                                                                                    >
-                                                                                        {student.status === 'active' ? (
-                                                                                            <>
-                                                                                                <X size={14} />
-                                                                                                Desactivar alumno
-                                                                                            </>
-                                                                                        ) : (
-                                                                                            <>
-                                                                                                <Check size={14} />
-                                                                                                Activar alumno
-                                                                                            </>
-                                                                                        )}
-                                                                                    </button>
-
-                                                                                    <button
-                                                                                        onClick={() => {
-                                                                                            setOpenMenuId(null);
-                                                                                            setMenuPosition(null);
-                                                                                            handleToggleStatus(student.id, student.status === 'frozen' ? 'active' : 'frozen');
-                                                                                        }}
-                                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-cyan-500 hover:bg-cyan-500/10 transition-colors"
-                                                                                    >
-                                                                                        <Snowflake size={14} />
-                                                                                        {student.status === 'frozen' ? 'Descongelar alumno' : 'Congelar alumno'}
-                                                                                    </button>
-
-                                                                                    <div className="h-px bg-white/5 my-1" />
-
-                                                                                    <button
-                                                                                        onClick={() => {
-                                                                                            setOpenMenuId(null);
-                                                                                            setMenuPosition(null);
-                                                                                            openConfirmModal(
-                                                                                                'Eliminar Registro',
-                                                                                                '¿Estás seguro de eliminar este registro? El alumno ya no podrá ingresar.',
-                                                                                                () => removeStudent(student.id, bootcamp.id)
-                                                                                            );
-                                                                                        }}
-                                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-red-500 hover:bg-red-500/10 transition-colors font-medium"
-                                                                                    >
-                                                                                        <Trash2 size={14} />
-                                                                                        Borrar registro
-                                                                                    </button>
-                                                                                </div>,
-                                                                                document.body
-                                                                            )}
                                                                         </div>
-                                                                    </td>
-                                                                </tr>
-                                                                );
-                                                            })}
-                                                        </tbody>
-                                                    </table>
+                                                                    </div>
+                                                                    <div className="flex items-center justify-between text-xs border-t border-border/40 pt-2.5 text-muted-foreground">
+                                                                        <span>Invitado</span>
+                                                                        <span className="font-medium text-foreground">
+                                                                            {new Date(student.invitedAt).toLocaleDateString()}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    {/* Unified Action Dropdown Portal */}
+                                                    {openMenuId && menuPosition && typeof document !== 'undefined' && (() => {
+                                                        const student = initialStudents.find(s => s.id === openMenuId);
+                                                        if (!student) return null;
+                                                        return createPortal(
+                                                            <div
+                                                                ref={menuRef}
+                                                                style={{
+                                                                    position: 'absolute',
+                                                                    top: `${menuPosition.top}px`,
+                                                                    left: `${menuPosition.left}px`,
+                                                                }}
+                                                                className="w-48 bg-card-bg/95 backdrop-blur-md border border-white/10 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[99999] py-1.5 animate-in fade-in zoom-in-95 duration-200 text-left"
+                                                            >
+                                                                <Link
+                                                                    href={`/cms/bootcamp/${bootcamp.id}/student/${student.id}`}
+                                                                    onClick={() => {
+                                                                        setOpenMenuId(null);
+                                                                        setMenuPosition(null);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-foreground hover:bg-white/5 transition-colors"
+                                                                >
+                                                                    <BarChart3 size={14} className="text-primary" />
+                                                                    Ver progreso
+                                                                </Link>
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setOpenMenuId(null);
+                                                                        setMenuPosition(null);
+                                                                        handleToggleStatus(student.id, student.status === 'active' ? 'invited' : 'active');
+                                                                    }}
+                                                                    className={`w-full flex items-center gap-2 px-4 py-2.5 text-xs transition-colors ${student.status === 'active' ? 'text-amber-500 hover:bg-amber-500/10' : 'text-green-500 hover:bg-green-500/10'}`}
+                                                                >
+                                                                    {student.status === 'active' ? (
+                                                                        <>
+                                                                            <X size={14} />
+                                                                            Desactivar alumno
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <Check size={14} />
+                                                                            Activar alumno
+                                                                        </>
+                                                                    )}
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setOpenMenuId(null);
+                                                                        setMenuPosition(null);
+                                                                        handleToggleStatus(student.id, student.status === 'frozen' ? 'active' : 'frozen');
+                                                                    }}
+                                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-cyan-500 hover:bg-cyan-500/10 transition-colors"
+                                                                >
+                                                                    <Snowflake size={14} />
+                                                                    {student.status === 'frozen' ? 'Descongelar alumno' : 'Congelar alumno'}
+                                                                </button>
+
+                                                                <div className="h-px bg-white/5 my-1" />
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setOpenMenuId(null);
+                                                                        setMenuPosition(null);
+                                                                        openConfirmModal(
+                                                                            'Eliminar Registro',
+                                                                            '¿Estás seguro de eliminar este registro? El alumno ya no podrá ingresar.',
+                                                                            () => removeStudent(student.id, bootcamp.id)
+                                                                        );
+                                                                    }}
+                                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-red-500 hover:bg-red-500/10 transition-colors font-medium"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                    Borrar registro
+                                                                </button>
+                                                            </div>,
+                                                            document.body
+                                                        );
+                                                    })()}
                                                 </div>
                                             )}
                                         </div>
@@ -2501,7 +2577,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 return (
                                                     <div 
                                                         key={student.id} 
-                                                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
+                                                        className={`flex flex-row items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
                                                             currentPodium 
                                                                 ? `${currentPodium.bg} shadow-md` 
                                                                 : 'bg-card-bg/40 border-border hover:border-foreground/20'
@@ -2509,7 +2585,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     >
                                                         <div className="flex items-center gap-4 flex-1 min-w-0">
                                                             {/* Posición / Rank index */}
-                                                            <div className="flex items-center justify-center w-8 shrink-0">
+                                                            <div className="flex items-center justify-center w-8 shrink-0 hidden sm:flex">
                                                                 {isTop3 ? (
                                                                     <span className="text-xl font-bold select-none">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
                                                                 ) : (
@@ -2518,7 +2594,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                             </div>
 
                                                             {/* Avatar */}
-                                                            <div className="relative shrink-0">
+                                                            <div className="relative shrink-0 hidden sm:block">
                                                                 <div className={`h-11 w-11 rounded-full flex items-center justify-center font-bold text-sm shadow-inner transition-colors ${
                                                                     index === 0 
                                                                         ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' 
@@ -2559,9 +2635,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                         </div>
 
                                                         {/* Puntos y Progreso */}
-                                                        <div className="flex items-center gap-6 mt-4 sm:mt-0 shrink-0 pl-12 sm:pl-0">
+                                                        <div className="flex items-center gap-6 shrink-0">
                                                             {/* Progreso bar & fraction */}
-                                                            <div className="flex flex-col items-end text-right">
+                                                            <div className="hidden sm:flex flex-col items-end text-right">
                                                                 <span className="text-xs text-muted-foreground font-medium mb-1">
                                                                     {points} de {totalLessons} lecciones
                                                                 </span>
