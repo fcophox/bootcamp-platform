@@ -419,7 +419,7 @@ export default function ClassPlayerPage() {
                 <header className="h-[60px] border-b border-border bg-background flex-shrink-0 z-10 px-6 flex items-center justify-between">
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                         <MobileMenuButton />
-                        <nav className="flex items-center text-sm truncate">
+                        <nav className="flex items-center text-sm min-w-0 flex-1">
                             <Link href="/dashboard" className="text-muted hover:text-foreground transition-colors hidden md:block flex-shrink-0">
                                 Dashboard
                             </Link>
@@ -428,7 +428,7 @@ export default function ClassPlayerPage() {
                                 Bootcamp
                             </Link>
                             <ChevronRight size={16} className="mx-2 text-muted hidden md:block flex-shrink-0" />
-                            <span className="font-medium text-foreground truncate">{currentClass.title}</span>
+                            <span className="font-medium text-foreground truncate min-w-0">{currentClass.title}</span>
                         </nav>
                     </div>
                     {/* Dark Mode Toggle if needed */}

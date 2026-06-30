@@ -1411,19 +1411,19 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         <div className="min-h-screen bg-background text-foreground">
             <Sidebar />
 
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 md:${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
                 {/* Header */}
-                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background border-b border-border flex items-center px-6 gap-3 transition-all duration-300 left-0 md:${isCollapsed ? 'left-16' : 'left-64'}`}>
+                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background border-b border-border flex items-center px-6 gap-3 transition-all duration-300 left-0 ${isCollapsed ? 'md:left-16' : 'md:left-64'}`}>
                     <button
                         onClick={() => setIsMobileOpen(true)}
                         className="p-1.5 rounded-lg border border-border bg-hover-bg md:hidden hover:bg-background text-foreground flex-shrink-0"
                     >
                         <Menu size={20} />
                     </button>
-                    <div className="flex items-center gap-2 text-sm text-muted min-w-0">
+                    <div className="flex items-center gap-2 text-sm text-muted min-w-0 flex-1">
                         <Link href="/cms" className="hover:text-foreground transition-colors flex-shrink-0">Bootcamp</Link>
                         <ChevronRight size={14} className="flex-shrink-0" />
-                        <span className="text-foreground font-medium truncate" title={bootcamp.title}>{bootcamp.title}</span>
+                        <span className="text-foreground font-medium truncate min-w-0" title={bootcamp.title}>{bootcamp.title}</span>
                     </div>
                 </header>
 

@@ -112,9 +112,10 @@ export default function CreateBootcampPage() {
                     >
                         <Menu size={20} />
                     </button>
-                    <div className="flex items-center gap-2 text-sm text-muted">
-                        <Link href="/cms" className="hover:text-foreground transition-colors">Bootcamp</Link>                        <ChevronRight size={14} />
-                        <span className="text-foreground font-medium">Crear Nuevo</span>
+                    <div className="flex items-center gap-2 text-sm text-muted min-w-0 flex-1">
+                        <Link href="/cms" className="hover:text-foreground transition-colors flex-shrink-0">Bootcamp</Link>
+                        <ChevronRight size={14} className="flex-shrink-0" />
+                        <span className="text-foreground font-medium truncate min-w-0">Crear Nuevo</span>
                     </div>
                 </header>
 
