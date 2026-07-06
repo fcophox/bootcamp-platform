@@ -48,6 +48,7 @@ export interface BootcampCardProps {
     color?: string;
     isFrozen?: boolean;
     imageUrl?: string;
+    progress?: number;
 }
 
 export function BootcampCard({
@@ -66,7 +67,8 @@ export function BootcampCard({
     icon,
     color,
     isFrozen,
-    imageUrl
+    imageUrl,
+    progress
 }: BootcampCardProps) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -151,6 +153,40 @@ export function BootcampCard({
                             <IconComponent size={24} />
                         </div>
                     )}
+                    
+                    {/* Circular progress bar next to the icon circle */}
+                    {progress !== undefined && (
+                        <div className="absolute top-4 left-[72px] w-12 h-12 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white shadow-lg shadow-black/30 z-10 border border-white/10">
+                            <div className="relative w-10 h-10 flex items-center justify-center">
+                                <svg className="w-full h-full transform -rotate-90">
+                                    <circle
+                                        cx="20"
+                                        cy="20"
+                                        r="16"
+                                        className="text-white/20"
+                                        strokeWidth="3.5"
+                                        stroke="currentColor"
+                                        fill="transparent"
+                                    />
+                                    <circle
+                                        cx="20"
+                                        cy="20"
+                                        r="16"
+                                        className="text-emerald-400 transition-all duration-500"
+                                        strokeWidth="3.5"
+                                        strokeDasharray={2 * Math.PI * 16}
+                                        strokeDashoffset={2 * Math.PI * 16 - (progress / 100) * 2 * Math.PI * 16}
+                                        strokeLinecap="round"
+                                        stroke="currentColor"
+                                        fill="transparent"
+                                    />
+                                </svg>
+                                <span className="absolute text-[10px] font-bold text-white font-sans">
+                                    {progress}%
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -158,8 +194,42 @@ export function BootcampCard({
                 <div>
                     <div className="flex gap-4 mb-4">
                         {(!imageUrl && IconComponent) && (
-                            <div className={`w-12 h-12 rounded-full ${bgClass} flex items-center justify-center flex-shrink-0 text-white shadow-lg shadow-black/10`}>
-                                <IconComponent size={24} />
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                                <div className={`w-12 h-12 rounded-full ${bgClass} flex items-center justify-center text-white shadow-lg shadow-black/10`}>
+                                    <IconComponent size={24} />
+                                </div>
+                                {progress !== undefined && (
+                                    <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-foreground border border-border shadow-sm">
+                                        <div className="relative w-10 h-10 flex items-center justify-center">
+                                            <svg className="w-full h-full transform -rotate-90">
+                                                <circle
+                                                    cx="20"
+                                                    cy="20"
+                                                    r="16"
+                                                    className="text-muted/20"
+                                                    strokeWidth="3.5"
+                                                    stroke="currentColor"
+                                                    fill="transparent"
+                                                />
+                                                <circle
+                                                    cx="20"
+                                                    cy="20"
+                                                    r="16"
+                                                    className="text-emerald-500 transition-all duration-500"
+                                                    strokeWidth="3.5"
+                                                    strokeDasharray={2 * Math.PI * 16}
+                                                    strokeDashoffset={2 * Math.PI * 16 - (progress / 100) * 2 * Math.PI * 16}
+                                                    strokeLinecap="round"
+                                                    stroke="currentColor"
+                                                    fill="transparent"
+                                                />
+                                            </svg>
+                                            <span className="absolute text-[10px] font-bold text-foreground font-sans">
+                                                {progress}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                         <div className={`${!imageUrl ? 'pr-8' : ''} flex-1 min-w-0`}>

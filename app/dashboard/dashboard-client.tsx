@@ -22,6 +22,7 @@ interface Bootcamp {
     icon?: string;
     color?: string;
     imageUrl?: string;
+    progress?: number;
 }
 
 interface ContinueLearning {

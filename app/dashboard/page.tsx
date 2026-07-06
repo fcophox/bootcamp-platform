@@ -66,6 +66,7 @@ export default async function DashboardPage() {
     // Fetch progress and lessons to build the "continue learning" section
     const bootcampIds = bootcamps?.map(b => b.id) || [];
     let continueLearning = null;
+    const progressMap: Record<number, number> = {};
 
     if (bootcampIds.length > 0) {
         // Fetch all modules with lessons for these bootcamps
@@ -127,6 +128,14 @@ export default async function DashboardPage() {
             }
         }
 
+        // Calculate progress for each bootcamp
+        bootcampIds.forEach(id => {
+            const lessons = lessonsMap[id] || [];
+            const completedIds = completionsMap[id] || [];
+            const realLessons = lessons.filter(l => l.type !== 'subtitle');
+            progressMap[id] = realLessons.length > 0 ? Math.round((completedIds.length / realLessons.length) * 100) : 0;
+        });
+
         // Find the first bootcamp with progress or next lesson
         for (const b of cleanedBootcamps) {
             const lessons = lessonsMap[b.id] || [];
@@ -164,5 +173,10 @@ export default async function DashboardPage() {
         }
     }
 
-    return <DashboardClient bootcamps={cleanedBootcamps} userName={userName} continueLearning={continueLearning} />;
+    const finalBootcamps = cleanedBootcamps.map(b => ({
+        ...b,
+        progress: progressMap[b.id] || 0
+    }));
+
+    return <DashboardClient bootcamps={finalBootcamps} userName={userName} continueLearning={continueLearning} />;
 }
