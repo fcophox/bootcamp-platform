@@ -2718,8 +2718,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                             ? 'bg-amber-700/20 border-amber-700/40 text-amber-500' 
                                                                             : 'bg-secondary/40 border-border text-foreground'
                                                             }`}>
-                                                                <span className="text-lg leading-none">{points}</span>
-                                                                <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">pts</span>
+                                                                <span className="text-lg leading-none">{progressPercentage}%</span>
+                                                                <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">avance</span>
                                                             </div>
                                                         </div>
                                                     </div>
