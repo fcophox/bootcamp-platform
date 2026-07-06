@@ -585,11 +585,11 @@ export function PublicRankingClient({
                                     {/* Puntos y Progreso */}
                                     <div className="flex items-center gap-6 shrink-0">
                                         {/* Progreso bar & fraction */}
-                                        <div className="hidden sm:flex flex-col items-end text-right">
+                                        <div className="flex flex-col items-end text-right">
                                             <span className="text-xs text-muted-foreground font-medium mb-1">
-                                                {points} de {totalLessons} lecciones
+                                                {points} de {totalLessons} <span className="hidden sm:inline">lecciones</span>
                                             </span>
-                                            <div className="w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
+                                            <div className="hidden sm:block w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
                                                 <div 
                                                     className={`h-full rounded-full transition-all duration-1000 ${
                                                         index === 0 
@@ -615,8 +615,8 @@ export function PublicRankingClient({
                                                         ? 'bg-amber-700/20 border-amber-700/40 text-amber-500' 
                                                         : 'bg-secondary/40 border-border text-foreground'
                                         }`}>
-                                            <span className="text-lg leading-none">{points}</span>
-                                            <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">pts</span>
+                                            <span className="text-lg leading-none">{progressPercentage}%</span>
+                                            <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">avance</span>
                                         </div>
                                     </div>
                                 </div>
