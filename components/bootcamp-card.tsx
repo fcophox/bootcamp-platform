@@ -154,9 +154,9 @@ export function BootcampCard({
                         </div>
                     )}
                     
-                    {/* Circular progress bar next to the icon circle */}
+                    {/* Circular progress bar on the right of the cover */}
                     {progress !== undefined && (
-                        <div className="absolute top-4 left-[72px] w-12 h-12 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white shadow-lg shadow-black/30 z-10 border border-white/10">
+                        <div className="absolute top-4 right-4 w-12 h-12 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white shadow-lg shadow-black/30 z-10 border border-white/10">
                             <div className="relative w-10 h-10 flex items-center justify-center">
                                 <svg className="w-full h-full transform -rotate-90">
                                     <circle
