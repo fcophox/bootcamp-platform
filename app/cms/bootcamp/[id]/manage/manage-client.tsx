@@ -1703,9 +1703,6 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         >
                                             <div className="flex items-center gap-3">
                                                 <h1 className="text-xl sm:text-2xl font-semibold">{bootcamp.title}</h1>
-                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground p-1 rounded hover:bg-muted/10">
-                                                    <Edit2 size={18} />
-                                                </div>
                                             </div>
 
                                             {/* Detalles del curso */}
