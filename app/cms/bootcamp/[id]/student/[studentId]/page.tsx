@@ -6,6 +6,7 @@ import { MobileMenuButton } from '@/components/mobile-menu-button';
 import { getBootcamp } from '@/app/actions/bootcamp';
 import { getStudentById, getStudentCompletions, getStudentExamAttempts } from '@/app/actions/student';
 import { redirect } from 'next/navigation';
+import { formatDateToLocal } from '@/utils/date';
 
 interface ProgressPageProps {
     params: Promise<{
@@ -114,7 +115,7 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
                                     <div className="flex flex-wrap gap-4 mt-2">
                                         <div className="flex items-center gap-2 text-xs text-muted/80">
                                             <Calendar size={14} className="text-primary/60" />
-                                            <span>Invitado el {new Date(student.invitedAt).toLocaleDateString()}</span>
+                                            <span>Invitado el {formatDateToLocal(student.invitedAt)}</span>
                                         </div>
                                         <div className="flex items-center gap-2 text-xs text-muted/80">
                                             <Layout size={14} className="text-primary/60" />
@@ -238,7 +239,7 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
                                                                     <span className="text-[10px] text-muted-foreground italic hidden md:block">
                                                                         {lesson.type === 'exam' 
                                                                             ? `${attemptsList.length} ${attemptsList.length === 1 ? 'intento' : 'intentos'}`
-                                                                            : completion ? `Finalizada el ${new Date(completion.completedAt).toLocaleDateString()}` : 'Finalizada'
+                                                                            : completion ? `Finalizada el ${formatDateToLocal(completion.completedAt)}` : 'Finalizada'
                                                                         }
                                                                     </span>
                                                                     <div className="relative group/tooltip">

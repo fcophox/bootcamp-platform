@@ -24,7 +24,7 @@ import { createClient } from '@/utils/supabase/client';
 import { uploadToAzure } from '@/lib/azure-upload';
 import { removeStudent, updateStudentStatus } from '@/app/actions/student';
 import { useOnlineUsers } from '@/contexts/OnlineUsersContext';
-import { formatDateString } from '@/utils/date';
+import { formatDateString, formatDateToLocal } from '@/utils/date';
 
 import { createInvitation } from '@/app/actions/invitation';
 
@@ -2052,7 +2052,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                             </td>
                                                                             <td className="px-4 py-3">{getStatusBadge(student.status)}</td>
                                                                             <td className="px-4 py-3 text-muted">
-                                                                                {new Date(student.invitedAt).toLocaleDateString()}
+                                                                                {formatDateToLocal(student.invitedAt)}
                                                                             </td>
                                                                             <td className="px-4 py-3 text-right relative">
                                                                                 <div className="flex justify-end items-center gap-2">
@@ -2138,7 +2138,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                     <div className="flex items-center justify-between text-xs border-t border-border/40 pt-2.5 text-muted-foreground">
                                                                         <span>Invitado</span>
                                                                         <span className="font-medium text-foreground">
-                                                                            {new Date(student.invitedAt).toLocaleDateString()}
+                                                                            {formatDateToLocal(student.invitedAt)}
                                                                         </span>
                                                                     </div>
                                                                 </div>

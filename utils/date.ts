@@ -80,3 +80,10 @@ export function formatDateString(dateStr: string | null | undefined): string {
     }
     return dateStr;
 }
+
+export function formatDateToLocal(dateInput: Date | string | null | undefined): string {
+    if (!dateInput) return '--';
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    if (isNaN(date.getTime())) return '--';
+    return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
