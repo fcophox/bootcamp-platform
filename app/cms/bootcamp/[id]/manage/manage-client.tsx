@@ -15,13 +15,14 @@ import {
     Headphones, FileUp, Users, Trophy, Check, X, Clock, Loader2,
     Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase,
     MoreHorizontal, BarChart3, Radio, BookOpen, Calendar, Snowflake,
-    Upload, Menu
+    Upload, Menu, Video, FileArchive, Image, File, ExternalLink, Save
 } from 'lucide-react';
 
 import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson, reorderLessons, reorderModules } from '@/app/actions/module';
 import { updateBootcamp } from '@/app/actions/bootcamp';
 import { createClient } from '@/utils/supabase/client';
 import { uploadToAzure } from '@/lib/azure-upload';
+import { getMasterclass, saveMasterclass } from '@/app/actions/masterclass';
 import { removeStudent, updateStudentStatus } from '@/app/actions/student';
 import { useOnlineUsers } from '@/contexts/OnlineUsersContext';
 import { formatDateString, formatDateToLocal } from '@/utils/date';
@@ -108,7 +109,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const router = useRouter();
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'content' | 'students' | 'room' | 'ranking'>('content');
+    const [activeTab, setActiveTab] = useState<'content' | 'students' | 'room' | 'ranking' | 'masterclass'>('content');
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
     const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -116,6 +117,35 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const moduleMenuRef = useRef<HTMLDivElement>(null);
 
     const { onlineUsers } = useOnlineUsers();
+
+    // Masterclass State
+    const [masterclassId, setMasterclassId] = useState<number | null>(null);
+    const [videoUrl, setVideoUrl] = useState<string>('');
+    const [description, setDescription] = useState<string>('');
+    const [materials, setMaterials] = useState<{ name: string; url: string }[]>([]);
+    const [isMasterclassLoading, setIsMasterclassLoading] = useState(true);
+    const [isSavingMasterclass, setIsSavingMasterclass] = useState(false);
+    const [uploadingFile, setUploadingFile] = useState<string | null>(null);
+
+    useEffect(() => {
+        async function loadMasterclass() {
+            try {
+                setIsMasterclassLoading(true);
+                const data = await getMasterclass(bootcamp.id);
+                if (data) {
+                    setMasterclassId(data.id);
+                    setVideoUrl(data.videoUrl || '');
+                    setDescription(data.description || '');
+                    setMaterials(data.materials || []);
+                }
+            } catch (err) {
+                console.error("Error loading masterclass:", err);
+            } finally {
+                setIsMasterclassLoading(false);
+            }
+        }
+        loadMasterclass();
+    }, [bootcamp.id]);
 
     // Ranking State
     const [rankingData, setRankingData] = useState<{
@@ -1744,6 +1774,15 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                 >
                                     Ranking
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('masterclass')}
+                                    className={`pb-3 px-1 text-sm font-medium transition-all ${activeTab === 'masterclass'
+                                        ? 'text-primary border-b-2 border-primary'
+                                        : 'text-muted hover:text-foreground'
+                                        }`}
+                                >
+                                    Masterclass
+                                </button>
                                 {/* TODO: Oculto temporalmente
                                 <button
                                     onClick={() => setActiveTab('room')}
@@ -2686,6 +2725,263 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     </div>
                                                 );
                                             })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* MASTERCLASS TAB */}
+                        {activeTab === 'masterclass' && (
+                            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6 mt-6">
+                                {isMasterclassLoading ? (
+                                    <div className="flex flex-col items-center justify-center min-h-[350px]">
+                                        <Loader2 size={36} className="animate-spin text-primary mb-4" />
+                                        <p className="text-muted text-sm">Cargando detalles de masterclass...</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                        {/* Left Side: Video and Description */}
+                                        <div className="lg:col-span-2 space-y-6">
+                                            <div className="bg-card-bg border border-border rounded-xl p-6 shadow-sm space-y-4">
+                                                <h3 className="font-semibold text-lg flex items-center gap-2 text-foreground">
+                                                    <Video size={20} className="text-primary" />
+                                                    Detalles de la Masterclass
+                                                </h3>
+                                                
+                                                <div className="space-y-2">
+                                                    <label className="text-xs font-semibold text-muted uppercase tracking-wider block">
+                                                        Enlace o Video de la Clase
+                                                    </label>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="URL del video (YouTube, Vimeo, Azure...)"
+                                                            value={videoUrl}
+                                                            onChange={(e) => setVideoUrl(e.target.value)}
+                                                            className="flex-1 px-4 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
+                                                        />
+                                                        <label className="flex items-center justify-center gap-2 px-4 py-2.5 bg-secondary text-foreground text-sm rounded-lg hover:bg-secondary/80 transition-colors cursor-pointer border border-border">
+                                                            <Upload size={16} />
+                                                            <span>Subir</span>
+                                                            <input
+                                                                type="file"
+                                                                accept="video/*"
+                                                                className="hidden"
+                                                                onChange={async (e) => {
+                                                                    const file = e.target.files?.[0];
+                                                                    if (!file) return;
+                                                                    try {
+                                                                        setUploadingFile(file.name);
+                                                                        const path = `bootcamps/${bootcamp.id}/masterclass/video-${Date.now()}-${file.name}`;
+                                                                        const url = await uploadToAzure(file, path);
+                                                                        setVideoUrl(url);
+                                                                        setToast({ show: true, message: "Video subido con éxito a Azure" });
+                                                                    } catch (err: any) {
+                                                                        alert("Error al subir video: " + err.message);
+                                                                    } finally {
+                                                                        setUploadingFile(null);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </label>
+                                                    </div>
+                                                    {uploadingFile && (
+                                                        <div className="text-xs text-primary flex items-center gap-2 mt-1 animate-pulse">
+                                                            <Loader2 size={12} className="animate-spin" />
+                                                            Subiendo {uploadingFile}...
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Video Preview */}
+                                                {videoUrl && (
+                                                    <div className="mt-4 rounded-lg overflow-hidden border border-border bg-black/40 aspect-video flex items-center justify-center relative">
+                                                        {videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') ? (
+                                                            <iframe
+                                                                className="w-full h-full"
+                                                                src={videoUrl.replace('watch?v=', 'embed/')}
+                                                                title="YouTube Video Preview"
+                                                                allowFullScreen
+                                                            />
+                                                        ) : videoUrl.includes('vimeo.com') ? (
+                                                            <iframe
+                                                                className="w-full h-full"
+                                                                src={`https://player.vimeo.com/video/${videoUrl.split('/').pop()}`}
+                                                                title="Vimeo Video Preview"
+                                                                allowFullScreen
+                                                            />
+                                                        ) : (
+                                                            <video
+                                                                src={videoUrl}
+                                                                controls
+                                                                className="w-full h-full object-contain"
+                                                            />
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                <div className="space-y-2">
+                                                    <label className="text-xs font-semibold text-muted uppercase tracking-wider block">
+                                                        Descripción
+                                                    </label>
+                                                    <textarea
+                                                        rows={6}
+                                                        placeholder="Escribe una breve descripción para la masterclass..."
+                                                        value={description}
+                                                        onChange={(e) => setDescription(e.target.value)}
+                                                        className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors resize-y min-h-[120px]"
+                                                    />
+                                                </div>
+
+                                                <div className="pt-2">
+                                                    <button
+                                                        onClick={async () => {
+                                                            try {
+                                                                setIsSavingMasterclass(true);
+                                                                await saveMasterclass(bootcamp.id, {
+                                                                    videoUrl,
+                                                                    description,
+                                                                    materials
+                                                                });
+                                                                setToast({ show: true, message: "Masterclass guardada exitosamente" });
+                                                            } catch (err: any) {
+                                                                alert("Error al guardar masterclass: " + err.message);
+                                                            } finally {
+                                                                setIsSavingMasterclass(false);
+                                                            }
+                                                        }}
+                                                        disabled={isSavingMasterclass}
+                                                        className="w-full md:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+                                                    >
+                                                        {isSavingMasterclass ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                                        <span>Guardar Masterclass</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Right Side: Materials */}
+                                        <div className="space-y-6">
+                                            <div className="bg-card-bg border border-border rounded-xl p-6 shadow-sm space-y-4">
+                                                <h3 className="font-semibold text-lg flex items-center gap-2 text-foreground">
+                                                    <FileText size={20} className="text-primary" />
+                                                    Material de Apoyo
+                                                </h3>
+
+                                                <div className="border-2 border-dashed border-border/60 hover:border-primary/40 rounded-xl p-6 text-center cursor-pointer hover:bg-white/5 transition-all relative">
+                                                    <input
+                                                        type="file"
+                                                        multiple
+                                                        accept=".pdf,.md,.zip,.png,.jpg,.jpeg,.webp"
+                                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                                        onChange={async (e) => {
+                                                            const files = e.target.files;
+                                                            if (!files || files.length === 0) return;
+                                                            
+                                                            const newUploadedMaterials = [];
+                                                            try {
+                                                                for (let idx = 0; idx < files.length; idx++) {
+                                                                    const file = files[idx];
+                                                                    setUploadingFile(file.name);
+                                                                    const path = `bootcamps/${bootcamp.id}/masterclass/materials/${Date.now()}-${file.name}`;
+                                                                    const url = await uploadToAzure(file, path);
+                                                                    newUploadedMaterials.push({ name: file.name, url });
+                                                                }
+                                                                
+                                                                const updated = [...materials, ...newUploadedMaterials];
+                                                                setMaterials(updated);
+                                                                
+                                                                // Auto save database state
+                                                                await saveMasterclass(bootcamp.id, {
+                                                                    videoUrl,
+                                                                    description,
+                                                                    materials: updated
+                                                                });
+                                                                setToast({ show: true, message: `Se subieron y guardaron ${newUploadedMaterials.length} archivos.` });
+                                                            } catch (err: any) {
+                                                                alert("Error subiendo material: " + err.message);
+                                                            } finally {
+                                                                    setUploadingFile(null);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <Upload size={32} className="mx-auto mb-2 text-muted" />
+                                                    <p className="text-sm font-semibold text-foreground">Seleccionar archivos</p>
+                                                    <p className="text-xs text-muted mt-1">PDF, MD, ZIP o Imágenes</p>
+                                                </div>
+
+                                                {/* Materials List */}
+                                                <div className="space-y-2 mt-4">
+                                                    <label className="text-xs font-semibold text-muted uppercase tracking-wider block">
+                                                        Materiales Subidos ({materials.length})
+                                                    </label>
+                                                    
+                                                    {materials.length === 0 ? (
+                                                        <div className="text-center py-6 border border-border border-dashed rounded-lg text-muted text-xs">
+                                                            Ningún archivo subido aún.
+                                                        </div>
+                                                    ) : (
+                                                        <div className="divide-y divide-border border border-border rounded-lg overflow-hidden bg-background/50">
+                                                            {materials.map((file, idx) => {
+                                                                const isZip = file.name.endsWith('.zip');
+                                                                const isImg = file.name.endsWith('.png') || file.name.endsWith('.jpg') || file.name.endsWith('.jpeg') || file.name.endsWith('.webp');
+                                                                const isMd = file.name.endsWith('.md');
+                                                                const isPdf = file.name.endsWith('.pdf');
+
+                                                                let FileIcon = FileText;
+                                                                if (isZip) FileIcon = FileArchive;
+                                                                else if (isImg) FileIcon = Image;
+                                                                else if (isPdf) FileIcon = File;
+
+                                                                return (
+                                                                    <div key={idx} className="flex items-center justify-between p-3 text-xs hover:bg-white/5 transition-colors">
+                                                                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                                                                            <FileIcon size={16} className="text-primary flex-shrink-0" />
+                                                                            <span className="truncate font-medium text-foreground" title={file.name}>
+                                                                                {file.name}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                                            <a
+                                                                                href={file.url}
+                                                                                target="_blank"
+                                                                                rel="noreferrer"
+                                                                                className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-muted hover:text-foreground"
+                                                                                title="Ver / Descargar"
+                                                                            >
+                                                                                <ExternalLink size={14} />
+                                                                            </a>
+                                                                            <button
+                                                                                onClick={async () => {
+                                                                                    const updated = materials.filter((_, itemIdx) => itemIdx !== idx);
+                                                                                    setMaterials(updated);
+                                                                                    
+                                                                                    // Auto save updated list
+                                                                                    try {
+                                                                                        await saveMasterclass(bootcamp.id, {
+                                                                                            videoUrl,
+                                                                                            description,
+                                                                                            materials: updated
+                                                                                        });
+                                                                                        setToast({ show: true, message: "Material eliminado exitosamente" });
+                                                                                    } catch (err: any) {
+                                                                                        alert("Error al guardar: " + err.message);
+                                                                                    }
+                                                                                }}
+                                                                                className="p-1.5 hover:bg-red-500/10 rounded-md transition-colors text-muted hover:text-red-500"
+                                                                                title="Eliminar"
+                                                                            >
+                                                                                <Trash2 size={14} />
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
