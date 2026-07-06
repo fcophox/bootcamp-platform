@@ -1621,7 +1621,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                         {/* Title & Tabs */}
                         <div className="flex flex-col gap-6 mb-8">
                             <div className="flex flex-col sm:flex-row justify-between items-start gap-6 w-full">
-                                <div className="flex flex-col sm:flex-row gap-4 items-start relative w-full sm:w-auto">
+                                <div className="flex flex-col sm:flex-row gap-4 items-start relative w-full">
                                     {/* Icon & Color Editor */}
                                     <div className="relative">
                                         <button
@@ -1685,10 +1685,10 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         )}
                                     </div>
 
-                                    <div className="flex-1 w-full max-w-2xl">
+                                    <div className="flex-1 w-full">
 
                                         <div
-                                            className="group flex flex-col mb-1 cursor-pointer w-fit animate-in fade-in duration-300"
+                                            className="group flex flex-col mb-1 cursor-pointer w-full animate-in fade-in duration-300"
                                             onClick={() => {
                                                 setTempBootcampTitle(bootcamp.title);
                                                 setTempDescription(bootcamp.description || '');
@@ -1707,10 +1707,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     <Edit2 size={18} />
                                                 </div>
                                             </div>
-                                            <div 
-                                                className="text-muted text-xs sm:text-sm mt-1 prose prose-sm dark:prose-invert max-w-none line-clamp-3"
-                                                dangerouslySetInnerHTML={{ __html: bootcamp.description || 'Gestiona el contenido y los alumnos de tu curso.' }}
-                                            />
+
                                             {/* Detalles del curso */}
                                             {(bootcamp.duration || bootcamp.level || bootcamp.startDate) && (
                                                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-3 text-[11px] sm:text-xs font-medium text-muted-foreground group-hover:text-foreground/80 transition-colors">
