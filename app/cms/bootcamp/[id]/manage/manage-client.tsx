@@ -140,8 +140,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 const supabase = createClient();
                 const studentIds = activeStudents.map(s => s.id);
                 
-                // Get all lesson IDs in this bootcamp
-                const lessonIds = modules.flatMap(m => m.lessons || []).map(l => l.id);
+                // Get all lesson IDs in this bootcamp (excluding subtitles)
+                const lessonIds = modules.flatMap(m => m.lessons || []).filter(l => l.type !== 'subtitle').map(l => l.id);
                 
                 if (lessonIds.length === 0) {
                     setRankingData(activeStudents.map(student => ({
@@ -2556,7 +2556,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         <div className="grid grid-cols-1 gap-3">
                                             {rankingData.map((item, index) => {
                                                 const { student, points } = item;
-                                                const totalLessons = modules.flatMap(m => m.lessons || []).length;
+                                                const totalLessons = modules.flatMap(m => m.lessons || []).filter(l => l.type !== 'subtitle').length;
                                                 const progressPercentage = totalLessons > 0 ? Math.round((points / totalLessons) * 100) : 0;
                                                 const isOnline = Object.values(onlineUsers).some(
                                                     (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()

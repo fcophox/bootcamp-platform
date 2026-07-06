@@ -106,14 +106,15 @@ export default function ProfilePage() {
                         // Get total lessons
                         const { data: modules } = await supabase
                             .from('Module')
-                            .select('id, Lesson(id)')
+                            .select('id, Lesson(id, type)')
                             .eq('bootcampId', bootcamp.id);
                         
                         let totalLessons = 0;
                         if (modules) {
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             modules.forEach((mod: any) => {
-                                  totalLessons += (mod.Lesson?.length || 0);
+                                  const consumableLessons = mod.Lesson?.filter((l: any) => l.type !== 'subtitle') || [];
+                                  totalLessons += consumableLessons.length;
                             });
                         }
 

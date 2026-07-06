@@ -47,6 +47,7 @@ interface Module {
     lessons?: {
         id: number;
         title: string;
+        type?: string;
     }[];
 }
 
@@ -80,7 +81,7 @@ export function PublicRankingClient({
 
     // Process completions to build ranking data
     const rankingData = (() => {
-        const totalLessons = modules.flatMap(m => m.lessons || []);
+        const totalLessons = modules.flatMap(m => m.lessons || []).filter(l => l.type !== 'subtitle');
         const totalLessonsCount = totalLessons.length;
         
         // Only show active students in ranking
@@ -88,8 +89,9 @@ export function PublicRankingClient({
 
         const data = activeStudents.map(student => {
             const studentCompletions = initialCompletions.filter(c => c.studentId === student.id);
-            // Unique completions to avoid double points for same lesson
-            const uniqueCompletedLessons = Array.from(new Set(studentCompletions.map(c => c.lessonId)));
+            // Unique completions to avoid double points for same lesson, excluding subtitles
+            const uniqueCompletedLessons = Array.from(new Set(studentCompletions.map(c => c.lessonId)))
+                .filter(id => totalLessons.some(l => l.id === id));
             
             return {
                 student,
@@ -502,7 +504,7 @@ export function PublicRankingClient({
                     <div className="grid grid-cols-1 gap-3">
                         {rankingData.map((item, index) => {
                             const { student, points } = item;
-                            const totalLessons = modules.flatMap(m => m.lessons || []).length;
+                            const totalLessons = modules.flatMap(m => m.lessons || []).filter(l => l.type !== 'subtitle').length;
                             const progressPercentage = totalLessons > 0 ? Math.round((points / totalLessons) * 100) : 0;
                             const isOnline = Object.values(onlineUsers).some(
                                 (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()

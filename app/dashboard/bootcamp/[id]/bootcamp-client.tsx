@@ -199,7 +199,10 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
 
     // Calculate generic stats if not available in DB
     const totalModules = modulesToDisplay?.length || 0;
-    const totalClasses = modulesToDisplay?.reduce((acc: number, m: { lessons?: { id: number }[] }) => acc + (m.lessons?.length || 0), 0) || 0;
+    const totalClasses = modulesToDisplay?.reduce((acc: number, m: { lessons?: { id: number; type?: string }[] }) => {
+        const consumableCount = m.lessons?.filter((l: any) => l.type !== 'subtitle').length || 0;
+        return acc + consumableCount;
+    }, 0) || 0;
 
 
     // Use Progress Hook

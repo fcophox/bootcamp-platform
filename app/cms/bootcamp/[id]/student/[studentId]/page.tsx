@@ -57,8 +57,14 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
         });
     });
 
-    const totalLessons = bootcamp.modules?.reduce((acc: number, m: any) => acc + (m.lessons?.length || 0), 0) || 0;
-    const completedLessonsCount = completedLessonIds.size;
+    // Get all consumable lesson IDs in the bootcamp (excluding subtitles)
+    const consumableLessonIds = new Set(
+        bootcamp.modules?.flatMap((m: any) => m.lessons || [])
+            .filter((l: any) => l.type !== 'subtitle')
+            .map((l: any) => l.id) || []
+    );
+    const totalLessons = consumableLessonIds.size;
+    const completedLessonsCount = Array.from(completedLessonIds).filter(id => consumableLessonIds.has(id)).length;
     const overallPercentage = totalLessons > 0 ? Math.round((completedLessonsCount / totalLessons) * 100) : 0;
 
     // Robust sorting helper
@@ -165,8 +171,9 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
                         <div className="grid grid-cols-1 gap-4">
                             {bootcamp.modules?.sort(sortByOrder).map((module: any) => {
                                 const moduleLessons = module.lessons || [];
-                                const moduleTotal = moduleLessons.length;
-                                const moduleCompleted = moduleLessons.filter((l: any) => completedLessonIds.has(l.id)).length;
+                                const consumableLessons = moduleLessons.filter((l: any) => l.type !== 'subtitle');
+                                const moduleTotal = consumableLessons.length;
+                                const moduleCompleted = consumableLessons.filter((l: any) => completedLessonIds.has(l.id)).length;
                                 const modulePercentage = moduleTotal > 0 ? Math.round((moduleCompleted / moduleTotal) * 100) : 0;
 
                                 return (
@@ -205,6 +212,17 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
                                                     attemptsList = examAttempts.filter(a => a.examId === examId);
                                                 }
                                                 
+                                                if (lesson.type === 'subtitle') {
+                                                    return (
+                                                        <div key={lesson.id} className="p-4 flex items-center justify-between bg-white/[0.01] border-b border-white/5">
+                                                            <div className="flex items-center gap-2">
+                                                                <BookOpen size={16} className="text-muted/60 shrink-0" />
+                                                                <span className="text-sm font-semibold text-muted-foreground">{lesson.title}</span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
                                                 return (
                                                     <div key={lesson.id} className="p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors group">
                                                         <div className="flex items-center gap-3">
