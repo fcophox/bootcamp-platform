@@ -1735,15 +1735,6 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
                                     </div>
                                 </div>
-                                {activeTab === 'content' && (
-                                    <button
-                                        onClick={() => setIsCreatingModule(true)}
-                                        className="flex items-center justify-center gap-2 px-4 py-2 w-full sm:w-auto bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 mt-2 sm:mt-0"
-                                    >
-                                        <Plus size={20} />
-                                        <span>Nuevo módulo</span>
-                                    </button>
-                                )}
                             </div>
 
                             <div className="flex items-center gap-4 border-b border-border">
@@ -1834,8 +1825,15 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                 {/* Modules List */}
                                 <div className="space-y-4">
                                     {modules.length === 0 && !isCreatingModule && (
-                                        <div className="text-center p-12 border border-dashed border-border rounded-xl bg-card-bg/50">
+                                        <div className="text-center p-12 border border-dashed border-border rounded-xl bg-card-bg/50 flex flex-col items-center justify-center gap-4">
                                             <p className="text-muted">No hay módulos creados aún.</p>
+                                            <button
+                                                onClick={() => setIsCreatingModule(true)}
+                                                className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+                                            >
+                                                <Plus size={20} />
+                                                <span>Nuevo módulo</span>
+                                            </button>
                                         </div>
                                     )}
 
@@ -2165,6 +2163,19 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                     </div>
                                 );
                             })}
+
+                                    {/* Nuevo Módulo button at the end of modules list */}
+                                    {localModules.length > 0 && !isCreatingModule && (
+                                        <div className="flex justify-center pt-4 pb-8">
+                                            <button
+                                                onClick={() => setIsCreatingModule(true)}
+                                                className="flex items-center justify-center gap-2 px-6 py-3 w-full sm:w-auto bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+                                            >
+                                                <Plus size={20} />
+                                                <span>Nuevo módulo</span>
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
