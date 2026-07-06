@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
+import { getRoleFromEmail } from '@/utils/roles';
 import { hasBootcampStarted } from '@/utils/date';
 
 export async function getStudents(bootcampId: number) {
@@ -17,7 +18,32 @@ export async function getStudents(bootcampId: number) {
         console.error('Error fetching students:', error);
         return [];
     }
-    return data;
+
+    if (data && data.length > 0) {
+        const emails = data.map(s => s.email);
+        const { data: rolesData, error: rolesError } = await supabase
+            .from('UserRole')
+            .select('email, role')
+            .in('email', emails);
+        
+        const roleMap = new Map<string, string>();
+        if (!rolesError && rolesData) {
+            rolesData.forEach(r => {
+                roleMap.set(r.email.toLowerCase(), r.role);
+            });
+        }
+        
+        return data.map(s => {
+            const dbRole = roleMap.get(s.email.toLowerCase());
+            const finalRole = dbRole || getRoleFromEmail(s.email);
+            return {
+                ...s,
+                role: finalRole
+            };
+        });
+    }
+
+    return [];
 }
 
 export async function getStudentById(studentId: number) {

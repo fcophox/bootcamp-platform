@@ -59,6 +59,7 @@ interface Student {
     status: 'invited' | 'active' | 'completed' | 'frozen';
     invitedAt: string;
     joinedAt?: string;
+    role?: string;
 }
 
 interface ManageBootcampClientProps {
@@ -129,7 +130,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
     useEffect(() => {
         async function fetchRanking() {
-            const activeStudents = initialStudents.filter(s => s.status === 'active');
+            const activeStudents = initialStudents.filter(s => s.status === 'active' && s.role === 'alumno');
             if (activeStudents.length === 0) {
                 setRankingData([]);
                 setCompletionsList([]);
@@ -1407,8 +1408,164 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         chartAreaD = `${chartLineD} L ${chartPoints[chartPoints.length - 1].x} ${svgPadding.top + chartHeight} L ${chartPoints[0].x} ${svgPadding.top + chartHeight} Z`;
     }
 
+    const alumnos = initialStudents.filter(s => s.role === 'alumno');
+    const docentes = initialStudents.filter(s => s.role === 'docente' || s.role === 'superadmin');
+
+    const renderPeopleList = (title: string, list: Student[], emptyText: string, headerLabel: string) => {
+        return (
+            <div className="bg-transparent md:bg-card-bg border-none md:border md:border-border rounded-xl p-0 shadow-none md:shadow-sm overflow-hidden">
+                <h3 className="font-semibold px-0 md:px-6 pt-0 md:pt-6 text-lg mb-4 flex items-center gap-2">
+                    <Users size={20} className="text-primary" />
+                    {title}
+                </h3>
+
+                {list.length === 0 ? (
+                    <div className="text-center py-12 text-muted">
+                        <Users size={48} className="mx-auto mb-3 opacity-20" />
+                        <p>{emptyText}</p>
+                    </div>
+                ) : (
+                    <div className="w-full space-y-4">
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block overflow-x-auto rounded-lg border border-border">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-secondary/30 text-muted uppercase text-xs font-semibold">
+                                    <tr>
+                                        <th className="px-4 py-3">{headerLabel}</th>
+                                        <th className="px-4 py-3">Estado</th>
+                                        <th className="px-4 py-3">Invitado</th>
+                                        <th className="px-4 py-3 text-right">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {list.map((student) => {
+                                        const isOnline = Object.values(onlineUsers).some(
+                                            (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
+                                        );
+                                        const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
+
+                                        return (
+                                            <tr key={student.id} className="bg-card-bg hover:bg-hover-bg transition-colors">
+                                                <td className="px-4 py-3 font-medium">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="relative flex-shrink-0">
+                                                            <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                                                                {initials}
+                                                            </div>
+                                                            <span 
+                                                                className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full border-2 border-card-bg transition-colors duration-300 ${
+                                                                    isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
+                                                                }`}
+                                                                title={isOnline ? 'Activo ahora' : 'Desconectado'}
+                                                            />
+                                                        </div>
+                                                        <span className="truncate">{student.email}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">{getStatusBadge(student.status)}</td>
+                                                <td className="px-4 py-3 text-muted">
+                                                    {formatDateToLocal(student.invitedAt)}
+                                                </td>
+                                                <td className="px-4 py-3 text-right relative">
+                                                    <div className="flex justify-end items-center gap-2">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (openMenuId === student.id) {
+                                                                    setOpenMenuId(null);
+                                                                    setMenuPosition(null);
+                                                                } else {
+                                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                                    setOpenMenuId(student.id);
+                                                                    setMenuPosition({
+                                                                        top: rect.bottom + window.scrollY,
+                                                                        left: rect.right - 192 + window.scrollX
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-muted hover:text-foreground transition-all"
+                                                        >
+                                                            {isActionLoading && openMenuId === student.id ? <Loader2 size={16} className="animate-spin text-primary" /> : <MoreHorizontal size={18} />}
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Mobile Card View */}
+                        <div className="block md:hidden space-y-3">
+                            {list.map((student) => {
+                                const isOnline = Object.values(onlineUsers).some(
+                                    (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
+                                );
+                                const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
+
+                                return (
+                                    <div 
+                                        key={student.id}
+                                        className="bg-card-bg border border-border p-4 rounded-xl space-y-3 relative"
+                                    >
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className="relative flex-shrink-0">
+                                                    <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
+                                                        {initials}
+                                                    </div>
+                                                    <span 
+                                                        className={`absolute bottom-0 right-0 block h-2 w-2 rounded-full border border-card-bg transition-colors duration-300 ${
+                                                            isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
+                                                        }`}
+                                                        title={isOnline ? 'Activo ahora' : 'Desconectado'}
+                                                    />
+                                                </div>
+                                                <span className="font-semibold text-sm truncate" title={student.email}>{student.email}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                {getStatusBadge(student.status)}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (openMenuId === student.id) {
+                                                            setOpenMenuId(null);
+                                                            setMenuPosition(null);
+                                                        } else {
+                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                            setOpenMenuId(student.id);
+                                                            setMenuPosition({
+                                                                top: rect.bottom + window.scrollY,
+                                                                left: rect.right - 192 + window.scrollX
+                                                            });
+                                                        }
+                                                    }}
+                                                    className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-muted hover:text-foreground transition-all"
+                                                >
+                                                    {isActionLoading && openMenuId === student.id ? <Loader2 size={16} className="animate-spin text-primary" /> : <MoreHorizontal size={18} />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs border-t border-border/40 pt-2.5 text-muted-foreground">
+                                            <span>Invitado</span>
+                                            <span className="font-medium text-foreground">
+                                                {formatDateToLocal(student.invitedAt)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-background text-foreground">
+            <Sidebar />
             <Sidebar />
 
             <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
@@ -2000,236 +2157,91 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         </div>
                                     </div>
 
-                                    <div className="w-full">
-                                        <div className="bg-transparent md:bg-card-bg border-none md:border md:border-border rounded-xl p-0 shadow-none md:shadow-sm overflow-hidden">
-                                            <h3 className="font-semibold px-0 md:px-6 pt-0 md:pt-6 text-lg mb-4 flex items-center gap-2">
-                                                <Users size={20} className="text-primary" />
-                                                Lista de alumnos
-                                            </h3>
+                                     <div className="w-full flex flex-col gap-8">
+                                         {renderPeopleList("Lista de alumnos", alumnos, "Aún no has invitado a ningún alumno.", "Alumno")}
+                                         {renderPeopleList("Lista de docentes", docentes, "Aún no hay ningún docente invitado.", "Docente")}
+                                     </div>
 
-                                            {initialStudents.length === 0 ? (
-                                                <div className="text-center py-12 text-muted">
-                                                    <Users size={48} className="mx-auto mb-3 opacity-20" />
-                                                    <p>Aún no has invitado a ningún alumno.</p>
-                                                </div>
-                                            ) : (
-                                                <div className="w-full space-y-4">
-                                                    {/* Desktop Table View */}
-                                                    <div className="hidden md:block overflow-x-auto rounded-lg border border-border">
-                                                        <table className="w-full text-sm text-left">
-                                                            <thead className="bg-secondary/30 text-muted uppercase text-xs font-semibold">
-                                                                <tr>
-                                                                    <th className="px-4 py-3">Alumno</th>
-                                                                    <th className="px-4 py-3">Estado</th>
-                                                                    <th className="px-4 py-3">Invitado</th>
-                                                                    <th className="px-4 py-3 text-right">Acciones</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody className="divide-y divide-border">
-                                                                {initialStudents.map((student) => {
-                                                                    const isOnline = Object.values(onlineUsers).some(
-                                                                        (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
-                                                                    );
-                                                                    const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
+                                     {/* Unified Action Dropdown Portal */}
+                                     {openMenuId && menuPosition && typeof document !== 'undefined' && (() => {
+                                         const student = initialStudents.find(s => s.id === openMenuId);
+                                         if (!student) return null;
+                                         return createPortal(
+                                             <div
+                                                 ref={menuRef}
+                                                 style={{
+                                                     position: 'absolute',
+                                                     top: `${menuPosition.top}px`,
+                                                     left: `${menuPosition.left}px`,
+                                                 }}
+                                                 className="w-48 bg-card-bg/95 backdrop-blur-md border border-white/10 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[99999] py-1.5 animate-in fade-in zoom-in-95 duration-200 text-left"
+                                             >
+                                                 <Link
+                                                     href={`/cms/bootcamp/${bootcamp.id}/student/${student.id}`}
+                                                     onClick={() => {
+                                                         setOpenMenuId(null);
+                                                         setMenuPosition(null);
+                                                     }}
+                                                     className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-foreground hover:bg-white/5 transition-colors"
+                                                 >
+                                                     <BarChart3 size={14} className="text-primary" />
+                                                     Ver progreso
+                                                 </Link>
 
-                                                                    return (
-                                                                        <tr key={student.id} className="bg-card-bg hover:bg-hover-bg transition-colors">
-                                                                            <td className="px-4 py-3 font-medium">
-                                                                                <div className="flex items-center gap-3">
-                                                                                    <div className="relative flex-shrink-0">
-                                                                                        <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                                                                                            {initials}
-                                                                                        </div>
-                                                                                        <span 
-                                                                                            className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full border-2 border-card-bg transition-colors duration-300 ${
-                                                                                                isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
-                                                                                            }`}
-                                                                                            title={isOnline ? 'Activo ahora' : 'Desconectado'}
-                                                                                        />
-                                                                                    </div>
-                                                                                    <span className="truncate">{student.email}</span>
-                                                                                </div>
-                                                                            </td>
-                                                                            <td className="px-4 py-3">{getStatusBadge(student.status)}</td>
-                                                                            <td className="px-4 py-3 text-muted">
-                                                                                {formatDateToLocal(student.invitedAt)}
-                                                                            </td>
-                                                                            <td className="px-4 py-3 text-right relative">
-                                                                                <div className="flex justify-end items-center gap-2">
-                                                                                    <button
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            if (openMenuId === student.id) {
-                                                                                                setOpenMenuId(null);
-                                                                                                setMenuPosition(null);
-                                                                                            } else {
-                                                                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                                                                setOpenMenuId(student.id);
-                                                                                                setMenuPosition({
-                                                                                                    top: rect.bottom + window.scrollY,
-                                                                                                    left: rect.right - 192 + window.scrollX
-                                                                                                });
-                                                                                            }
-                                                                                        }}
-                                                                                        className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-muted hover:text-foreground transition-all"
-                                                                                    >
-                                                                                        {isActionLoading && openMenuId === student.id ? <Loader2 size={16} className="animate-spin text-primary" /> : <MoreHorizontal size={18} />}
-                                                                                    </button>
-                                                                                </div>
-                                                                            </td>
-                                                                        </tr>
-                                                                    );
-                                                                })}
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
+                                                 <button
+                                                     onClick={() => {
+                                                         setOpenMenuId(null);
+                                                         setMenuPosition(null);
+                                                         handleToggleStatus(student.id, student.status === 'active' ? 'invited' : 'active');
+                                                     }}
+                                                     className={`w-full flex items-center gap-2 px-4 py-2.5 text-xs transition-colors ${student.status === 'active' ? 'text-amber-500 hover:bg-amber-500/10' : 'text-green-500 hover:bg-green-500/10'}`}
+                                                 >
+                                                     {student.status === 'active' ? (
+                                                         <>
+                                                             <X size={14} />
+                                                             Desactivar alumno
+                                                         </>
+                                                     ) : (
+                                                         <>
+                                                             <Check size={14} />
+                                                             Activar alumno
+                                                         </>
+                                                     )}
+                                                 </button>
 
-                                                    {/* Mobile Card View */}
-                                                    <div className="block md:hidden space-y-3">
-                                                        {initialStudents.map((student) => {
-                                                            const isOnline = Object.values(onlineUsers).some(
-                                                                (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
-                                                            );
-                                                            const initials = student.email ? student.email.slice(0, 2).toUpperCase() : 'U';
+                                                 <button
+                                                     onClick={() => {
+                                                         setOpenMenuId(null);
+                                                         setMenuPosition(null);
+                                                         handleToggleStatus(student.id, student.status === 'frozen' ? 'active' : 'frozen');
+                                                     }}
+                                                     className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-cyan-500 hover:bg-cyan-500/10 transition-colors"
+                                                 >
+                                                     <Snowflake size={14} />
+                                                     {student.status === 'frozen' ? 'Descongelar alumno' : 'Congelar alumno'}
+                                                 </button>
 
-                                                            return (
-                                                                <div 
-                                                                    key={student.id}
-                                                                    className="bg-card-bg border border-border p-4 rounded-xl space-y-3 relative"
-                                                                >
-                                                                    <div className="flex items-center justify-between gap-3">
-                                                                        <div className="flex items-center gap-2.5 min-w-0">
-                                                                            <div className="relative flex-shrink-0">
-                                                                                <div className="h-7 w-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
-                                                                                    {initials}
-                                                                                </div>
-                                                                                <span 
-                                                                                    className={`absolute bottom-0 right-0 block h-2 w-2 rounded-full border border-card-bg transition-colors duration-300 ${
-                                                                                        isOnline ? 'bg-green-500 shadow-sm shadow-green-500/50' : 'bg-neutral-600'
-                                                                                    }`}
-                                                                                    title={isOnline ? 'Activo ahora' : 'Desconectado'}
-                                                                                />
-                                                                            </div>
-                                                                            <span className="font-semibold text-sm truncate" title={student.email}>{student.email}</span>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                                            {getStatusBadge(student.status)}
-                                                                            <button
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    if (openMenuId === student.id) {
-                                                                                        setOpenMenuId(null);
-                                                                                        setMenuPosition(null);
-                                                                                    } else {
-                                                                                        const rect = e.currentTarget.getBoundingClientRect();
-                                                                                        setOpenMenuId(student.id);
-                                                                                        setMenuPosition({
-                                                                                            top: rect.bottom + window.scrollY,
-                                                                                            left: rect.right - 192 + window.scrollX
-                                                                                        });
-                                                                                    }
-                                                                                }}
-                                                                                className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-muted hover:text-foreground transition-all"
-                                                                            >
-                                                                                {isActionLoading && openMenuId === student.id ? <Loader2 size={16} className="animate-spin text-primary" /> : <MoreHorizontal size={18} />}
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="flex items-center justify-between text-xs border-t border-border/40 pt-2.5 text-muted-foreground">
-                                                                        <span>Invitado</span>
-                                                                        <span className="font-medium text-foreground">
-                                                                            {formatDateToLocal(student.invitedAt)}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
+                                                 <div className="h-px bg-white/5 my-1" />
 
-                                                    {/* Unified Action Dropdown Portal */}
-                                                    {openMenuId && menuPosition && typeof document !== 'undefined' && (() => {
-                                                        const student = initialStudents.find(s => s.id === openMenuId);
-                                                        if (!student) return null;
-                                                        return createPortal(
-                                                            <div
-                                                                ref={menuRef}
-                                                                style={{
-                                                                    position: 'absolute',
-                                                                    top: `${menuPosition.top}px`,
-                                                                    left: `${menuPosition.left}px`,
-                                                                }}
-                                                                className="w-48 bg-card-bg/95 backdrop-blur-md border border-white/10 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-[99999] py-1.5 animate-in fade-in zoom-in-95 duration-200 text-left"
-                                                            >
-                                                                <Link
-                                                                    href={`/cms/bootcamp/${bootcamp.id}/student/${student.id}`}
-                                                                    onClick={() => {
-                                                                        setOpenMenuId(null);
-                                                                        setMenuPosition(null);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-foreground hover:bg-white/5 transition-colors"
-                                                                >
-                                                                    <BarChart3 size={14} className="text-primary" />
-                                                                    Ver progreso
-                                                                </Link>
-
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setOpenMenuId(null);
-                                                                        setMenuPosition(null);
-                                                                        handleToggleStatus(student.id, student.status === 'active' ? 'invited' : 'active');
-                                                                    }}
-                                                                    className={`w-full flex items-center gap-2 px-4 py-2.5 text-xs transition-colors ${student.status === 'active' ? 'text-amber-500 hover:bg-amber-500/10' : 'text-green-500 hover:bg-green-500/10'}`}
-                                                                >
-                                                                    {student.status === 'active' ? (
-                                                                        <>
-                                                                            <X size={14} />
-                                                                            Desactivar alumno
-                                                                        </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <Check size={14} />
-                                                                            Activar alumno
-                                                                        </>
-                                                                    )}
-                                                                </button>
-
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setOpenMenuId(null);
-                                                                        setMenuPosition(null);
-                                                                        handleToggleStatus(student.id, student.status === 'frozen' ? 'active' : 'frozen');
-                                                                    }}
-                                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-cyan-500 hover:bg-cyan-500/10 transition-colors"
-                                                                >
-                                                                    <Snowflake size={14} />
-                                                                    {student.status === 'frozen' ? 'Descongelar alumno' : 'Congelar alumno'}
-                                                                </button>
-
-                                                                <div className="h-px bg-white/5 my-1" />
-
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setOpenMenuId(null);
-                                                                        setMenuPosition(null);
-                                                                        openConfirmModal(
-                                                                            'Eliminar Registro',
-                                                                            '¿Estás seguro de eliminar este registro? El alumno ya no podrá ingresar.',
-                                                                            () => removeStudent(student.id, bootcamp.id)
-                                                                        );
-                                                                    }}
-                                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-red-500 hover:bg-red-500/10 transition-colors font-medium"
-                                                                >
-                                                                    <Trash2 size={14} />
-                                                                    Borrar registro
-                                                                </button>
-                                                            </div>,
-                                                            document.body
-                                                        );
-                                                    })()}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
+                                                 <button
+                                                     onClick={() => {
+                                                         setOpenMenuId(null);
+                                                         setMenuPosition(null);
+                                                         openConfirmModal(
+                                                             'Eliminar Registro',
+                                                             '¿Estás seguro de eliminar este registro? El alumno ya no podrá ingresar.',
+                                                             () => removeStudent(student.id, bootcamp.id)
+                                                         );
+                                                     }}
+                                                     className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-red-500 hover:bg-red-500/10 transition-colors font-medium"
+                                                 >
+                                                     <Trash2 size={14} />
+                                                     Borrar registro
+                                                 </button>
+                                             </div>,
+                                             document.body
+                                         );
+                                     })()}
 
 
                                 </div>

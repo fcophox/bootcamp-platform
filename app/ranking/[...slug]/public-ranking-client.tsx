@@ -39,6 +39,7 @@ interface Student {
     email: string;
     status: string;
     joinedAt?: string;
+    role?: string;
 }
 
 interface Module {
@@ -85,7 +86,7 @@ export function PublicRankingClient({
         const totalLessonsCount = totalLessons.length;
         
         // Only show active students in ranking
-        const activeStudents = students.filter(s => s.status === 'active');
+        const activeStudents = students.filter(s => s.status === 'active' && s.role === 'alumno');
 
         const data = activeStudents.map(student => {
             const studentCompletions = initialCompletions.filter(c => c.studentId === student.id);
@@ -105,7 +106,7 @@ export function PublicRankingClient({
     })();
 
     // Process completions list for activity chart - only for active students
-    const activeStudentIds = new Set(students.filter(s => s.status === 'active').map(s => s.id));
+    const activeStudentIds = new Set(students.filter(s => s.status === 'active' && s.role === 'alumno').map(s => s.id));
     const completionsList = initialCompletions.filter(c => activeStudentIds.has(c.studentId));
 
     // Process chart data - timeline from start date to current date
