@@ -7,6 +7,7 @@ import { getBootcamp } from '@/app/actions/bootcamp';
 import { getStudentById, getStudentCompletions, getStudentExamAttempts } from '@/app/actions/student';
 import { redirect } from 'next/navigation';
 import { formatDateToLocal } from '@/utils/date';
+import { StudentFrequencyChart } from './frequency-chart';
 
 interface ProgressPageProps {
     params: Promise<{
@@ -159,6 +160,12 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
                             </div>
                         </div>
                     </div>
+
+                    {/* Reading Frequency Chart */}
+                    <StudentFrequencyChart 
+                        completions={completions} 
+                        startDate={bootcamp.startDate} 
+                    />
 
                     {/* Progress Detail by Module */}
                     <div className="space-y-6">
