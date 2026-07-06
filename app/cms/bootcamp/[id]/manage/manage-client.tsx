@@ -2688,11 +2688,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                         {/* Puntos y Progreso */}
                                                         <div className="flex items-center gap-6 shrink-0">
                                                             {/* Progreso bar & fraction */}
-                                                            <div className="hidden sm:flex flex-col items-end text-right">
+                                                            <div className="flex flex-col items-end text-right">
                                                                 <span className="text-xs text-muted-foreground font-medium mb-1">
                                                                     {points} de {totalLessons} lecciones
                                                                 </span>
-                                                                <div className="w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
+                                                                <div className="hidden sm:block w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
                                                                     <div 
                                                                         className={`h-full rounded-full transition-all duration-1000 ${
                                                                             index === 0 
