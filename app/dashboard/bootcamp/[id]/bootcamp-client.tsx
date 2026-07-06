@@ -254,7 +254,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                 </header>
 
                 {/* Page Content */}
-                <main className="flex-1 overflow-y-auto pt-[60px] p-6 md:p-12">
+                <main className="flex-1 overflow-y-auto pt-[84px] px-6 pb-6 md:pt-[108px] md:px-12 md:pb-12">
                     <div className="max-w-5xl mx-auto">
 
                         {/* Bootcamp Hero */}
