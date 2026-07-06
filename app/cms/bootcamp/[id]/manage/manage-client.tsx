@@ -1620,8 +1620,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
                         {/* Title & Tabs */}
                         <div className="flex flex-col gap-6 mb-8">
-                            <div className="flex flex-col sm:flex-row justify-between items-start gap-6 w-full">
-                                <div className="flex flex-col sm:flex-row gap-4 items-start relative w-full">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 w-full">
+                                <div className="flex flex-col sm:flex-row gap-4 items-start relative w-full flex-1">
                                     {/* Icon & Color Editor */}
                                     <div className="relative">
                                         <button
@@ -1732,6 +1732,23 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
                                     </div>
                                 </div>
+                                <button
+                                    onClick={() => {
+                                        setTempBootcampTitle(bootcamp.title);
+                                        setTempDescription(bootcamp.description || '');
+                                        setTempDuration(bootcamp.duration || '');
+                                        setTempLevel(bootcamp.level || '');
+                                        setTempStartDate(bootcamp.startDate || '');
+                                        setTempEnableChecklist(bootcamp.enableChecklist ?? true);
+                                        setTempEnableRanking(bootcamp.enableRanking ?? true);
+                                        setTempImageUrl(bootcamp.imageUrl || '');
+                                        setIsEditingBootcampModalOpen(true);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted hover:text-foreground bg-transparent hover:bg-hover-bg rounded-lg transition-colors border border-transparent hover:border-border/30 shrink-0 w-full sm:w-auto justify-center"
+                                >
+                                    <Edit2 size={16} />
+                                    <span>Editar</span>
+                                </button>
                             </div>
 
                             <div className="flex items-center gap-4 border-b border-border">
