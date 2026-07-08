@@ -251,6 +251,16 @@ export default function ClassPlayerPage() {
                         } catch {
                             processedClass.description = processedClass.content;
                         }
+                    } else if (processedClass.type === 'check') {
+                        try {
+                            const parsed = JSON.parse(processedClass.content);
+                            processedClass.description = parsed.description || '';
+                            processedClass.content = parsed.description || '';
+                            (processedClass as any).value = Number(parsed.value) || 1;
+                        } catch {
+                            processedClass.description = processedClass.content;
+                            (processedClass as any).value = 1;
+                        }
                     } else if (processedClass.type !== 'exam') {
                         try {
                             const parsed = JSON.parse(processedClass.content);
@@ -481,6 +491,28 @@ export default function ClassPlayerPage() {
                                 <div className="max-w-4xl mx-auto">
                                     {(currentClass.type !== 'info' || currentClass.imageUrl) && (
                                         <div className="aspect-video w-full bg-black rounded-2xl overflow-hidden mb-6 shadow-2xl relative group border border-white/5 bg-card-bg">
+                                            {currentClass.type === 'check' && (
+                                                <div className="absolute inset-0 bg-gradient-to-br from-emerald-955/40 via-black to-zinc-955/60 flex flex-col items-center justify-center p-8 border border-white/5">
+                                                    <div className="h-20 w-20 md:h-24 md:w-24 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4 shadow-2xl relative overflow-hidden group">
+                                                        <div className="absolute inset-0 bg-emerald-500/20 blur-2xl rounded-full transition-all group-hover:scale-110"></div>
+                                                        <CheckSquare size={36} className="text-emerald-400 relative z-10" />
+                                                    </div>
+                                                    
+                                                    {/* Numeric Value Badge */}
+                                                    <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold mb-3 flex items-center gap-1.5 shadow-sm">
+                                                        <Trophy size={12} />
+                                                        <span>+{(currentClass as any).value || 1} Puntos de Completitud</span>
+                                                    </div>
+
+                                                    <h2 className="text-lg md:text-xl font-bold text-white mb-2 text-center">{currentClass.title}</h2>
+                                                    {currentClass.description && (
+                                                        <p className="text-white/65 text-xs md:text-sm text-center max-w-md line-clamp-3">
+                                                            {currentClass.description}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             {currentClass.type === 'video' && (
                                                 <div className="absolute inset-0 flex items-center justify-center bg-black">
                                                     {currentClass.url ? (
@@ -726,9 +758,9 @@ export default function ClassPlayerPage() {
                                             onClick={handleToggleComplete}
                                         >
                                             {isClassCompleted(currentClass.id) ? (
-                                                <><CheckCircle size={20} /><span>¡Clase Completada!</span></>
+                                                <><CheckCircle size={20} /><span>{currentClass.type === 'check' ? '¡Check Completado!' : '¡Clase Completada!'}</span></>
                                             ) : (
-                                                <><CheckSquare size={20} /><span>Marcar como Visto / Leído</span></>
+                                                <><CheckSquare size={20} /><span>{currentClass.type === 'check' ? 'Completar Check' : 'Marcar como Visto / Leído'}</span></>
                                             )}
                                         </button>
                                     </div>
@@ -748,9 +780,35 @@ export default function ClassPlayerPage() {
                                     {!isPlaylistCollapsed && (
                                         <div>
                                             <h3 className="font-semibold text-foreground">Contenido del Módulo</h3>
-                                            <p className="text-xs text-muted">
-                                                {currentModule.classes.length} clases • Progreso: {Math.round((currentModule.classes.filter((c: ClassItem) => isClassCompleted(c.id)).length / currentModule.classes.length) * 100)}%
-                                            </p>
+                                             <p className="text-xs text-muted">
+                                                 {currentModule.classes.filter((c: ClassItem) => c.type !== 'subtitle').length} clases • Progreso: {(() => {
+                                                     const totalLessonsList = currentModule.classes.filter((c: ClassItem) => c.type !== 'subtitle');
+                                                     const totalWeight = totalLessonsList.reduce((acc: number, c: ClassItem) => {
+                                                         let weight = 1;
+                                                         if (c.type === 'check') {
+                                                             try {
+                                                                 const parsed = JSON.parse(c.content || '{}');
+                                                                 weight = Number(parsed.value) || 1;
+                                                             } catch {}
+                                                         }
+                                                         return acc + weight;
+                                                     }, 0);
+                                                     const completedWeight = totalLessonsList.reduce((acc: number, c: ClassItem) => {
+                                                         if (isClassCompleted(c.id)) {
+                                                             let weight = 1;
+                                                             if (c.type === 'check') {
+                                                                 try {
+                                                                     const parsed = JSON.parse(c.content || '{}');
+                                                                     weight = Number(parsed.value) || 1;
+                                                                 } catch {}
+                                                             }
+                                                             return acc + weight;
+                                                         }
+                                                         return acc;
+                                                     }, 0);
+                                                     return totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0;
+                                                 })()}%
+                                             </p>
                                         </div>
                                     )}
                                     <button
@@ -800,6 +858,7 @@ export default function ClassPlayerPage() {
                                                             if (type === 'presentation') return <Presentation size={size} className={className} />;
                                                             if (type === 'exam' || type === 'quiz') return <Trophy size={size} className={className} />;
                                                             if (type === 'pdf') return <FileUp size={size} className={className} />;
+                                                            if (type === 'check') return <CheckSquare size={size} className={className} />;
                                                             return <BookOpen size={size} className={className} />;
                                                         })()}
                                                         {isActive && (

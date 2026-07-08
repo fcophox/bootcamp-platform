@@ -12,6 +12,7 @@ import {
     BarChart3,
     PlayCircle,
     CheckCircle,
+    CheckSquare,
     Star,
     Trophy,
     Headphones,
@@ -108,6 +109,10 @@ const getLessonDurationInfo = (lesson: any) => {
             return '10 min';
         case 'exam':
             return '15 min';
+        case 'check':
+            return '5 min';
+        case 'check':
+            return '5 min';
         case 'text':
         case 'document':
         case 'file':
@@ -206,8 +211,44 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
 
 
     // Use Progress Hook
-    const { getProgressPercentage, isCompleted, isLoaded, toggleClassCompletion } = useBootcampProgress(bootcamp.id);
-    const overallProgress = isLoaded ? getProgressPercentage(totalClasses) : (bootcamp.progress || 0);
+    const { isCompleted, isLoaded, toggleClassCompletion } = useBootcampProgress(bootcamp.id);
+
+    // Calculate weighted points
+    const totalWeight = modulesToDisplay?.reduce((acc: number, m: any) => {
+        const moduleWeight = (m.lessons || []).reduce((sum: number, l: any) => {
+            if (l.type === 'subtitle') return sum;
+            let weight = 1;
+            if (l.type === 'check') {
+                try {
+                    const parsed = JSON.parse(l.content || '{}');
+                    weight = Number(parsed.value) || 1;
+                } catch {}
+            }
+            return sum + weight;
+        }, 0);
+        return acc + moduleWeight;
+    }, 0) || 0;
+
+    const completedWeight = isLoaded
+        ? modulesToDisplay?.reduce((acc: number, m: any) => {
+            const moduleCompletedWeight = (m.lessons || []).reduce((sum: number, l: any) => {
+                if (l.type === 'subtitle' || !isCompleted(l.id)) return sum;
+                let weight = 1;
+                if (l.type === 'check') {
+                    try {
+                        const parsed = JSON.parse(l.content || '{}');
+                        weight = Number(parsed.value) || 1;
+                    } catch {}
+                }
+                return sum + weight;
+            }, 0);
+            return acc + moduleCompletedWeight;
+        }, 0)
+        : 0;
+
+    const overallProgress = isLoaded
+        ? (totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0)
+        : (bootcamp.progress || 0);
 
     // Dynamic Icon and Color
     const IconComponent = ICON_MAP[bootcamp.icon] || Code;
@@ -291,7 +332,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                         </div>
                                         <div className="flex items-center gap-2 px-4 py-2 bg-background/50 rounded-lg border border-border/50 text-xs text-foreground">
                                             <PlayCircle size={14} />
-                                            <span>{totalClasses} Clases</span>
+                                            <span>{totalWeight} Lecciones</span>
                                         </div>
                                         <div className="flex items-center gap-2 px-4 py-2 bg-background/50 rounded-lg border border-border/50 text-xs text-foreground">
                                             <Clock size={14} />
@@ -466,12 +507,9 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                     }
 
                                                                     // RENDER STANDARD LESSON
-                                                                    return (
-                                                                        <Link
-                                                                            href={`/dashboard/bootcamp/${bootcamp.id}/clase/${lesson.id}`}
-                                                                            key={lesson.id}
-                                                                            className="flex flex-col gap-3 group cursor-pointer bg-card-bg/40 border border-border/50 md:bg-transparent md:border-transparent p-4 md:p-2 rounded-xl transition-colors -mx-2 block hover:bg-hover-bg/30 md:flex-row md:items-start md:gap-6"
-                                                                        >
+                                                                    const isCheckType = lesson.type === 'check';
+                                                                    const itemContent = (
+                                                                        <>
                                                                             {/* Mobile View: Row 1 */}
                                                                             <div className="flex items-center gap-3 w-full md:hidden">
                                                                                 <div className="h-8 w-8 rounded-full bg-border/50 flex items-center justify-center text-xs font-medium text-muted flex-shrink-0">
@@ -480,15 +518,33 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                                 <h3 className="text-base font-medium text-foreground flex-1 min-w-0 truncate">
                                                                                     {lesson.title}
                                                                                 </h3>
-                                                                                <ChevronRight size={18} className="text-muted flex-shrink-0" />
+                                                                                {!isCheckType && <ChevronRight size={18} className="text-muted flex-shrink-0" />}
                                                                             </div>
 
                                                                             {/* Mobile View: Row 2 */}
                                                                             <div className="flex items-center justify-between w-full md:hidden pl-11">
                                                                                 <div className="text-xs text-muted flex items-center gap-2">
                                                                                     <span className="flex items-center gap-1">
-                                                                                        <Clock size={12} />
-                                                                                        {getLessonDurationInfo(lesson)}
+                                                                                        {isCheckType ? (
+                                                                                            <>
+                                                                                                <BookOpen size={14} className="text-muted-foreground" />
+                                                                                                <span className="text-sm text-muted-foreground font-medium">
+                                                                                                    {(() => {
+                                                                                                        try {
+                                                                                                            const parsed = JSON.parse(lesson.content || '{}');
+                                                                                                            return Number(parsed.value) || 1;
+                                                                                                        } catch {
+                                                                                                            return 1;
+                                                                                                        }
+                                                                                                    })()} lecciones
+                                                                                                </span>
+                                                                                            </>
+                                                                                        ) : (
+                                                                                            <>
+                                                                                                <Clock size={12} />
+                                                                                                {getLessonDurationInfo(lesson)}
+                                                                                            </>
+                                                                                        )}
                                                                                     </span>
                                                                                     {(isCompleted(lesson.id) || lesson.completed) && (
                                                                                         <>
@@ -500,7 +556,9 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                                 {(bootcamp.enableChecklist !== false) && (
                                                                                     <div className="flex items-center gap-3">
                                                                                         <span className="text-xs font-medium select-none text-muted-foreground/80 whitespace-nowrap">
-                                                                                            Lección lista
+                                                                                            {isCheckType 
+                                                                                                ? (isCompleted(lesson.id) ? 'Contenido revisado' : '¿Revisó el contenido?') 
+                                                                                                : (isCompleted(lesson.id) ? 'Lección lista' : '¿Ya viste el contenido?')}
                                                                                         </span>
                                                                                         <button 
                                                                                             onClick={(e) => {
@@ -511,7 +569,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                                                                                                 isCompleted(lesson.id) ? 'bg-green-500' : 'bg-border'
                                                                                             }`}
-                                                                                            title={isCompleted(lesson.id) ? "Marcar como no visto" : "Marcar como visto"}
+                                                                                            title={isCompleted(lesson.id) ? 'Marcar como no visto' : 'Marcar como visto'}
                                                                                         >
                                                                                             <span className="sr-only">Marcar como visto</span>
                                                                                             <span
@@ -546,8 +604,26 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                                         </h3>
                                                                                         <p className="text-xs text-muted flex items-center gap-3">
                                                                                             <span className="flex items-center gap-1">
-                                                                                                <Clock size={12} />
-                                                                                                {getLessonDurationInfo(lesson)}
+                                                                                                {isCheckType ? (
+                                                                                                    <>
+                                                                                                        <BookOpen size={14} className="text-muted-foreground" />
+                                                                                                <span className="text-sm text-muted-foreground font-medium">
+                                                                                                            {(() => {
+                                                                                                                try {
+                                                                                                                    const parsed = JSON.parse(lesson.content || '{}');
+                                                                                                                    return Number(parsed.value) || 1;
+                                                                                                                } catch {
+                                                                                                                    return 1;
+                                                                                                                }
+                                                                                                            })()} lecciones
+                                                                                                        </span>
+                                                                                                    </>
+                                                                                                ) : (
+                                                                                                    <>
+                                                                                                        <Clock size={12} />
+                                                                                                        {getLessonDurationInfo(lesson)}
+                                                                                                    </>
+                                                                                                )}
                                                                                             </span>
                                                                                             {(isCompleted(lesson.id) || lesson.completed) && (
                                                                                                 <>
@@ -568,7 +644,9 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                                                         ? 'text-muted-foreground/40' 
                                                                                                         : 'text-muted-foreground/80'
                                                                                                 }`}>
-                                                                                                    {isCompleted(lesson.id) ? 'Lección lista' : '¿Ya viste el contenido?'}
+                                                                                                    {isCheckType 
+                                                                                                        ? (isCompleted(lesson.id) ? 'Contenido revisado' : '¿Revisó el contenido?') 
+                                                                                                        : (isCompleted(lesson.id) ? 'Lección lista' : '¿Ya viste el contenido?')}
                                                                                                 </span>
                                                                                                 <button 
                                                                                                     onClick={(e) => {
@@ -579,7 +657,7 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                                                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                                                                                                         isCompleted(lesson.id) ? 'bg-green-500' : 'bg-border'
                                                                                                     }`}
-                                                                                                    title={isCompleted(lesson.id) ? "Marcar como no visto" : "Marcar como visto"}
+                                                                                                    title={isCompleted(lesson.id) ? 'Marcar como no visto' : 'Marcar como visto'}
                                                                                                 >
                                                                                                     <span className="sr-only">Marcar como visto</span>
                                                                                                     <span
@@ -590,10 +668,31 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                                                                                                 </button>
                                                                                             </>
                                                                                         )}
-                                                                                        <ChevronRight size={18} className="text-muted" />
+                                                                                        {!isCheckType && <ChevronRight size={18} className="text-muted" />}
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
+                                                                        </>
+                                                                    );
+
+                                                                    if (isCheckType) {
+                                                                        return (
+                                                                            <div
+                                                                                key={lesson.id}
+                                                                                className="flex flex-col gap-3 group cursor-default bg-card-bg/40 border border-border/50 md:bg-transparent md:border-transparent p-4 md:p-2 rounded-xl transition-colors -mx-2 md:flex-row md:items-start md:gap-6"
+                                                                            >
+                                                                                {itemContent}
+                                                                            </div>
+                                                                        );
+                                                                    }
+
+                                                                    return (
+                                                                        <Link
+                                                                            href={`/dashboard/bootcamp/${bootcamp.id}/clase/${lesson.id}`}
+                                                                            key={lesson.id}
+                                                                            className="flex flex-col gap-3 group cursor-pointer bg-card-bg/40 border border-border/50 md:bg-transparent md:border-transparent p-4 md:p-2 rounded-xl transition-colors -mx-2 block hover:bg-hover-bg/30 md:flex-row md:items-start md:gap-6"
+                                                                        >
+                                                                            {itemContent}
                                                                         </Link>
                                                                     );
                                                                 })}

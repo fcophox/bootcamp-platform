@@ -12,7 +12,7 @@ import { RichTextEditor } from '@/components/rich-text-editor';
 import {
     ChevronRight, Plus, FileText, Layout,
     Trash2, Edit2, ChevronDown, ChevronUp, GripVertical, MonitorPlay,
-    Headphones, FileUp, Users, Trophy, Check, X, Clock, Loader2,
+    Headphones, FileUp, Users, Trophy, Check, CheckSquare, X, Clock, Loader2,
     Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase,
     MoreHorizontal, BarChart3, Radio, BookOpen, Calendar, Snowflake,
     Upload, Menu, Video, FileArchive, Image, File, ExternalLink, Save
@@ -32,7 +32,7 @@ import { createInvitation } from '@/app/actions/invitation';
 interface Lesson {
     id: number;
     title: string;
-    type: 'text' | 'video' | 'presentation' | 'podcast' | 'pdf' | 'exam' | 'subtitle';
+    type: 'text' | 'video' | 'presentation' | 'podcast' | 'pdf' | 'exam' | 'subtitle' | 'check';
     content: string;
 }
 
@@ -213,9 +213,28 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 // Map students to ranking data
                 const mappedRanking = activeStudents.map(student => {
                     const studentCompletions = completionsMap[student.id] || [];
+                    let points = 0;
+                    studentCompletions.forEach(lessonId => {
+                        // Find lesson in localModules
+                        const lesson = localModules.flatMap(m => m.lessons || []).find(l => l.id === lessonId);
+                        if (lesson) {
+                            if (lesson.type === 'check') {
+                                try {
+                                    const parsed = JSON.parse(lesson.content || '{}');
+                                    points += Number(parsed.value) || 1;
+                                } catch {
+                                    points += 1;
+                                }
+                            } else {
+                                points += 1;
+                            }
+                        } else {
+                            points += 1;
+                        }
+                    });
                     return {
                         student,
-                        points: studentCompletions.length,
+                        points,
                         completedLessonIds: studentCompletions
                     };
                 });
@@ -279,11 +298,13 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [editingModuleId, setEditingModuleId] = useState<number | null>(null);
     const [editingModuleTitle, setEditingModuleTitle] = useState('');
     const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
-    const [contentType, setContentType] = useState<'text' | 'video' | 'presentation' | 'podcast' | 'pdf' | 'exam' | 'exam_formal' | 'subtitle' | null>(null);
+    const [contentType, setContentType] = useState<'text' | 'video' | 'presentation' | 'podcast' | 'pdf' | 'exam' | 'exam_formal' | 'subtitle' | 'check' | null>(null);
     const [contentTitle, setContentTitle] = useState('');
 
     const [editorContent, setEditorContent] = useState('');
     const [resourceContent, setResourceContent] = useState(''); // Valid for Video, PDF, Presentation, etc. URL
+    const [checkValue, setCheckValue] = useState<number>(1);
+    const [checkDescription, setCheckDescription] = useState<string>('');
     const [isUploading, setIsUploading] = useState(false);
     const [isTypeSelectorOpen, setIsTypeSelectorOpen] = useState(false);
     const typeSelectorRef = useRef<HTMLDivElement>(null);
@@ -455,6 +476,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 html: editorContent,
                 imageUrl: resourceContent
             });
+        } else if (contentType === 'check') {
+            finalContent = JSON.stringify({
+                value: checkValue,
+                description: checkDescription
+            });
         } else if (contentType === 'subtitle') {
             finalContent = '';
         } else {
@@ -495,6 +521,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             setResourceContent('');
             setExamQuestions([{ id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }]); // Reset Exam
             setExamDuration(15);
+            setCheckValue(1);
+            setCheckDescription('');
             router.refresh();
         } catch {
             alert('Error al guardar contenido');
@@ -539,6 +567,17 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 // Legacy plain text content
                 setEditorContent(lesson.content);
                 setResourceContent('');
+            }
+            // Reset exam state just in case
+            setExamQuestions([{ id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }]);
+        } else if (lesson.type === 'check') {
+            try {
+                const parsed = JSON.parse(lesson.content);
+                setCheckValue(Number(parsed.value) || 1);
+                setCheckDescription(parsed.description || '');
+            } catch {
+                setCheckValue(1);
+                setCheckDescription('');
             }
             // Reset exam state just in case
             setExamQuestions([{ id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }]);
@@ -616,6 +655,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             case 'podcast': return <Headphones size={18} className="text-violet-500" />;
             case 'pdf': return <FileUp size={18} className="text-red-500" />;
             case 'exam': return <Trophy size={18} className="text-yellow-500" />;
+            case 'check': return <CheckSquare size={18} className="text-emerald-500" />;
             default: return <FileText size={18} className="text-green-500" />;
         }
     };
@@ -934,6 +974,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                             { id: 'pdf' as const, label: 'PDF', icon: <FileUp size={14} />, color: 'red' },
                             { id: 'exam' as const, label: 'Quiz', icon: <Trophy size={14} />, color: 'yellow' },
                             { id: 'exam_formal' as const, label: 'Examen', icon: <BarChart3 size={14} />, color: 'emerald' },
+                            { id: 'check' as const, label: 'Check', icon: <CheckSquare size={14} />, color: 'emerald' },
                             { id: 'subtitle' as const, label: 'Subtítulo', icon: <ChevronDown size={14} />, color: 'slate' },
                         ].map((cat) => (
                             <button
@@ -1013,7 +1054,38 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                             </span>
                         </div>
                     )}
-                    {contentType !== 'text' && contentType !== 'exam_formal' && contentType !== 'subtitle' && (
+                    {contentType === 'check' && (
+                        <div className="space-y-4 p-4 border border-border bg-card-bg/20 rounded-xl">
+                            <div>
+                                <label className="block text-sm font-medium mb-1.5">
+                                    Valor Numérico (Puntos de Completitud)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={checkValue}
+                                    onChange={(e) => setCheckValue(Number(e.target.value) || 1)}
+                                    className="w-full px-4 py-2 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 outline-none"
+                                    placeholder="Ej: 10"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Este valor representa el peso/puntos que aporta este check a la completitud global del bootcamp.
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1.5">
+                                    Descripción Corta
+                                </label>
+                                <textarea
+                                    value={checkDescription}
+                                    onChange={(e) => setCheckDescription(e.target.value)}
+                                    className="w-full px-4 py-2 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 outline-none h-24 resize-none"
+                                    placeholder="Describe brevemente la tarea o hito a cumplir..."
+                                />
+                            </div>
+                        </div>
+                    )}
+                    {contentType !== 'text' && contentType !== 'exam_formal' && contentType !== 'subtitle' && contentType !== 'check' && (
                         <div>
                             {contentType === 'exam' ? (
                                 <div className="space-y-6 border border-border rounded-lg p-6 bg-background/50">
@@ -1324,7 +1396,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                         >
                             Cancelar
                         </button>
-                        <button onClick={handleSaveContent} disabled={!contentTitle || (contentType !== 'exam' && contentType !== 'exam_formal' && contentType !== 'subtitle' && !editorContent)} className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button onClick={handleSaveContent} disabled={!contentTitle || (contentType !== 'exam' && contentType !== 'exam_formal' && contentType !== 'subtitle' && contentType !== 'check' && !editorContent)} className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
                             {editingLessonId ? 'Actualizar' : 'Guardar'}
                         </button>
                     </div>

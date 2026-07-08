@@ -65,9 +65,28 @@ export function useBootcampProgress(bootcampId: number) {
 
     const isCompleted = useCallback((classId: number) => completedClassIds.includes(classId), [completedClassIds]);
 
-    const getProgressPercentage = useCallback((totalClasses: number) => {
-        if (!totalClasses || totalClasses === 0) return 0;
-        return Math.round((completedClassIds.length / totalClasses) * 100);
+    const getProgressPercentage = useCallback((lessons: { id: number; type?: string; content?: string }[]) => {
+        const filteredLessons = lessons.filter(l => l.type !== 'subtitle');
+        if (filteredLessons.length === 0) return 0;
+        
+        let totalWeight = 0;
+        let completedWeight = 0;
+        
+        filteredLessons.forEach(l => {
+            let weight = 1;
+            if (l.type === 'check') {
+                try {
+                    const parsed = JSON.parse(l.content || '{}');
+                    weight = Number(parsed.value) || 1;
+                } catch {}
+            }
+            totalWeight += weight;
+            if (completedClassIds.includes(l.id)) {
+                completedWeight += weight;
+            }
+        });
+        
+        return totalWeight > 0 ? Math.round((completedWeight / totalWeight) * 100) : 0;
     }, [completedClassIds]);
 
     return {

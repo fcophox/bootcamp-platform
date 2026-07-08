@@ -49,6 +49,7 @@ interface Module {
         id: number;
         title: string;
         type?: string;
+        content?: string;
     }[];
 }
 
@@ -83,7 +84,16 @@ export function PublicRankingClient({
     // Process completions to build ranking data
     const rankingData = (() => {
         const totalLessons = modules.flatMap(m => m.lessons || []).filter(l => l.type !== 'subtitle');
-        const totalLessonsCount = totalLessons.length;
+        const totalWeight = totalLessons.reduce((acc, l) => {
+            let weight = 1;
+            if (l.type === 'check') {
+                try {
+                    const parsed = JSON.parse(l.content || '{}');
+                    weight = Number(parsed.value) || 1;
+                } catch {}
+            }
+            return acc + weight;
+        }, 0);
         
         // Only show active students in ranking
         const activeStudents = students.filter(s => s.status === 'active' && s.role === 'alumno');
@@ -94,9 +104,28 @@ export function PublicRankingClient({
             const uniqueCompletedLessons = Array.from(new Set(studentCompletions.map(c => c.lessonId)))
                 .filter(id => totalLessons.some(l => l.id === id));
             
+            let studentPoints = 0;
+            uniqueCompletedLessons.forEach(lessonId => {
+                const lesson = totalLessons.find(l => l.id === lessonId);
+                if (lesson) {
+                    if (lesson.type === 'check') {
+                        try {
+                            const parsed = JSON.parse(lesson.content || '{}');
+                            studentPoints += Number(parsed.value) || 1;
+                        } catch {
+                            studentPoints += 1;
+                        }
+                    } else {
+                        studentPoints += 1;
+                    }
+                } else {
+                    studentPoints += 1;
+                }
+            });
+            
             return {
                 student,
-                points: uniqueCompletedLessons.length,
+                points: studentPoints,
                 completedLessonIds: uniqueCompletedLessons,
             };
         });
@@ -505,8 +534,18 @@ export function PublicRankingClient({
                     <div className="grid grid-cols-1 gap-3">
                         {rankingData.map((item, index) => {
                             const { student, points } = item;
-                            const totalLessons = modules.flatMap(m => m.lessons || []).filter(l => l.type !== 'subtitle').length;
-                            const progressPercentage = totalLessons > 0 ? Math.round((points / totalLessons) * 100) : 0;
+                            const totalLessonsList = modules.flatMap(m => m.lessons || []).filter(l => l.type !== 'subtitle');
+                            const totalWeight = totalLessonsList.reduce((acc, l) => {
+                                let weight = 1;
+                                if (l.type === 'check') {
+                                    try {
+                                        const parsed = JSON.parse(l.content || '{}');
+                                        weight = Number(parsed.value) || 1;
+                                    } catch {}
+                                }
+                                return acc + weight;
+                            }, 0);
+                            const progressPercentage = totalWeight > 0 ? Math.round((points / totalWeight) * 100) : 0;
                             const isOnline = Object.values(onlineUsers).some(
                                 (u: any) => u.email && student.email && u.email.trim().toLowerCase() === student.email.trim().toLowerCase()
                             );
@@ -587,7 +626,7 @@ export function PublicRankingClient({
                                         {/* Progreso bar & fraction */}
                                         <div className="flex flex-col items-end text-right">
                                             <span className="text-xs text-muted-foreground font-medium mb-1">
-                                                {points} de {totalLessons} <span className="hidden sm:inline">lecciones</span>
+                                                {points} de {totalWeight} <span className="hidden sm:inline">puntos</span>
                                             </span>
                                             <div className="hidden sm:block w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden border border-border/20">
                                                 <div 

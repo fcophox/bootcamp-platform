@@ -108,6 +108,7 @@ export async function getBootcamp(id: number) {
                     id,
                     title,
                     type,
+                    content,
                     order
                 )
             )

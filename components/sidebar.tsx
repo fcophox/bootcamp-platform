@@ -33,24 +33,6 @@ const getMenuItems = (currentRole: string) => {
             href: '/dashboard',
             icon: Home,
         },
-        {
-            name: 'Tareas',
-            href: '/dashboard/tareas',
-            icon: ClipboardList,
-            disabled: true,
-        },
-        {
-            name: 'Notificaciones',
-            href: '/dashboard/notificaciones',
-            icon: Bell,
-            disabled: true,
-        },
-        {
-            name: 'Certificación',
-            href: '/dashboard/certificacion',
-            icon: Award,
-            disabled: true,
-        },
     ];
 
     if (currentRole === 'superadmin') {
@@ -75,21 +57,6 @@ const getMenuItems = (currentRole: string) => {
                 href: '/cms/certificados',
                 icon: Award
             },
-
-            {
-                name: 'Tareas',
-                href: '/dashboard/tareas',
-                icon: ClipboardList,
-                disabled: true,
-            },
-            {
-                name: 'Notificaciones',
-                href: '/dashboard/notificaciones',
-                icon: Bell,
-                disabled: true,
-            },
-
-
         ];
     } else if (currentRole === 'docente') {
         return [
@@ -232,7 +199,7 @@ export function Sidebar() {
                         const isActive = pathname === item.href;
                         const Icon = item.icon;
 
-                        const linkContent = item.disabled ? (
+                        const linkContent = (item as any).disabled ? (
                             <div className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-colors text-muted/50 cursor-not-allowed ${isCollapsed ? 'justify-center items-center px-2 py-2' : 'px-3 py-2'}`}>
                                 <Icon size={20} className="flex-shrink-0" />
                                 {!isCollapsed && <span>{item.name}</span>}
