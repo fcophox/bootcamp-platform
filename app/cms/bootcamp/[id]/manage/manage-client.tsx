@@ -18,6 +18,8 @@ import {
     Upload, Menu, Video, FileArchive, Image, File, ExternalLink, Save
 } from 'lucide-react';
 
+import { BootcampFeedbackTab } from '@/components/bootcamp-feedback-tab';
+import { MedicionTab } from '@/components/medicion-tab';
 import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson, reorderLessons, reorderModules } from '@/app/actions/module';
 import { updateBootcamp } from '@/app/actions/bootcamp';
 import { createClient } from '@/utils/supabase/client';
@@ -109,7 +111,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const router = useRouter();
 
     // UI State
-    const [activeTab, setActiveTab] = useState<'content' | 'students' | 'room' | 'ranking' | 'masterclass'>('content');
+    const [activeTab, setActiveTab] = useState<'content' | 'students' | 'room' | 'ranking' | 'masterclass' | 'feedback' | 'medicion'>('content');
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
     const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -1857,6 +1859,24 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                 >
                                     Masterclass
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('feedback')}
+                                    className={`pb-3 px-1 text-sm font-medium transition-all ${activeTab === 'feedback'
+                                        ? 'text-primary border-b-2 border-primary'
+                                        : 'text-muted hover:text-foreground'
+                                        }`}
+                                >
+                                    Feedback
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('medicion')}
+                                    className={`pb-3 px-1 text-sm font-medium transition-all ${activeTab === 'medicion'
+                                        ? 'text-primary border-b-2 border-primary'
+                                        : 'text-muted hover:text-foreground'
+                                        }`}
+                                >
+                                    Encuesta
+                                </button>
                                 {/* TODO: Oculto temporalmente
                                 <button
                                     onClick={() => setActiveTab('room')}
@@ -3078,7 +3098,21 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                             </div>
                                         </div>
                                     </div>
-                                )}
+                                 )}
+                            </div>
+                        )}
+
+                        {/* FEEDBACK TAB */}
+                        {activeTab === 'feedback' && (
+                            <div className="mt-6">
+                                <BootcampFeedbackTab bootcampId={bootcamp.id} />
+                            </div>
+                        )}
+
+                        {/* MEDICIÓN TAB */}
+                        {activeTab === 'medicion' && (
+                            <div className="mt-6">
+                                <MedicionTab bootcampId={bootcamp.id} />
                             </div>
                         )}
                     </div>
