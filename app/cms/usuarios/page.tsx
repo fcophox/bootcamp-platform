@@ -221,110 +221,88 @@ export default function UsuariosCMSPage() {
                         </div>
 
                         {/* List View */}
-                        <div className="mb-10 overflow-visible rounded-2xl border border-white/5 bg-card-bg/20 shadow-2xl backdrop-blur-md">
+                        <div className="mb-10 flex flex-col border border-border rounded-xl overflow-visible">
                             {loading ? (
-                                <div className="flex flex-col items-center justify-center py-24 space-y-4">
-                                    <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                                    <p className="text-muted font-medium animate-pulse">Sincronizando comunidad...</p>
+                                <div className="flex flex-col items-center justify-center py-24 space-y-4 bg-card-bg rounded-xl">
+                                    <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                                    <p className="text-muted text-sm">Cargando usuarios...</p>
                                 </div>
                             ) : filteredUsers.length > 0 ? (
-                                <div className="overflow-x-auto min-h-[400px]">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead className="bg-muted/10 border-b border-white/10">
-                                            <tr>
-                                                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-muted">Usuario</th>
-                                                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-muted">Correo</th>
-                                                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-muted text-center">Rol</th>
-                                                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-muted">Cursos Habilitados</th>
-                                                <th className="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-muted text-right">Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-white/5">
-                                            {filteredUsers.map((usr) => (
-                                                <tr key={usr.id} className="group hover:bg-white/5 transition-all duration-300 border-b border-white/[0.03]">
-                                                    <td className="px-8 py-5">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-sm font-bold shadow-2xl transition-transform group-hover:scale-105 duration-300 ${usr.role === 'superadmin' ? 'bg-amber-100/10 text-amber-500 border border-amber-500/20' : usr.role === 'docente' ? 'bg-blue-100/10 text-blue-500 border border-blue-500/20' : 'bg-gray-100/10 text-gray-400 border border-white/5'}`}>
-                                                                {usr.role === 'superadmin' ? <ShieldAlert size={18} /> : usr.role === 'docente' ? <GraduationCap size={18} /> : <User size={18} />}
-                                                            </div>
-                                                            <div className="flex flex-col">
-                                                                <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{usr.email.split('@')[0]}</span>
-                                                                <span className="text-[10px] text-muted uppercase tracking-wider mt-0.5 opacity-50">ID: {usr.id.slice(0, 8).toUpperCase()}</span>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-8 py-5">
-                                                        <div className="flex items-center gap-2.5 text-xs font-medium text-muted/80">
-                                                            <Mail size={13} className="text-primary/50" />
-                                                            {usr.email}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-8 py-5 text-center">
-                                                        <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border shadow-sm ${
-                                                            usr.role === 'superadmin' ? 'border-amber-500/30 bg-amber-500/10 text-amber-500' :
-                                                            usr.role === 'docente' ? 'border-blue-500/30 bg-blue-500/10 text-blue-500' :
-                                                            'border-white/10 bg-white/5 text-muted-foreground'
-                                                        }`}>
-                                                            {usr.role === 'superadmin' ? 'Admin' : usr.role === 'docente' ? 'Docente' : 'Alumno'}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-8 py-5">
-                                                        <div className="flex flex-wrap gap-1.5 max-w-[250px]">
-                                                            {(usr.bootcamps || []).length > 0 ? (
-                                                                usr.bootcamps?.map((bc: { name: string; status: string }, idx: number) => (
+                                filteredUsers.map((usr, i) => (
+                                    <div
+                                        key={usr.id}
+                                        className={`flex items-center gap-4 px-5 py-3.5 bg-card-bg hover:bg-hover-bg transition-colors
+                                            ${i < filteredUsers.length - 1 ? 'border-b border-border' : ''}
+                                            ${i === 0 ? 'rounded-t-xl' : ''}
+                                            ${i === filteredUsers.length - 1 ? 'rounded-b-xl' : ''}`}
+                                    >
+                                        {/* Avatar */}
+                                        <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${
+                                            usr.role === 'superadmin' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                                            usr.role === 'docente'    ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                                                                        'bg-primary/10 text-primary border border-primary/20'
+                                        }`}>
+                                            {usr.role === 'superadmin' ? <ShieldAlert size={16} /> : usr.role === 'docente' ? <GraduationCap size={16} /> : <User size={16} />}
+                                        </div>
 
+                                        {/* Info principal */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-sm font-semibold text-foreground truncate">{usr.email.split('@')[0]}</span>
+                                                <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                                                    usr.role === 'superadmin' ? 'border-amber-500/30 bg-amber-500/10 text-amber-500' :
+                                                    usr.role === 'docente'    ? 'border-blue-500/30 bg-blue-500/10 text-blue-500' :
+                                                                                'border-border bg-hover-bg text-muted'
+                                                }`}>
+                                                    {usr.role === 'superadmin' ? 'Admin' : usr.role === 'docente' ? 'Docente' : 'Alumno'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                                <span className="flex items-center gap-1 text-xs text-muted">
+                                                    <Mail size={10} className="text-primary/50" />{usr.email}
+                                                </span>
+                                                {(usr.bootcamps || []).length > 0 && (
+                                                    <div className="flex items-center gap-1 flex-wrap">
+                                                        {usr.bootcamps?.map((bc: { name: string; status: string }, idx: number) => (
+                                                            <span key={idx} className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                                                                bc.status === 'invited'
+                                                                    ? 'border-amber-500/20 bg-amber-500/5 text-amber-500/70'
+                                                                    : 'border-primary/20 bg-primary/5 text-primary/80'
+                                                            }`}>
+                                                                {bc.name}{bc.status === 'invited' && ' ⏳'}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
 
-                                                                    <div key={idx} className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border shadow-sm ${
-                                                                        bc.status === 'invited' 
-                                                                            ? 'border-amber-500/20 bg-amber-500/5 text-amber-500/70' 
-                                                                            : 'border-primary/20 bg-primary/5 text-primary/80'
-                                                                    }`}>
-                                                                        {bc.name}
-                                                                        {bc.status === 'invited' && <span className="text-[8px] opacity-60">⏳</span>}
-                                                                    </div>
-                                                                ))
-                                                            ) : (
-                                                                <span className="text-[9px] text-muted-foreground uppercase opacity-40">Sin Registros</span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-8 py-5 text-right relative">
-                                                        <div className="flex justify-end items-center gap-2">
-                                                            <button 
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    if (openMenuId === usr.id) {
-                                                                        setOpenMenuId(null);
-                                                                        setMenuPosition(null);
-                                                                    } else {
-                                                                        const rect = e.currentTarget.getBoundingClientRect();
-                                                                        setMenuPosition({
-                                                                            top: rect.bottom + 8,
-                                                                            left: Math.max(8, rect.right - 176)
-                                                                        });
-                                                                        setOpenMenuId(usr.id);
-                                                                    }
-                                                                }}
-                                                                className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-muted hover:text-foreground transition-all"
-                                                            >
-                                                                {isProcessing === usr.id ? <Loader2 size={16} className="animate-spin text-primary" /> : <MoreHorizontal size={18} />}
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                        {/* Acciones */}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (openMenuId === usr.id) {
+                                                    setOpenMenuId(null);
+                                                    setMenuPosition(null);
+                                                } else {
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    setMenuPosition({ top: rect.bottom + 8, left: Math.max(8, rect.right - 176) });
+                                                    setOpenMenuId(usr.id);
+                                                }
+                                            }}
+                                            className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-hover-bg text-muted hover:text-foreground transition-colors shrink-0"
+                                        >
+                                            {isProcessing === usr.id ? <Loader2 size={15} className="animate-spin text-primary" /> : <MoreHorizontal size={16} />}
+                                        </button>
+                                    </div>
+                                ))
                             ) : (
-                                <div className="flex flex-col items-center justify-center py-24 text-center space-y-4 px-6">
-                                    <div className="h-16 w-16 bg-muted/10 rounded-full flex items-center justify-center">
-                                        <Users className="text-muted" size={32} />
+                                <div className="flex flex-col items-center justify-center py-24 text-center px-6 bg-card-bg rounded-xl">
+                                    <div className="h-14 w-14 bg-hover-bg rounded-full flex items-center justify-center mb-4">
+                                        <Users className="text-muted" size={28} />
                                     </div>
-                                    <div className="max-w-xs">
-                                        <p className="text-lg font-semibold text-foreground">No hay resultados</p>
-                                        <p className="text-sm text-muted">No encontramos usuarios que coincidan con la búsqueda.</p>
-                                    </div>
+                                    <p className="text-base font-semibold text-foreground mb-1">No hay resultados</p>
+                                    <p className="text-sm text-muted">No encontramos usuarios que coincidan con la búsqueda.</p>
                                 </div>
                             )}
                         </div>
