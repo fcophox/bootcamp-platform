@@ -112,6 +112,33 @@ export async function deleteMedicionPregunta(id: string, bootcampId: number) {
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
 }
 
+// ── Eliminar encuesta completa (preguntas + respuestas en cascade) ────────────
+export async function eliminarEncuesta(bootcampId: number) {
+    const { supabase } = await requireAdminOrDocente();
+    // MedicionRespuesta se elimina en cascade por FK ON DELETE CASCADE
+    const { error } = await supabase
+        .from('MedicionPregunta')
+        .delete()
+        .eq('bootcampId', bootcampId);
+    if (error) throw new Error('No se pudo eliminar la encuesta: ' + error.message);
+    revalidatePath('/cms/encuestas');
+    revalidatePath('/dashboard/encuestas');
+    return { success: true };
+}
+
+// ── Limpiar todas las preguntas de un bootcamp ───────────────────────────────
+export async function limpiarMedicionPreguntas(bootcampId: number) {
+    const { supabase } = await requireAdminOrDocente();
+    const { error } = await supabase
+        .from('MedicionPregunta')
+        .delete()
+        .eq('bootcampId', bootcampId);
+    if (error) throw new Error('No se pudo limpiar las preguntas: ' + error.message);
+    revalidatePath('/cms/encuestas');
+    revalidatePath('/dashboard/encuestas');
+    return { success: true };
+}
+
 // ── Pausar / reactivar pregunta ───────────────────────────────────────────────
 export async function togglePausarPregunta(id: string, pausada: boolean) {
     const { supabase } = await requireAdminOrDocente();
@@ -131,16 +158,89 @@ export async function reorderMedicionPreguntas(items: { id: string; orden: numbe
     await Promise.all(updates);
 }
 
+// ── Alumnos activos de un bootcamp para el modal de envío ─────────────────────
+export interface AlumnoBootcamp {
+    userId: string | null;
+    email: string;
+    nombre: string;
+}
+
+export async function getAlumnosBootcamp(bootcampId: number): Promise<AlumnoBootcamp[]> {
+    const { supabase } = await requireAdminOrDocente();
+
+    const { data, error } = await supabase
+        .from('BootcampStudent')
+        .select('userId, email')
+        .eq('bootcampId', bootcampId)
+        .in('status', ['active', 'frozen', 'completed']);
+
+    if (error || !data) return [];
+
+    // Obtener nombres desde UserRole si existen
+    const emails = data.map((s: any) => s.email).filter(Boolean);
+    const { data: roles } = await supabase
+        .from('UserRole')
+        .select('email, full_name')
+        .in('email', emails);
+
+    const nameMap: Record<string, string> = {};
+    (roles || []).forEach((r: any) => { if (r.full_name) nameMap[r.email] = r.full_name; });
+
+    return data.map((s: any) => ({
+        userId: s.userId ?? null,
+        email: s.email,
+        nombre: nameMap[s.email] || s.email,
+    }));
+}
+
 // ── Enviar preguntas a alumnos ────────────────────────────────────────────────
 export async function enviarMedicion(bootcampId: number) {
     const { supabase } = await requireAdminOrDocente();
     const { error } = await supabase
         .from('MedicionPregunta')
-        .update({ enviada: true })
+        .update({ enviada: true, pausada: false })
         .eq('bootcampId', bootcampId)
         .eq('enviada', false);
     if (error) throw new Error('No se pudo enviar la medición: ' + error.message);
-    revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
+    revalidatePath('/cms/encuestas');
+    revalidatePath('/dashboard/encuestas');
+    return { success: true };
+}
+
+export async function retirarMedicion(bootcampId: number) {
+    const { supabase } = await requireAdminOrDocente();
+    const { error } = await supabase
+        .from('MedicionPregunta')
+        .update({ enviada: false })
+        .eq('bootcampId', bootcampId)
+        .eq('enviada', true);
+    if (error) throw new Error('No se pudo retirar la medición: ' + error.message);
+    revalidatePath('/cms/encuestas');
+    revalidatePath('/dashboard/encuestas');
+    return { success: true };
+}
+
+export async function pausarEncuesta(bootcampId: number) {
+    const { supabase } = await requireAdminOrDocente();
+    const { error } = await supabase
+        .from('MedicionPregunta')
+        .update({ pausada: true })
+        .eq('bootcampId', bootcampId);
+    if (error) throw new Error('No se pudo pausar la encuesta: ' + error.message);
+    revalidatePath('/cms/encuestas');
+    revalidatePath('/dashboard/encuestas');
+    return { success: true };
+}
+
+export async function reactivarEncuesta(bootcampId: number) {
+    const { supabase } = await requireAdminOrDocente();
+    const { error } = await supabase
+        .from('MedicionPregunta')
+        .update({ pausada: false })
+        .eq('bootcampId', bootcampId);
+    if (error) throw new Error('No se pudo reactivar la encuesta: ' + error.message);
+    revalidatePath('/cms/encuestas');
+    revalidatePath('/dashboard/encuestas');
     return { success: true };
 }
 
@@ -335,4 +435,53 @@ export async function enviarRespuestasEncuesta(
     if (error) throw new Error('No se pudo enviar las respuestas: ' + error.message);
     revalidatePath('/dashboard/encuestas');
     return { success: true };
+}
+
+// ── Listado de encuestas para gestión CMS ─────────────────────────────────────
+export interface EncuestaGestion {
+    bootcampId: number;
+    bootcampTitle: string;
+    bootcampIcon: string | null;
+    bootcampColor: string | null;
+    totalPreguntas: number;
+    enviadas: number;
+    pendientes: number;
+    pausada: boolean;
+    createdAt: string;
+}
+
+export async function getEncuestasGestion(): Promise<EncuestaGestion[]> {
+    const { supabase } = await requireAdminOrDocente();
+
+    const { data: preguntas } = await supabase
+        .from('MedicionPregunta')
+        .select('bootcampId, enviada, pausada, createdAt, Bootcamp:bootcampId(id, title, icon, color)')
+        .order('createdAt', { ascending: true });
+
+    if (!preguntas || preguntas.length === 0) return [];
+
+    const map: Record<number, EncuestaGestion> = {};
+    for (const p of preguntas as any[]) {
+        const bc = p.Bootcamp;
+        if (!bc) continue;
+        if (!map[bc.id]) {
+            map[bc.id] = {
+                bootcampId: bc.id,
+                bootcampTitle: bc.title,
+                bootcampIcon: bc.icon ?? null,
+                bootcampColor: bc.color ?? null,
+                totalPreguntas: 0,
+                enviadas: 0,
+                pendientes: 0,
+                pausada: false,
+                createdAt: p.createdAt,
+            };
+        }
+        map[bc.id].totalPreguntas++;
+        if (p.pausada) map[bc.id].pausada = true;
+        if (p.enviada) map[bc.id].enviadas++;
+        else map[bc.id].pendientes++;
+    }
+
+    return Object.values(map);
 }

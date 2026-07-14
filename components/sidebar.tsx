@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { useSidebar } from './sidebar-context';
-import { Home, ClipboardList, Bell, User, Globe, Moon, Sun, LogOut, ChevronLeft, ChevronRight, Award, MessageSquare, ClipboardCheck } from 'lucide-react';
+import { Home, ClipboardList, Bell, User, Globe, Moon, Sun, LogOut, ChevronLeft, ChevronRight, Award, MessageSquare, ClipboardCheck, BarChart3 } from 'lucide-react';
 import { Tooltip } from './tooltip';
 import { ThemeLogo } from './theme-logo';
 import { createClient } from '@/utils/supabase/client';
@@ -26,46 +26,33 @@ const getAvatarStyle = (indexStr: string | undefined | null) => {
     };
 };
 
-const getMenuItems = (currentRole: string) => {
-    const studentItems = [
-        {
-            name: 'Dashboard',
-            href: '/dashboard',
-            icon: Home,
-        },
-        {
-            name: 'Encuestas',
-            href: '/dashboard/encuestas',
-            icon: ClipboardCheck,
-        },
+type MenuItem = { name: string; href: string; icon: React.ElementType; disabled?: boolean };
+type MenuGroup = { group: string; items: MenuItem[] };
+type MenuSection = MenuItem | MenuGroup;
+
+const getMenuItems = (currentRole: string): MenuSection[] => {
+    const studentItems: MenuItem[] = [
+        { name: 'Dashboard', href: '/dashboard', icon: Home },
+        { name: 'Encuestas', href: '/dashboard/encuestas', icon: ClipboardCheck },
     ];
 
     if (currentRole === 'superadmin') {
         return [
+            { name: 'Bootcamps', href: '/cms', icon: Globe },
+            { name: 'Encuestas', href: '/cms/encuestas', icon: BarChart3 },
+            { name: 'Certificados', href: '/cms/certificados', icon: Award },
+            { name: 'Feedbacks', href: '/cms/feedback', icon: MessageSquare },
             {
-                name: 'Bootcamps',
-                href: '/cms',
-                icon: Globe
-            },
-            {
-                name: 'Gestión de Usuarios',
-                href: '/cms/usuarios',
-                icon: User
-            },
-            {
-                name: 'Feedback Alumnos',
-                href: '/cms/feedback',
-                icon: MessageSquare
-            },
-            {
-                name: 'Certificados',
-                href: '/cms/certificados',
-                icon: Award
+                group: 'Gestión',
+                items: [
+                    { name: 'Gestión de Usuarios', href: '/cms/usuarios', icon: User },
+                ],
             },
         ];
     } else if (currentRole === 'docente') {
         return [
             { name: 'Bootcamps', href: '/cms', icon: Globe },
+            { name: 'Encuestas', href: '/cms/encuestas', icon: BarChart3 },
         ];
     }
 
@@ -89,7 +76,18 @@ export function Sidebar() {
     const [userEmail, setUserEmail] = useState('');
     const [userName, setUserName] = useState('');
     const [avatar, setAvatar] = useState('');
-    const [role, setRole] = useState('alumno');
+    // Inicializar rol desde sessionStorage para evitar flash en navegaciones
+    const [role, setRole] = useState<string>(() => {
+        if (typeof window === 'undefined') return '';
+        // Buscar cualquier clave role_* en sessionStorage
+        for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            if (key?.startsWith('role_')) {
+                return sessionStorage.getItem(key) || '';
+            }
+        }
+        return '';
+    });
 
     // Hydration check
     useEffect(() => {
@@ -102,21 +100,30 @@ export function Sidebar() {
         async function fetchUser() {
             const supabase = createClient();
             const { data } = await supabase.auth.getUser();
-            if (data.user) {
-                setUserEmail(data.user.email || '');
-                setUserName(data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || '');
-                setAvatar(data.user.user_metadata?.avatar || '');
+            if (!data.user) return;
 
-                // Set initial role from metadata/email for speed
-                const initialRole = getRoleFromEmail(data.user.email, data.user.user_metadata);
-                setRole(initialRole);
+            setUserEmail(data.user.email || '');
+            setUserName(data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || '');
+            setAvatar(data.user.user_metadata?.avatar || '');
 
-                // Fetch definitive role from DB table
-                const dbRole = await getUserRoleFromDBClient(data.user.id);
-                if (dbRole) {
-                    setRole(dbRole);
-                }
+            const userId = data.user.id;
+            const cacheKey = `role_${userId}`;
+
+            // 1. Usar caché de sessionStorage para render inmediato
+            const cached = sessionStorage.getItem(cacheKey);
+            if (cached) {
+                setRole(cached);
+            } else {
+                // Fallback rápido desde metadata/email mientras llega la DB
+                const quick = getRoleFromEmail(data.user.email, data.user.user_metadata);
+                setRole(quick);
             }
+
+            // 2. Siempre verificar con la DB y actualizar caché
+            const dbRole = await getUserRoleFromDBClient(userId);
+            const finalRole = dbRole || getRoleFromEmail(data.user.email, data.user.user_metadata);
+            sessionStorage.setItem(cacheKey, finalRole);
+            setRole(finalRole);
         }
         fetchUser();
 
@@ -139,6 +146,9 @@ export function Sidebar() {
     };
 
     const menuItems = getMenuItems(role);
+
+    // No renderizar el nav hasta tener el rol resuelto (evita flash del menú incorrecto)
+    const roleResolved = role !== '';
 
     return (
         <>
@@ -199,12 +209,52 @@ export function Sidebar() {
 
             {/* Navigation */}
             <nav className={`flex-1 transition-all overflow-y-auto overflow-x-visible ${isCollapsed ? 'px-2 py-4' : 'p-4'}`}>
+                {roleResolved && (
                 <ul className="space-y-1">
-                    {menuItems.map((item) => {
+                    {menuItems.map((section) => {
+                        // Grupo con separador
+                        if ('group' in section) {
+                            return (
+                                <li key={section.group}>
+                                    <div className="mt-4 mb-1">
+                                        {!isCollapsed && (
+                                            <p className="px-3 text-[10px] font-semibold text-muted uppercase tracking-widest">
+                                                {section.group}
+                                            </p>
+                                        )}
+                                        {isCollapsed && <div className="mx-2 border-t border-border/50 my-2" />}
+                                    </div>
+                                    <ul className="space-y-1">
+                                        {section.items.map((item) => {
+                                            const isActive = pathname === item.href;
+                                            const Icon = item.icon;
+                                            const linkContent = item.disabled ? (
+                                                <div className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-colors text-muted/50 cursor-not-allowed ${isCollapsed ? 'justify-center px-2 py-2' : 'px-3 py-2'}`}>
+                                                    <Icon size={20} className="flex-shrink-0" />
+                                                    {!isCollapsed && <span>{item.name}</span>}
+                                                </div>
+                                            ) : (
+                                                <Link href={item.href} className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-hover-bg text-foreground' : 'text-muted hover:bg-hover-bg hover:text-foreground'} ${isCollapsed ? 'justify-center px-2 py-2' : 'px-3 py-2'}`}>
+                                                    <Icon size={20} className="flex-shrink-0" />
+                                                    {!isCollapsed && <span>{item.name}</span>}
+                                                </Link>
+                                            );
+                                            return (
+                                                <li key={item.name}>
+                                                    {isCollapsed ? <Tooltip content={item.name} side="right">{linkContent}</Tooltip> : linkContent}
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </li>
+                            );
+                        }
+
+                        // Item normal
+                        const item = section as MenuItem;
                         const isActive = pathname === item.href;
                         const Icon = item.icon;
-
-                        const linkContent = (item as any).disabled ? (
+                        const linkContent = item.disabled ? (
                             <div className={`flex items-center gap-3 rounded-lg text-sm font-medium transition-colors text-muted/50 cursor-not-allowed ${isCollapsed ? 'justify-center items-center px-2 py-2' : 'px-3 py-2'}`}>
                                 <Icon size={20} className="flex-shrink-0" />
                                 {!isCollapsed && <span>{item.name}</span>}
@@ -235,6 +285,7 @@ export function Sidebar() {
                         );
                     })}
                 </ul>
+                )}
             </nav>
 
             {/* User Section */}

@@ -6,7 +6,7 @@ import { useSidebar } from '@/components/sidebar-context';
 import {
     ThumbsUp, ThumbsDown, MessageSquare, User,
     Calendar, Search, Filter, ChevronRight, ChevronDown, X, GraduationCap,
-    Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Menu
+    Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Menu, MoreHorizontal
 } from 'lucide-react';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,6 +95,15 @@ export function FeedbackClient({ initialFeedbacks, slug }: { initialFeedbacks: F
     
     // Realtime connection state
     const [realtimeStatus, setRealtimeStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+    const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (!(e.target as HTMLElement).closest('[data-menu]')) setOpenMenuId(null);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
 
     // List of all created bootcamps in the database
     const [bootcamps, setBootcamps] = useState<{ id: number; title: string; icon?: string; color?: string; }[]>([]);
@@ -386,51 +395,43 @@ export function FeedbackClient({ initialFeedbacks, slug }: { initialFeedbacks: F
                                 </div>
                             ) : (
                                 <div className="space-y-6 animate-in fade-in duration-500">
-                                    <div className="flex items-center gap-2 mb-6">
-                                        <h2 className="text-lg font-bold text-foreground">Selecciona un Bootcamp</h2>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        {bootcamps.map(bootcamp => {
+                                    <h2 className="text-lg font-bold text-foreground mb-6">Selecciona un Bootcamp</h2>
+                                    <div className="flex flex-col border border-border rounded-xl overflow-visible">
+                                        {bootcamps.map((bootcamp, i) => {
                                             const bootcampFeedbacks = feedbacks.filter(f => f.Lesson?.Module?.Bootcamp?.title === bootcamp.title);
                                             const IconComponent = bootcamp.icon ? ICON_MAP[bootcamp.icon] || Code : GraduationCap;
                                             const bgClass = bootcamp.color ? COLOR_MAP[bootcamp.color] || 'bg-primary' : 'bg-primary';
-
                                             return (
-                                                <div 
-                                                    key={bootcamp.id} 
-                                                    onClick={() => router.push(`/cms/feedback/${slugify(bootcamp.title)}`)}
-                                                    className="relative group rounded-3xl border border-border bg-card-bg p-6 transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 cursor-pointer flex flex-col h-full"
-                                                >
-                                                    <div className="flex gap-4 mb-4">
-                                                        <div className={`w-12 h-12 rounded-full ${bgClass} flex items-center justify-center flex-shrink-0 text-white shadow-lg shadow-black/10 group-hover:scale-110 transition-transform`}>
-                                                            <IconComponent size={24} />
-                                                        </div>
-                                                        <div className="pr-2 flex-1">
-                                                            <h3 className="text-lg font-semibold text-foreground mb-1 line-clamp-2">
-                                                                {bootcamp.title}
-                                                            </h3>
+                                                <div key={bootcamp.id} className={`flex items-center gap-4 px-5 py-4 bg-card-bg hover:bg-hover-bg transition-colors ${i < bootcamps.length - 1 ? 'border-b border-border' : ''} ${i === 0 ? 'rounded-t-xl' : ''} ${i === bootcamps.length - 1 ? 'rounded-b-xl' : ''}`}>
+                                                     <div className={`w-9 h-9 rounded-full ${bgClass} flex items-center justify-center shrink-0 text-white cursor-pointer`} onClick={() => router.push(`/cms/feedback/${slugify(bootcamp.title)}`)}>
+                                                        <IconComponent size={18} />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => router.push(`/cms/feedback/${slugify(bootcamp.title)}`)}>
+                                                        <p className="text-sm font-semibold text-foreground truncate">{bootcamp.title}</p>
+                                                        <div className="flex items-center gap-3 mt-0.5">
+                                                            <span className="text-xs text-muted">{bootcampFeedbacks.length} interacciones</span>
+                                                            <span className="text-xs text-green-500">{bootcampFeedbacks.filter(f => f.isLiked === true).length} likes</span>
+                                                            <span className="text-xs text-violet-500">{bootcampFeedbacks.filter(f => !!f.comment).length} comentarios</span>
                                                         </div>
                                                     </div>
-
-                                                    <div className="space-y-3 mb-6 mt-auto">
-                                                        <div className="flex items-center justify-between text-sm">
-                                                            <span className="text-muted">Total Interacciones:</span>
-                                                            <span className="text-foreground font-medium">{bootcampFeedbacks.length}</span>
-                                                        </div>
-                                                        <div className="flex items-center justify-between text-sm">
-                                                            <span className="text-muted">Me gusta:</span>
-                                                            <span className="text-green-500 font-medium">{bootcampFeedbacks.filter(f => f.isLiked === true).length}</span>
-                                                        </div>
-                                                        <div className="flex items-center justify-between text-sm">
-                                                            <span className="text-muted">Comentarios:</span>
-                                                            <span className="text-violet-500 font-medium">{bootcampFeedbacks.filter(f => !!f.comment).length}</span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex gap-3 mt-auto">
-                                                        <div className="flex-1 block text-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all group-hover:bg-primary/90 shadow-lg shadow-primary/20">
-                                                            Ver métricas
-                                                        </div>
+                                                    {/* Menú 3 puntos */}
+                                                    <div className="relative shrink-0" data-menu>
+                                                        <button
+                                                            onClick={() => setOpenMenuId(openMenuId === bootcamp.id ? null : bootcamp.id)}
+                                                            className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-hover-bg transition-colors"
+                                                        >
+                                                            <MoreHorizontal size={16} />
+                                                        </button>
+                                                        {openMenuId === bootcamp.id && (
+                                                            <div className="absolute right-0 top-full mt-1 w-48 bg-card-bg border border-border rounded-xl shadow-lg z-50 py-1 animate-in fade-in zoom-in-95 duration-150">
+                                                                <button
+                                                                    onClick={() => { router.push(`/cms/feedback/${slugify(bootcamp.title)}`); setOpenMenuId(null); }}
+                                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-hover-bg transition-colors"
+                                                                >
+                                                                    <ChevronRight size={14} /> Ver métricas
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );

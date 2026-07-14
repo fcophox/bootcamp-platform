@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
+import Link from 'next/link';
 import {
     Plus, Trash2, Send, BarChart3,
-    ThumbsUp, ThumbsDown, Loader2, Check, ChevronDown, ChevronLeft, ChevronRight, X, GripVertical, MessageSquare, List, Pause, Play, Users, User
+    ThumbsUp, ThumbsDown, Loader2, Check, ChevronDown, X, GripVertical, MessageSquare, List, Pause, Play, Users, User
 } from 'lucide-react';
 import {
     getMedicionPreguntas,
@@ -394,29 +395,19 @@ function PreguntaCard({
                     <AlternativasEditor
                         opciones={opciones}
                         onChange={handleOpciones}
-                        disabled={isSent}
-                    />
-                )}
-
-                {/* Preview */}
-                {tipo !== 'alternativas' && (
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Vista previa del alumno</label>
-                        <div className="px-4 py-3 rounded-xl border border-dashed border-border bg-background/30">
-                            <div className="flex items-center">{tipoDef.preview}</div>
-                        </div>
-                    </div>
-                )}
+                         disabled={isSent}
+                     />
+                 )}
 
                 {/* Save btn */}
-                {!isSent && isDirty && (
+                {!isSent && (
                     <button
                         onClick={handleSave}
-                        disabled={isSaving || !texto.trim() || (tipo === 'alternativas' && opciones.filter(o => o.trim()).length < 2)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                        disabled={isSaving || !texto.trim() || (tipo === 'alternativas' && opciones.filter(o => o.trim()).length < 2) || !isDirty}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-colors disabled:opacity-40"
                     >
                         {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                        Guardar cambios
+                        {isDirty ? 'Guardar cambios' : 'Guardado'}
                     </button>
                 )}
             </div>}
@@ -438,199 +429,12 @@ function formatValor(tipo: TipoPregunta, valor: string): string {
     }
 }
 
-function colorValor(tipo: TipoPregunta, valor: string): string {
-    if (tipo === 'like_dislike') return valor === 'like' ? 'text-green-500' : 'text-red-500';
-    if (tipo === 'caras') return valor === 'contenta' ? 'text-green-500' : valor === 'seria' ? 'text-amber-500' : 'text-red-500';
-    if (tipo === 'nps') {
-        const n = Number(valor);
-        return n >= 9 ? 'text-green-500' : n >= 7 ? 'text-amber-500' : 'text-red-500';
-    }
-    return 'text-foreground';
-}
-
-// ── Drawer de resultados ───────────────────────────────────────────────────────
-
-function PreguntaResultados({
-    preguntaTexto,
-    tipo,
-    respuestas,
-}: {
-    preguntaTexto: string;
-    tipo: TipoPregunta;
-    respuestas: { email: string; valor: string }[];
-}) {
-    const [idx, setIdx] = useState(0);
-    const total = respuestas.length;
-    const actual = respuestas[idx];
-
-    return (
-        <div className="bg-background/50 border border-border/60 rounded-2xl overflow-hidden">
-            {/* Cabecera pregunta */}
-            <div className="px-5 py-4 border-b border-border/50 bg-card-bg flex items-start gap-3">
-                <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-muted uppercase tracking-wider mb-1">{formatTipoLabel(tipo)}</p>
-                    <p className="text-sm font-semibold text-foreground leading-snug">{preguntaTexto}</p>
-                </div>
-                <span className="shrink-0 text-[11px] font-black text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full mt-0.5">
-                    {total} {total === 1 ? 'respuesta' : 'respuestas'}
-                </span>
-            </div>
-
-            {/* Carrusel de respuestas */}
-            {total === 0 ? (
-                <div className="px-5 py-6 text-center text-xs text-muted">Sin respuestas</div>
-            ) : (
-                <div className="px-5 py-4 flex items-center gap-3">
-                    {/* Flecha anterior */}
-                    <button
-                        onClick={() => setIdx(i => Math.max(0, i - 1))}
-                        disabled={idx === 0}
-                        className="p-1.5 rounded-lg border border-border bg-card-bg text-muted hover:text-foreground hover:border-primary/40 transition-colors disabled:opacity-30 shrink-0"
-                    >
-                        <ChevronLeft size={14} />
-                    </button>
-
-                    {/* Respuesta actual */}
-                    <div className="flex-1 min-w-0 text-center space-y-1.5">
-                        <p className="text-[10px] text-muted truncate">{actual.email}</p>
-                        <p className={`text-lg font-bold ${colorValor(tipo, actual.valor)}`}>
-                            {formatValor(tipo, actual.valor)}
-                        </p>
-                        <p className="text-[10px] text-muted">{idx + 1} / {total}</p>
-                    </div>
-
-                    {/* Flecha siguiente */}
-                    <button
-                        onClick={() => setIdx(i => Math.min(total - 1, i + 1))}
-                        disabled={idx === total - 1}
-                        className="p-1.5 rounded-lg border border-border bg-card-bg text-muted hover:text-foreground hover:border-primary/40 transition-colors disabled:opacity-30 shrink-0"
-                    >
-                        <ChevronRight size={14} />
-                    </button>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function formatTipoLabel(tipo: TipoPregunta): string {
-    const map: Record<TipoPregunta, string> = {
-        likert_5: 'Escala Likert 1–5', caras: 'Caritas', nps: 'NPS 0–10',
-        like_dislike: 'Like / Dislike', escala_7: 'Escala 1–7', escala_3: 'Escala 1–3',
-        comentario: 'Comentario', alternativas: 'Alternativas',
-    };
-    return map[tipo] ?? tipo;
-}
-
-function ResultadosDrawer({
-    open,
-    onClose,
-    bootcampId,
-}: {
-    open: boolean;
-    onClose: () => void;
-    bootcampId: number;
-}) {
-    const [isLoading, setIsLoading] = useState(false);
-    const [data, setData] = useState<{ totalRespuestas: number; alumnos: RespuestaAlumno[] } | null>(null);
-
-    useEffect(() => {
-        if (!open) return;
-        setIsLoading(true);
-        getResultadosEncuesta(bootcampId)
-            .then(d => setData(d))
-            .finally(() => setIsLoading(false));
-    }, [open, bootcampId]);
-
-    // Agrupar por pregunta
-    const porPregunta = data ? (() => {
-        const map: Record<string, { texto: string; tipo: TipoPregunta; respuestas: { email: string; valor: string }[] }> = {};
-        for (const alumno of data.alumnos) {
-            for (const r of alumno.respuestas) {
-                if (!map[r.preguntaId]) map[r.preguntaId] = { texto: r.preguntaTexto, tipo: r.tipo, respuestas: [] };
-                map[r.preguntaId].respuestas.push({ email: alumno.email, valor: r.valor });
-            }
-        }
-        return Object.entries(map);
-    })() : [];
-
-    return (
-        <>
-            {/* Backdrop */}
-            {open && (
-                <div
-                    className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm animate-in fade-in duration-200"
-                    onClick={onClose}
-                />
-            )}
-
-            {/* Panel */}
-            <div className={`fixed top-0 right-0 z-50 h-full w-full sm:w-[520px] bg-card-bg border-l border-border shadow-2xl flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : 'translate-x-full'}`}>
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-background/50 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                            <Users size={18} />
-                        </div>
-                        <div>
-                            <h3 className="text-base font-bold text-foreground">Resultados</h3>
-                            <p className="text-xs text-muted">
-                                {data ? `${data.totalRespuestas} ${data.totalRespuestas === 1 ? 'alumno respondió' : 'alumnos respondieron'}` : 'Cargando...'}
-                            </p>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-hover-bg transition-colors text-muted hover:text-foreground">
-                        <X size={18} />
-                    </button>
-                </div>
-
-                {/* Body */}
-                <div className="flex-1 overflow-y-auto">
-                    {isLoading && (
-                        <div className="flex flex-col items-center justify-center h-full gap-3">
-                            <Loader2 size={28} className="animate-spin text-primary" />
-                            <p className="text-sm text-muted">Cargando resultados...</p>
-                        </div>
-                    )}
-
-                    {!isLoading && data?.totalRespuestas === 0 && (
-                        <div className="flex flex-col items-center justify-center h-full text-center px-8 gap-4">
-                            <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center">
-                                <Users size={26} className="text-primary opacity-50" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-semibold text-foreground mb-1">Sin respuestas aún</p>
-                                <p className="text-xs text-muted leading-relaxed">Los alumnos aún no han respondido esta encuesta.</p>
-                            </div>
-                        </div>
-                    )}
-
-                    {!isLoading && porPregunta.length > 0 && (
-                        <div className="p-5 space-y-4">
-                            {porPregunta.map(([preguntaId, { texto, tipo, respuestas }]) => (
-                                <PreguntaResultados
-                                    key={preguntaId}
-                                    preguntaTexto={texto}
-                                    tipo={tipo}
-                                    respuestas={respuestas}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
-        </>
-    );
-}
-
-// ── Componente principal ───────────────────────────────────────────────────────
-export function MedicionTab({ bootcampId }: { bootcampId: number }) {
+export function MedicionTab({ bootcampId, hideEnviar }: { bootcampId: number; hideEnviar?: boolean }) {
     const [preguntas, setPreguntas] = useState<MedicionPregunta[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAdding, startAdd] = useTransition();
     const [isSending, startSend] = useTransition();
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
-    const [showResultados, setShowResultados] = useState(false);
 
     const [newTexto, setNewTexto] = useState('');
     const [newTipo, setNewTipo] = useState<TipoPregunta>('likert_5');
@@ -741,15 +545,15 @@ export function MedicionTab({ bootcampId }: { bootcampId: number }) {
                 </div>
                 <div className="flex items-center gap-2">
                     {hasEnviadas && (
-                        <button
-                            onClick={() => setShowResultados(true)}
+                        <Link
+                            href={`/cms/encuestas/${bootcampId}/resultados`}
                             className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-card-bg text-sm font-semibold text-foreground hover:border-primary/40 hover:text-primary transition-colors"
                         >
                             <Users size={14} />
                             Ver resultados
-                        </button>
+                        </Link>
                     )}
-                    {canSend && (
+                    {canSend && !hideEnviar && (
                         <button
                             onClick={handleEnviar}
                             disabled={isSending}
@@ -801,16 +605,6 @@ export function MedicionTab({ bootcampId }: { bootcampId: number }) {
                     {/* Editor de alternativas en formulario */}
                     {newTipo === 'alternativas' && (
                         <AlternativasEditor opciones={newOpciones} onChange={setNewOpciones} />
-                    )}
-
-                    {/* Preview */}
-                    {newTipo !== 'alternativas' && (
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Vista previa</label>
-                            <div className="px-4 py-3 rounded-xl border border-dashed border-border bg-background/30">
-                                <div className="flex items-center">{TIPOS.find(t => t.value === newTipo)?.preview}</div>
-                            </div>
-                        </div>
                     )}
 
                     <div className="flex justify-end">
@@ -922,13 +716,6 @@ export function MedicionTab({ bootcampId }: { bootcampId: number }) {
                     {toast.msg}
                 </div>
             )}
-
-            {/* Drawer de resultados */}
-            <ResultadosDrawer
-                open={showResultados}
-                onClose={() => setShowResultados(false)}
-                bootcampId={bootcampId}
-            />
         </div>
     );
 }
