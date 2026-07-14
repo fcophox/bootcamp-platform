@@ -8,7 +8,8 @@ import {
     ThumbsUp, ThumbsDown, MessageSquare, List,
     GraduationCap, Code, Database, Layout, Globe, Server,
     Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network,
-    Terminal, Microscope, Rocket, Binary, Menu, ArrowLeft, Send
+    Terminal, Microscope, Rocket, Binary, Menu, ArrowLeft, Send,
+    ChevronUp, ChevronDown, Heart
 } from 'lucide-react';
 import { enviarRespuestasEncuesta } from '@/app/actions/medicion';
 import type { EncuestaBootcamp, MedicionPregunta, TipoPregunta } from '@/app/actions/medicion';
@@ -142,9 +143,9 @@ function ComentarioWidget({ value, onChange }: { value: string; onChange: (v: st
         <textarea
             value={value}
             onChange={e => onChange(e.target.value)}
-            rows={4}
+            rows={6}
             placeholder="Escribe tu respuesta aquí..."
-            className="w-full px-4 py-3 rounded-xl border border-border bg-background/50 text-sm text-foreground placeholder:text-muted resize-none focus:outline-none focus:border-primary/50 transition-colors"
+            className="w-full min-w-[480px] md:min-w-[600px] px-5 py-4 rounded-xl border border-border bg-background/50 text-base text-foreground placeholder:text-muted resize-none focus:outline-none focus:border-primary/50 transition-colors"
         />
     );
 }
@@ -163,8 +164,8 @@ function AlternativasWidget({ opciones, value, onChange }: { opciones: string[];
                             : 'border-border bg-card-bg text-foreground hover:border-primary/40'
                     }`}
                 >
-                    <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${value === op ? 'border-primary' : 'border-border'}`}>
-                        {value === op && <div className="w-2 h-2 rounded-full bg-primary" />}
+                    <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${value === op ? 'border-primary bg-primary' : 'border-muted bg-background'}`}>
+                        {value === op && <Check size={11} className="text-white" strokeWidth={3} />}
                     </div>
                     {op}
                 </button>
@@ -187,7 +188,7 @@ function PreguntaWidget({ pregunta, value, onChange }: { pregunta: MedicionPregu
     }
 }
 
-// ── Vista detalle de una encuesta ─────────────────────────────────────────────
+// ── Vista detalle de una encuesta — estilo Typeform ───────────────────────────
 function EncuestaDetalle({
     encuesta,
     onBack,
@@ -197,14 +198,18 @@ function EncuestaDetalle({
     onBack: () => void;
     onEnviado: () => void;
 }) {
-    const [respuestas, setRespuestas] = useState<Record<string, string>>(
-        { ...encuesta.respuestas }
-    );
+    const total = encuesta.preguntas.length;
+    const [current, setCurrent] = useState(0); // índice actual; total = pantalla de gracias
+    const [respuestas, setRespuestas] = useState<Record<string, string>>({ ...encuesta.respuestas });
     const [isSending, startSend] = useTransition();
-    const [enviado, setEnviado] = useState(encuesta.respondidas === encuesta.totalPreguntas);
+    const [enviado, setEnviado] = useState(encuesta.respondidas === total);
     const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+    const [direction, setDirection] = useState<'forward' | 'back'>('forward');
 
     const router = useRouter();
+
+    // Si ya respondió, ir directo a pantalla de gracias
+    const step = enviado ? total : current; // total = pantalla final
 
     const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
         setToast({ msg, type });
@@ -215,8 +220,25 @@ function EncuestaDetalle({
         setRespuestas(prev => ({ ...prev, [preguntaId]: valor }));
     };
 
-    const totalRespondidas = encuesta.preguntas.filter(p => respuestas[p.id] !== undefined && respuestas[p.id] !== '').length;
-    const allAnswered = totalRespondidas === encuesta.preguntas.length;
+    const preguntaActual = encuesta.preguntas[current];
+    const valorActual = preguntaActual ? (respuestas[preguntaActual.id] ?? '') : '';
+    const respondida = valorActual !== '';
+
+    const goNext = () => {
+        setDirection('forward');
+        if (current < total - 1) {
+            setCurrent(c => c + 1);
+        } else {
+            // Última pregunta → enviar
+            handleEnviar();
+        }
+    };
+
+    const goPrev = () => {
+        setDirection('back');
+        if (current > 0) setCurrent(c => c - 1);
+        else onBack();
+    };
 
     const handleEnviar = () => {
         startSend(async () => {
@@ -226,95 +248,100 @@ function EncuestaDetalle({
                     .map(([preguntaId, valor]) => ({ preguntaId, valor }));
                 await enviarRespuestasEncuesta(items);
                 setEnviado(true);
-                showToast('¡Encuesta enviada correctamente!');
-                setTimeout(() => { onEnviado(); router.refresh(); }, 1500);
+                setCurrent(total); // pantalla de gracias
+                router.refresh();
             } catch (e: any) {
                 showToast(e.message, 'error');
             }
         });
     };
 
-    const IconComponent = encuesta.icon ? ICON_MAP[encuesta.icon] || GraduationCap : GraduationCap;
-    const bgClass = encuesta.color ? COLOR_MAP[encuesta.color] || 'bg-primary' : 'bg-primary';
+    const isLastQuestion = current === total - 1;
+    const pct = total > 0 ? Math.round(((current + (respondida ? 1 : 0)) / total) * 100) : 0;
 
-    return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-            {/* Back + header del bootcamp */}
-            <div className="flex items-center gap-4">
+    // ── Pantalla de gracias ────────────────────────────────────────────────────
+    if (step === total) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[70vh] text-center animate-in fade-in zoom-in-95 duration-500 px-4">
+                <div className="w-20 h-20 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mb-6">
+                    <Heart size={36} className="text-green-500" fill="currentColor" />
+                </div>
+                <h2 className="text-2xl font-bold text-foreground mb-3">¡Gracias por responder!</h2>
+                <p className="text-sm text-muted max-w-xs leading-relaxed mb-8">
+                    Tu feedback es muy valioso para mejorar la experiencia del bootcamp.
+                </p>
                 <button
                     onClick={onBack}
-                    className="p-2 rounded-xl border border-border bg-card-bg hover:bg-hover-bg transition-colors text-muted hover:text-foreground"
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 transition-colors"
                 >
-                    <ArrowLeft size={16} />
+                    <ArrowLeft size={15} /> Volver a encuestas
                 </button>
-                <div className={`w-10 h-10 rounded-full ${bgClass} flex items-center justify-center text-white shrink-0 shadow-lg`}>
-                    <IconComponent size={20} />
-                </div>
-                <div>
-                    <h2 className="text-base font-bold text-foreground">{encuesta.title}</h2>
-                    <p className="text-xs text-muted">{encuesta.totalPreguntas} {encuesta.totalPreguntas === 1 ? 'pregunta' : 'preguntas'}</p>
-                </div>
+            </div>
+        );
+    }
 
-                {/* Progress pill */}
-                <div className="ml-auto flex items-center gap-2">
-                    <div className="text-xs font-bold text-muted">{totalRespondidas}/{encuesta.totalPreguntas}</div>
-                    <div className="w-24 h-1.5 rounded-full bg-border overflow-hidden">
-                        <div
-                            className="h-full bg-primary rounded-full transition-all duration-500"
-                            style={{ width: `${encuesta.totalPreguntas > 0 ? (totalRespondidas / encuesta.totalPreguntas) * 100 : 0}%` }}
-                        />
-                    </div>
+    // ── Vista Typeform ─────────────────────────────────────────────────────────
+    return (
+        <div className="flex flex-col min-h-[80vh]">
+
+            {/* Barra de progreso superior */}
+            <div className="w-full h-1 bg-border rounded-full overflow-hidden mb-10">
+                <div
+                    className="h-full bg-primary rounded-full transition-all duration-500"
+                    style={{ width: `${pct}%` }}
+                />
+            </div>
+
+            {/* Contador */}
+            <div className="text-center mb-2">
+                <span className="text-xs font-bold text-muted uppercase tracking-widest">
+                    Pregunta {current + 1} de {total}
+                </span>
+            </div>
+
+            {/* Pregunta centrada */}
+            <div
+                key={current}
+                className={`flex-1 flex flex-col items-center justify-center text-center gap-8 animate-in fade-in duration-300 ${
+                    direction === 'forward' ? 'slide-in-from-right-4' : 'slide-in-from-left-4'
+                }`}
+            >
+                <h2 className="text-xl md:text-2xl font-semibold text-foreground max-w-xl leading-snug">
+                    {preguntaActual.texto}
+                </h2>
+
+                <div className="flex justify-center">
+                    <PreguntaWidget
+                        pregunta={preguntaActual}
+                        value={valorActual}
+                        onChange={v => handleChange(preguntaActual.id, v)}
+                    />
                 </div>
             </div>
 
-            {/* Banner ya respondida */}
-            {enviado && (
-                <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-green-500/10 border border-green-500/20 text-green-500">
-                    <Check size={18} />
-                    <p className="text-sm font-semibold">Ya respondiste esta encuesta. ¡Gracias por tu feedback!</p>
-                </div>
-            )}
+            {/* Navegación */}
+            <div className="flex items-center justify-between pt-10 pb-4">
+                <button
+                    onClick={goPrev}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card-bg text-sm font-semibold text-muted hover:text-foreground hover:border-primary/40 transition-colors"
+                >
+                    <ArrowLeft size={15} />
+                    {current === 0 ? 'Salir' : 'Anterior'}
+                </button>
 
-            {/* Preguntas */}
-            <div className="space-y-4">
-                {encuesta.preguntas.map((p, idx) => {
-                    const respondida = respuestas[p.id] !== undefined && respuestas[p.id] !== '';
-                    return (
-                        <div
-                            key={p.id}
-                            className={`bg-card-bg border rounded-2xl overflow-hidden transition-all ${respondida ? 'border-primary/30' : 'border-border'}`}
-                        >
-                            <div className="flex items-center gap-3 px-5 py-4 border-b border-border/50 bg-background/30">
-                                <div className={`h-7 w-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${respondida ? 'bg-primary text-white' : 'bg-primary/10 text-primary'}`}>
-                                    {respondida ? <Check size={12} /> : idx + 1}
-                                </div>
-                                <span className="text-sm font-semibold text-foreground flex-1">{p.texto}</span>
-                            </div>
-                            <div className="p-5">
-                                <PreguntaWidget
-                                    pregunta={p}
-                                    value={respuestas[p.id] ?? ''}
-                                    onChange={v => handleChange(p.id, v)}
-                                />
-                            </div>
-                        </div>
-                    );
-                })}
+                <button
+                    onClick={goNext}
+                    disabled={!respondida || isSending}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
+                >
+                    {isSending
+                        ? <Loader2 size={15} className="animate-spin" />
+                        : isLastQuestion
+                            ? <><Send size={15} /> Enviar</>
+                            : <>Siguiente <ChevronRight size={15} /></>
+                    }
+                </button>
             </div>
-
-            {/* Botón enviar */}
-            {!enviado && (
-                <div className="flex justify-end pt-2">
-                    <button
-                        onClick={handleEnviar}
-                        disabled={isSending || !allAnswered}
-                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                        {allAnswered ? 'Enviar respuestas' : `Faltan ${encuesta.totalPreguntas - totalRespondidas} respuesta${encuesta.totalPreguntas - totalRespondidas !== 1 ? 's' : ''}`}
-                    </button>
-                </div>
-            )}
 
             {/* Toast */}
             {toast && (

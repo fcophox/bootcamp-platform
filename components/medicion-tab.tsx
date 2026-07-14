@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition } from 'react';
 import {
     Plus, Trash2, Send, BarChart3,
-    ThumbsUp, ThumbsDown, Loader2, Check, ChevronDown, X, GripVertical, MessageSquare, List, Pause, Play, Users, User
+    ThumbsUp, ThumbsDown, Loader2, Check, ChevronDown, ChevronLeft, ChevronRight, X, GripVertical, MessageSquare, List, Pause, Play, Users, User
 } from 'lucide-react';
 import {
     getMedicionPreguntas,
@@ -142,21 +142,19 @@ function TipoSelector({ value, onChange }: { value: TipoPregunta; onChange: (v: 
             </button>
 
             {open && (
-                <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-card-bg border border-border rounded-2xl shadow-xl overflow-hidden max-h-80 overflow-y-auto">
-                    {TIPOS.map(tipo => (
-                        <button
-                            key={tipo.value}
-                            type="button"
-                            onClick={() => { onChange(tipo.value); setOpen(false); }}
-                            className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-hover-bg transition-colors border-b border-border/50 last:border-0 ${value === tipo.value ? 'bg-primary/5' : ''}`}
-                        >
-                            <div>
-                                <p className={`text-sm font-semibold ${value === tipo.value ? 'text-primary' : 'text-foreground'}`}>{tipo.label}</p>
-                                <p className="text-[11px] text-muted">{tipo.description}</p>
-                            </div>
-                            <div className="shrink-0">{tipo.preview}</div>
-                        </button>
-                    ))}
+                <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-card-bg border border-border rounded-xl shadow-xl overflow-hidden">
+                    <div className="grid grid-cols-2 gap-1 p-1.5">
+                        {TIPOS.map(tipo => (
+                            <button
+                                key={tipo.value}
+                                type="button"
+                                onClick={() => { onChange(tipo.value); setOpen(false); }}
+                                className={`text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors hover:bg-hover-bg ${value === tipo.value ? 'bg-primary/10 text-primary' : 'text-foreground'}`}
+                            >
+                                {tipo.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>
@@ -273,6 +271,7 @@ function PreguntaCard({
     const [tipo, setTipo] = useState<TipoPregunta>(pregunta.tipo);
     const [opciones, setOpciones] = useState<string[]>(pregunta.opciones ?? DEFAULT_OPCIONES);
     const [isDirty, setIsDirty] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const [isSaving, startSave] = useTransition();
     const [isActioning, startAction] = useTransition();
 
@@ -308,7 +307,12 @@ function PreguntaCard({
                 <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
                     {index + 1}
                 </div>
-                <span className="text-xs font-bold text-muted uppercase tracking-wider flex-1">{getTipoLabel(tipo)}</span>
+                <div className="flex-1 min-w-0">
+                    <span className="text-xs font-bold text-muted uppercase tracking-wider">{getTipoLabel(tipo)}</span>
+                    {isCollapsed && texto.trim() && (
+                        <p className="text-xs text-foreground/70 truncate mt-0.5">{texto}</p>
+                    )}
+                </div>
 
                 {/* Badges de estado */}
                 {isPausada && (
@@ -343,6 +347,14 @@ function PreguntaCard({
                             {isPausada ? 'Reactivar' : 'Pausar'}
                         </button>
                     )}
+                    {/* Colapsar / Expandir */}
+                    <button
+                        onClick={() => setIsCollapsed(c => !c)}
+                        className="p-1.5 rounded-lg hover:bg-primary/10 text-muted hover:text-primary transition-colors"
+                        title={isCollapsed ? 'Expandir pregunta' : 'Colapsar pregunta'}
+                    >
+                        <ChevronDown size={14} className={`transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                    </button>
                     {/* Eliminar — siempre disponible */}
                     <button
                         onClick={() => onDelete(pregunta.id)}
@@ -355,7 +367,7 @@ function PreguntaCard({
             </div>
 
             {/* Body */}
-            <div className="p-5 space-y-4">
+            {!isCollapsed && <div className="p-5 space-y-4">
                 {/* Texto */}
                 <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Pregunta</label>
@@ -387,15 +399,14 @@ function PreguntaCard({
                 )}
 
                 {/* Preview */}
-                <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Vista previa del alumno</label>
-                    <div className="px-4 py-3 rounded-xl border border-dashed border-border bg-background/30">
-                        {tipo === 'alternativas'
-                            ? <AlternativasPreview opciones={opciones} />
-                            : <div className="flex items-center">{tipoDef.preview}</div>
-                        }
+                {tipo !== 'alternativas' && (
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Vista previa del alumno</label>
+                        <div className="px-4 py-3 rounded-xl border border-dashed border-border bg-background/30">
+                            <div className="flex items-center">{tipoDef.preview}</div>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Save btn */}
                 {!isSent && isDirty && (
@@ -408,7 +419,7 @@ function PreguntaCard({
                         Guardar cambios
                     </button>
                 )}
-            </div>
+            </div>}
         </div>
     );
 }
@@ -438,6 +449,79 @@ function colorValor(tipo: TipoPregunta, valor: string): string {
 }
 
 // ── Drawer de resultados ───────────────────────────────────────────────────────
+
+function PreguntaResultados({
+    preguntaTexto,
+    tipo,
+    respuestas,
+}: {
+    preguntaTexto: string;
+    tipo: TipoPregunta;
+    respuestas: { email: string; valor: string }[];
+}) {
+    const [idx, setIdx] = useState(0);
+    const total = respuestas.length;
+    const actual = respuestas[idx];
+
+    return (
+        <div className="bg-background/50 border border-border/60 rounded-2xl overflow-hidden">
+            {/* Cabecera pregunta */}
+            <div className="px-5 py-4 border-b border-border/50 bg-card-bg flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-muted uppercase tracking-wider mb-1">{formatTipoLabel(tipo)}</p>
+                    <p className="text-sm font-semibold text-foreground leading-snug">{preguntaTexto}</p>
+                </div>
+                <span className="shrink-0 text-[11px] font-black text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-full mt-0.5">
+                    {total} {total === 1 ? 'respuesta' : 'respuestas'}
+                </span>
+            </div>
+
+            {/* Carrusel de respuestas */}
+            {total === 0 ? (
+                <div className="px-5 py-6 text-center text-xs text-muted">Sin respuestas</div>
+            ) : (
+                <div className="px-5 py-4 flex items-center gap-3">
+                    {/* Flecha anterior */}
+                    <button
+                        onClick={() => setIdx(i => Math.max(0, i - 1))}
+                        disabled={idx === 0}
+                        className="p-1.5 rounded-lg border border-border bg-card-bg text-muted hover:text-foreground hover:border-primary/40 transition-colors disabled:opacity-30 shrink-0"
+                    >
+                        <ChevronLeft size={14} />
+                    </button>
+
+                    {/* Respuesta actual */}
+                    <div className="flex-1 min-w-0 text-center space-y-1.5">
+                        <p className="text-[10px] text-muted truncate">{actual.email}</p>
+                        <p className={`text-lg font-bold ${colorValor(tipo, actual.valor)}`}>
+                            {formatValor(tipo, actual.valor)}
+                        </p>
+                        <p className="text-[10px] text-muted">{idx + 1} / {total}</p>
+                    </div>
+
+                    {/* Flecha siguiente */}
+                    <button
+                        onClick={() => setIdx(i => Math.min(total - 1, i + 1))}
+                        disabled={idx === total - 1}
+                        className="p-1.5 rounded-lg border border-border bg-card-bg text-muted hover:text-foreground hover:border-primary/40 transition-colors disabled:opacity-30 shrink-0"
+                    >
+                        <ChevronRight size={14} />
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function formatTipoLabel(tipo: TipoPregunta): string {
+    const map: Record<TipoPregunta, string> = {
+        likert_5: 'Escala Likert 1–5', caras: 'Caritas', nps: 'NPS 0–10',
+        like_dislike: 'Like / Dislike', escala_7: 'Escala 1–7', escala_3: 'Escala 1–3',
+        comentario: 'Comentario', alternativas: 'Alternativas',
+    };
+    return map[tipo] ?? tipo;
+}
+
 function ResultadosDrawer({
     open,
     onClose,
@@ -457,6 +541,18 @@ function ResultadosDrawer({
             .then(d => setData(d))
             .finally(() => setIsLoading(false));
     }, [open, bootcampId]);
+
+    // Agrupar por pregunta
+    const porPregunta = data ? (() => {
+        const map: Record<string, { texto: string; tipo: TipoPregunta; respuestas: { email: string; valor: string }[] }> = {};
+        for (const alumno of data.alumnos) {
+            for (const r of alumno.respuestas) {
+                if (!map[r.preguntaId]) map[r.preguntaId] = { texto: r.preguntaTexto, tipo: r.tipo, respuestas: [] };
+                map[r.preguntaId].respuestas.push({ email: alumno.email, valor: r.valor });
+            }
+        }
+        return Object.entries(map);
+    })() : [];
 
     return (
         <>
@@ -509,39 +605,15 @@ function ResultadosDrawer({
                         </div>
                     )}
 
-                    {!isLoading && data && data.alumnos.length > 0 && (
+                    {!isLoading && porPregunta.length > 0 && (
                         <div className="p-5 space-y-4">
-                            {data.alumnos.map((alumno, idx) => (
-                                <div key={alumno.userId} className="bg-background/50 border border-border/60 rounded-2xl overflow-hidden">
-                                    {/* Alumno header */}
-                                    <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border/50 bg-card-bg">
-                                        <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 font-bold text-sm">
-                                            {alumno.email.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-bold text-foreground truncate">{alumno.email}</p>
-                                            <p className="text-[10px] text-muted">{alumno.respuestas.length} {alumno.respuestas.length === 1 ? 'respuesta' : 'respuestas'}</p>
-                                        </div>
-                                        <span className="ml-auto text-[10px] font-black text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full shrink-0">
-                                            #{idx + 1}
-                                        </span>
-                                    </div>
-
-                                    {/* Respuestas */}
-                                    <div className="divide-y divide-border/40">
-                                        {alumno.respuestas.map(r => (
-                                            <div key={r.preguntaId} className="px-4 py-3 flex items-start gap-3">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-primary/50 mt-2 shrink-0" />
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-xs text-muted mb-1 leading-snug">{r.preguntaTexto}</p>
-                                                    <p className={`text-sm font-bold ${colorValor(r.tipo, r.valor)}`}>
-                                                        {formatValor(r.tipo, r.valor)}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
+                            {porPregunta.map(([preguntaId, { texto, tipo, respuestas }]) => (
+                                <PreguntaResultados
+                                    key={preguntaId}
+                                    preguntaTexto={texto}
+                                    tipo={tipo}
+                                    respuestas={respuestas}
+                                />
                             ))}
                         </div>
                     )}
@@ -732,15 +804,14 @@ export function MedicionTab({ bootcampId }: { bootcampId: number }) {
                     )}
 
                     {/* Preview */}
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Vista previa</label>
-                        <div className="px-4 py-3 rounded-xl border border-dashed border-border bg-background/30">
-                            {newTipo === 'alternativas'
-                                ? <AlternativasPreview opciones={newOpciones} />
-                                : <div className="flex items-center">{TIPOS.find(t => t.value === newTipo)?.preview}</div>
-                            }
+                    {newTipo !== 'alternativas' && (
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-muted uppercase tracking-wider">Vista previa</label>
+                            <div className="px-4 py-3 rounded-xl border border-dashed border-border bg-background/30">
+                                <div className="flex items-center">{TIPOS.find(t => t.value === newTipo)?.preview}</div>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="flex justify-end">
                         <button
