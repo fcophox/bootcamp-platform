@@ -18,7 +18,7 @@ import {
     Headphones,
     Presentation,
     Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary,
-    FileUp, Search
+    FileUp, Search, Video
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -58,6 +58,7 @@ const COLOR_MAP: Record<string, string> = {
 interface BootcampClientProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     bootcamp: any;
+    masterclass?: { videoUrl?: string | null; description?: string | null; materials?: { name: string; url: string }[] } | null;
 }
 
 interface StudentLesson {
@@ -124,7 +125,7 @@ const getLessonDurationInfo = (lesson: any) => {
     }
 };
 
-export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps) {
+export default function BootcampDetailsClient({ bootcamp, masterclass }: BootcampClientProps) {
 
     const { isCollapsed } = useSidebar();
 
@@ -380,6 +381,15 @@ export default function BootcampDetailsClient({ bootcamp }: BootcampClientProps)
                             <div className="flex items-center gap-3">
                                 <BarChart3 size={24} className="text-violet-500" />
                                 <h2 className="text-xl font-bold text-foreground">Plan de Estudios</h2>
+                                {masterclass?.videoUrl && (
+                                    <Link
+                                        href={`/dashboard/bootcamp/${bootcamp.id}/masterclass`}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-400 hover:bg-violet-500/20 transition-colors text-xs font-semibold"
+                                    >
+                                        <Video size={13} />
+                                        Ver Masterclass
+                                    </Link>
+                                )}
                             </div>
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={16} />

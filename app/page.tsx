@@ -123,46 +123,54 @@ export default async function Home(props: Props) {
       <main className="flex-1 flex flex-col items-center px-6 pb-24 w-full">
         
         {/* HERO */}
-        <section className="relative w-full max-w-6xl mx-auto pt-24 pb-20 md:pt-32 md:pb-28 flex flex-col items-center text-center">
+        <section className="relative w-full max-w-6xl mx-auto pt-24 pb-20 md:pt-32 md:pb-28 flex flex-col md:flex-row items-center gap-12">
           {/* Background Gradient Orbs */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-violet-600/20 to-cyan-400/20 rounded-full blur-[100px] pointer-events-none -z-10"></div>
-          
-          <div className="mb-2 p-2 rounded-3xl flex items-center justify-center">
-             <div className="relative h-40 w-40">
-               <Image
-                 src="/brand/logotipo-academy.png"
-                 alt="Logo"
-                 fill
-                 className="object-contain"
-               />
-             </div>
+
+          {/* Left: texto */}
+          <div className="flex flex-col items-start text-left flex-1 z-10">
+            <div className="mb-2 p-2 rounded-3xl flex items-center justify-start">
+               <div className="relative h-40 w-40">
+                 <Image
+                   src="/brand/logotipo-academy.png"
+                   alt="Logo"
+                   fill
+                   className="object-contain"
+                 />
+               </div>
+            </div>
+
+            <h1 className="text-5xl md:text-6xl font-light tracking-tight text-foreground mb-6 max-w-xl">
+              {t.heroTitlePart1} <br className="hidden md:block"/>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-cyan-400">
+                {t.heroTitlePart2}
+              </span>
+            </h1>
+
+            <p className="text-xl md:text-2xl text-muted max-w-lg mb-10 leading-relaxed font-light">
+              {t.heroSubtitle}
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+              <Link
+                href="/login?mode=signup"
+                className="group inline-flex h-14 items-center justify-center rounded-full bg-foreground px-8 text-base font-medium text-background transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.1)]"
+              >
+                {t.heroCta1}
+                <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex h-14 items-center justify-center rounded-full border border-border bg-transparent px-8 text-base font-medium text-foreground transition-all hover:bg-white/5 hover:border-white/20"
+              >
+                {t.heroCta2}
+              </Link>
+            </div>
           </div>
 
-          <h1 className="text-5xl md:text-6xl font-light tracking-tight text-foreground mb-6 max-w-6xl">
-            {t.heroTitlePart1} <br className="hidden md:block"/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-cyan-400">
-              {t.heroTitlePart2}
-            </span>
-          </h1>
-
-          <p className="text-xl md:text-2xl text-muted max-w-2xl mb-10 leading-relaxed font-light">
-            {t.heroSubtitle}
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-            <Link
-              href="/login?mode=signup"
-              className="group inline-flex h-14 items-center justify-center rounded-full bg-foreground px-8 text-base font-medium text-background transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.1)]"
-            >
-              {t.heroCta1}
-              <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-            </Link>
-            <Link
-              href="/login"
-              className="inline-flex h-14 items-center justify-center rounded-full border border-border bg-transparent px-8 text-base font-medium text-foreground transition-all hover:bg-white/5 hover:border-white/20"
-            >
-              {t.heroCta2}
-            </Link>
+          {/* Right: avatar collage */}
+          <div className="hidden md:flex flex-1 items-center justify-center">
+            <Image src="/avatar/avatares.svg" alt="avatares" width={800} height={880} className="object-contain w-full max-w-[800px]" />
           </div>
         </section>
 

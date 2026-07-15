@@ -1,4 +1,5 @@
 import { getBootcamp } from '@/app/actions/bootcamp';
+import { getMasterclass } from '@/app/actions/masterclass';
 import BootcampDetailsClient from './bootcamp-client';
 import { notFound } from 'next/navigation';
 
@@ -8,15 +9,16 @@ export default async function BootcampDetailsPage({ params }: { params: { id: st
     const resolvedParams = await Promise.resolve(params);
     const id = parseInt(resolvedParams.id);
 
-    // Fetch by ID (reverted from slug)
-    const bootcamp = await getBootcamp(id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [bootcamp, masterclass] = await Promise.all([
+        getBootcamp(id),
+        getMasterclass(id),
+    ]);
 
     if (!bootcamp) {
         return notFound();
     }
 
-    // Sort modules and lessons
-    // Sort modules and lessons
     if (bootcamp.modules) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         bootcamp.modules.sort((a: any, b: any) => a.order - b.order || a.id - b.id);
@@ -29,5 +31,5 @@ export default async function BootcampDetailsPage({ params }: { params: { id: st
         });
     }
 
-    return <BootcampDetailsClient bootcamp={bootcamp} />;
+    return <BootcampDetailsClient bootcamp={bootcamp} masterclass={masterclass} />;
 }
