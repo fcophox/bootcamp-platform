@@ -103,14 +103,6 @@ export default function MasterclassClient({ bootcamp, masterclass }: Props) {
                             )}
                         </div>
 
-                        {/* Descripción */}
-                        {masterclass.description && (
-                            <div className="bg-card-bg border border-border rounded-2xl p-6">
-                                <h2 className="text-sm font-semibold text-foreground mb-3">Descripción</h2>
-                                <p className="text-sm text-muted leading-relaxed whitespace-pre-line">{masterclass.description}</p>
-                            </div>
-                        )}
-
                         {/* Materiales */}
                         {masterclass.materials && masterclass.materials.length > 0 && (
                             <div className="bg-card-bg border border-border rounded-2xl p-6">
@@ -136,6 +128,17 @@ export default function MasterclassClient({ bootcamp, masterclass }: Props) {
                                         </a>
                                     ))}
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Descripción */}
+                        {masterclass.description && (
+                            <div className="bg-card-bg border border-border rounded-2xl p-6">
+                                <h2 className="text-sm font-semibold text-foreground mb-3">Descripción</h2>
+                                <div
+                                    className="tiptap-content max-w-none text-muted"
+                                    dangerouslySetInnerHTML={{ __html: masterclass.description }}
+                                />
                             </div>
                         )}
 

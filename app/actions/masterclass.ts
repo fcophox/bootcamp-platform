@@ -68,5 +68,6 @@ export async function saveMasterclass(bootcampId: number, updates: { videoUrl?: 
 
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
     revalidatePath(`/dashboard/bootcamp/${bootcampId}`);
+    revalidatePath(`/dashboard/bootcamp/${bootcampId}/masterclass`);
     return { success: true };
 }

@@ -2849,44 +2849,77 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     <label className="text-xs font-semibold text-muted uppercase tracking-wider block">
                                                         Enlace o Video de la Clase
                                                     </label>
-                                                    <div className="flex gap-2">
-                                                        <input
-                                                            type="text"
-                                                            placeholder="URL del video (YouTube, Vimeo, Azure...)"
-                                                            value={videoUrl}
-                                                            onChange={(e) => setVideoUrl(e.target.value)}
-                                                            className="flex-1 px-4 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
-                                                        />
-                                                        <label className="flex items-center justify-center gap-2 px-4 py-2.5 bg-secondary text-foreground text-sm rounded-lg hover:bg-secondary/80 transition-colors cursor-pointer border border-border">
-                                                            <Upload size={16} />
-                                                            <span>Subir</span>
-                                                            <input
-                                                                type="file"
-                                                                accept="video/*"
-                                                                className="hidden"
-                                                                onChange={async (e) => {
-                                                                    const file = e.target.files?.[0];
-                                                                    if (!file) return;
-                                                                    try {
-                                                                        setUploadingFile(file.name);
-                                                                        const path = `bootcamps/${bootcamp.id}/masterclass/video-${Date.now()}-${file.name}`;
-                                                                        const url = await uploadToAzure(file, path);
-                                                                        setVideoUrl(url);
-                                                                        setToast({ show: true, message: "Video subido con éxito a Azure" });
-                                                                    } catch (err: any) {
-                                                                        alert("Error al subir video: " + err.message);
-                                                                    } finally {
-                                                                        setUploadingFile(null);
-                                                                    }
-                                                                }}
-                                                            />
+
+                                                    {/* Zona de Examinar */}
+                                                    <input
+                                                        type="file"
+                                                        accept="video/*"
+                                                        className="hidden"
+                                                        id="masterclass-video-upload"
+                                                        onChange={async (e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (!file) return;
+                                                            try {
+                                                                setUploadingFile(file.name);
+                                                                const path = `bootcamps/${bootcamp.id}/masterclass/video-${Date.now()}-${file.name}`;
+                                                                const url = await uploadToAzure(file, path);
+                                                                setVideoUrl(url);
+                                                                setToast({ show: true, message: "Video subido con éxito a Azure" });
+                                                            } catch (err: any) {
+                                                                alert("Error al subir video: " + err.message);
+                                                            } finally {
+                                                                setUploadingFile(null);
+                                                            }
+                                                        }}
+                                                    />
+                                                    {!videoUrl && (
+                                                        <label
+                                                            htmlFor="masterclass-video-upload"
+                                                            className={`relative flex flex-col items-center justify-center gap-3 px-4 py-8 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary hover:bg-primary/5 transition-all group ${uploadingFile ? 'opacity-50 cursor-not-allowed border-primary animate-pulse' : ''}`}
+                                                        >
+                                                            {uploadingFile ? (
+                                                                <div className="flex flex-col items-center gap-2">
+                                                                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                                                    <span className="text-sm font-medium text-primary">Subiendo {uploadingFile}...</span>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="p-3 bg-muted rounded-full group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                                                        <FileUp size={32} />
+                                                                    </div>
+                                                                    <div className="text-center">
+                                                                        <p className="text-sm font-semibold mb-1">Examinar en mi PC</p>
+                                                                        <p className="text-xs text-muted">MP4, WEBM, OGG</p>
+                                                                    </div>
+                                                                </>
+                                                            )}
                                                         </label>
+                                                    )}
+
+                                                    <div className="flex items-center gap-3 my-2">
+                                                        <div className="h-px bg-border flex-1"></div>
+                                                        <span className="text-[10px] text-muted font-bold uppercase tracking-widest">o usa un enlace externo</span>
+                                                        <div className="h-px bg-border flex-1"></div>
                                                     </div>
-                                                    {uploadingFile && (
-                                                        <div className="text-xs text-primary flex items-center gap-2 mt-1 animate-pulse">
-                                                            <Loader2 size={12} className="animate-spin" />
-                                                            Subiendo {uploadingFile}...
-                                                        </div>
+
+                                                    <input
+                                                        type="text"
+                                                        placeholder="URL del video (YouTube, Vimeo, Azure...)"
+                                                        value={videoUrl}
+                                                        onChange={(e) => setVideoUrl(e.target.value)}
+                                                        className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors"
+                                                    />
+                                                    <p className="text-xs text-muted mt-1">
+                                                        Ingresa la URL del video alojado en Azure, YouTube, Vimeo, Mux, etc.
+                                                    </p>
+                                                    {videoUrl && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setVideoUrl('')}
+                                                            className="text-xs text-red-400 hover:text-red-300 transition-colors mt-1"
+                                                        >
+                                                            Quitar video
+                                                        </button>
                                                     )}
                                                 </div>
 
@@ -2921,12 +2954,10 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                     <label className="text-xs font-semibold text-muted uppercase tracking-wider block">
                                                         Descripción
                                                     </label>
-                                                    <textarea
-                                                        rows={6}
-                                                        placeholder="Escribe una breve descripción para la masterclass..."
+                                                    <RichTextEditor
                                                         value={description}
-                                                        onChange={(e) => setDescription(e.target.value)}
-                                                        className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors resize-y min-h-[120px]"
+                                                        onChange={(val) => setDescription(val)}
+                                                        minHeight="min-h-[160px]"
                                                     />
                                                 </div>
 

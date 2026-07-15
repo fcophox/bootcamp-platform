@@ -6,8 +6,9 @@ import MasterclassClient from './masterclass-client';
 
 export const dynamic = 'force-dynamic';
 
-export default async function MasterclassPage({ params }: { params: { id: string } }) {
-    const id = parseInt(params.id);
+export default async function MasterclassPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id: idStr } = await params;
+    const id = parseInt(idStr);
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
