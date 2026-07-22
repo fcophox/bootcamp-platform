@@ -8,6 +8,8 @@ import { getStudentById, getStudentCompletions, getStudentExamAttempts } from '@
 import { redirect } from 'next/navigation';
 import { formatDateToLocal } from '@/utils/date';
 import { StudentFrequencyChart } from './frequency-chart';
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
 
 interface ProgressPageProps {
     params: Promise<{
@@ -18,18 +20,45 @@ interface ProgressPageProps {
 
 export default async function StudentProgressPage({ params }: ProgressPageProps) {
     const { id: bootcampIdStr, studentId: studentIdStr } = await params;
-    const bootcampId = parseInt(bootcampIdStr);
-    const studentId = parseInt(studentIdStr);
+    
+    // Parse IDs - could be numeric (legacy) or Convex string IDs
+    const numericBootcampId = parseInt(bootcampIdStr, 10);
+    const isNumericBootcampId = !isNaN(numericBootcampId) && String(numericBootcampId) === bootcampIdStr;
+    
+    const numericStudentId = parseInt(studentIdStr, 10);
+    const isNumericStudentId = !isNaN(numericStudentId) && String(numericStudentId) === studentIdStr;
 
-    if (isNaN(bootcampId) || isNaN(studentId)) {
+    // Fetch bootcamp from Convex
+    const bootcamp = await fetchQuery(
+        api.bootcamps.getWithModulesAndLessons,
+        isNumericBootcampId ? { legacyId: numericBootcampId } : { convexId: bootcampIdStr }
+    );
+
+    if (!bootcamp) {
         redirect('/cms');
     }
 
-    const [bootcamp, student, completions] = await Promise.all([
-        getBootcamp(bootcampId),
-        getStudentById(studentId),
-        getStudentCompletions(studentId)
-    ]);
+    // Fetch student - use the appropriate ID format
+    const studentId = isNumericStudentId ? numericStudentId : studentIdStr;
+    const student = await getStudentById(studentId);
+    
+    if (!student) {
+        redirect(`/cms/bootcamp/${bootcampIdStr}/manage`);
+    }
+
+    console.log('[StudentProgress] Student data:', { 
+        studentIdParam: studentIdStr,
+        studentId: student.id, 
+        legacyId: student.legacyId, 
+        email: student.email 
+    });
+
+    // Get completions using legacyId if available, otherwise use id
+    const completionStudentId = student.legacyId || student.id;
+    console.log('[StudentProgress] Looking for completions with studentId:', completionStudentId);
+    
+    const completions = await getStudentCompletions(completionStudentId);
+    console.log('[StudentProgress] Completions found:', completions?.length || 0);
 
     // Fetch exam attempts if student has a userId
     let examAttempts: any[] = [];
@@ -37,14 +66,11 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
         examAttempts = await getStudentExamAttempts(student.userId);
     }
 
-    console.log(`DEBUG: Student ${studentId} (${student?.email}) has ${completions?.length || 0} completions and ${examAttempts.length} exam attempts`);
-
-    if (!bootcamp || !student) {
-        redirect(`/cms/bootcamp/${bootcampId}/manage`);
-    }
+    console.log(`DEBUG: Student ${studentIdStr} (${student?.email}) has ${completions?.length || 0} completions and ${examAttempts.length} exam attempts`);
 
     // Create a set of lesson IDs that are either in completions table OR are exams with attempts
-    const completedLessonIds = new Set(completions.map(c => c.lessonId));
+    // Normalize to strings for comparison since IDs can be numbers or strings
+    const completedLessonIds = new Set(((completions as any[]) || []).map((c: any) => String(c.lessonId)));
     
     // Add exam lessons that have attempts to the completed set
     bootcamp.modules?.forEach((module: any) => {
@@ -53,20 +79,21 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
                 const examId = parseInt(lesson.content);
                 const hasAttempts = examAttempts.some(a => a.examId === examId);
                 if (hasAttempts) {
-                    completedLessonIds.add(lesson.id);
+                    completedLessonIds.add(String(lesson.id));
                 }
             }
         });
     });
 
     // Get all consumable lesson IDs in the bootcamp (excluding subtitles)
+    // Normalize to strings for comparison
     const consumableLessonIds = new Set(
         bootcamp.modules?.flatMap((m: any) => m.lessons || [])
             .filter((l: any) => l.type !== 'subtitle')
-            .map((l: any) => l.id) || []
+            .map((l: any) => String(l.id)) || []
     );
     const totalLessons = consumableLessonIds.size;
-    const completedLessonsCount = Array.from(completedLessonIds).filter(id => consumableLessonIds.has(id)).length;
+    const completedLessonsCount = Array.from(completedLessonIds).filter(id => consumableLessonIds.has(String(id))).length;
     const overallPercentage = totalLessons > 0 ? Math.round((completedLessonsCount / totalLessons) * 100) : 0;
 
     // Robust sorting helper
@@ -86,7 +113,7 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
                 <header className="h-[60px] border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-10 flex items-center px-6 gap-4">
                     <MobileMenuButton />
                     <Link 
-                        href={`/cms/bootcamp/${bootcampId}/manage`}
+                        href={`/cms/bootcamp/${bootcampIdStr}/manage`}
                         className="p-2 hover:bg-white/5 rounded-lg transition-colors text-muted hover:text-foreground"
                     >
                         <ChevronLeft size={20} />
@@ -181,7 +208,7 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
                                 const moduleLessons = module.lessons || [];
                                 const consumableLessons = moduleLessons.filter((l: any) => l.type !== 'subtitle');
                                 const moduleTotal = consumableLessons.length;
-                                const moduleCompleted = consumableLessons.filter((l: any) => completedLessonIds.has(l.id)).length;
+                                const moduleCompleted = consumableLessons.filter((l: any) => completedLessonIds.has(String(l.id))).length;
                                 const modulePercentage = moduleTotal > 0 ? Math.round((moduleCompleted / moduleTotal) * 100) : 0;
 
                                 return (
@@ -210,8 +237,8 @@ export default async function StudentProgressPage({ params }: ProgressPageProps)
                                         </div>
                                         <div className="divide-y divide-white/5">
                                             {moduleLessons.sort(sortByOrder).map((lesson: any) => {
-                                                const completion = completions.find(c => c.lessonId === lesson.id);
-                                                const isDone = completedLessonIds.has(lesson.id);
+                                                const completion = ((completions as any[]) || []).find((c: any) => String(c.lessonId) === String(lesson.id));
+                                                const isDone = completedLessonIds.has(String(lesson.id));
                                                 
                                                 // Get attempts list for tooltip regardless of isDone (though they correlate)
                                                 let attemptsList: any[] = [];

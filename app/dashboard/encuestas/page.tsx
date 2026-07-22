@@ -1,23 +1,25 @@
-import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { getEncuestasAlumno } from '@/app/actions/medicion';
 import { EncuestasClient } from './encuestas-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EncuestasPage() {
-    const supabase = await createClient();
+    const token = await convexAuthNextjsToken();
+    if (!token) return redirect('/login');
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return redirect('/login');
+    const currentUser = await fetchQuery(
+        api.users.getCurrentUserWithRole,
+        {},
+        { token }
+    );
 
-    const { data: roleData } = await supabase
-        .from('UserRole')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
+    if (!currentUser) return redirect('/login');
 
-    const role = roleData?.role || 'alumno';
+    const { role } = currentUser;
     if (role === 'docente' || role === 'superadmin') return redirect('/cms');
 
     const encuestas = await getEncuestasAlumno();

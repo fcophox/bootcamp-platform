@@ -10,7 +10,7 @@ import { createCertificate } from '@/app/actions/certificate';
 import { uploadToAzure } from '@/lib/azure-upload';
 
 interface Bootcamp {
-    id: number;
+    id: number | string;
     title: string;
     icon: string | null;
     color: string | null;
@@ -24,7 +24,7 @@ export function CreateCertificateClient({ bootcamps }: { bootcamps: Bootcamp[] }
     const [isUploading, setIsUploading] = useState(false);
     
     // Form state
-    const [bootcampId, setBootcampId] = useState<number | ''>('');
+    const [bootcampId, setBootcampId] = useState<number | string>('');
     const [backgroundImageUrl, setBackgroundImageUrl] = useState('');
     const [textColor, setTextColor] = useState('#1e293b');
     const [instructorName, setInstructorName] = useState('');
@@ -39,7 +39,7 @@ export function CreateCertificateClient({ bootcamps }: { bootcamps: Bootcamp[] }
     // Preview data
     const previewName = "Nombre del Alumno";
     const previewDate = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
-    const selectedBootcamp = bootcamps.find(b => b.id === bootcampId);
+    const selectedBootcamp = bootcamps.find(b => String(b.id) === String(bootcampId));
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
@@ -106,7 +106,7 @@ export function CreateCertificateClient({ bootcamps }: { bootcamps: Bootcamp[] }
 
         const result = await createCertificate({
             title: selectedBootcamp.title, // Usar el nombre del bootcamp como título
-            bootcampId: bootcampId as number,
+            bootcampId: bootcampId,
             backgroundImageUrl: backgroundImageUrl || undefined,
             textColor,
             instructorName: instructorName || undefined,
@@ -175,7 +175,7 @@ export function CreateCertificateClient({ bootcamps }: { bootcamps: Bootcamp[] }
                                             </label>
                                             <select
                                                 value={bootcampId}
-                                                onChange={(e) => setBootcampId(e.target.value ? parseInt(e.target.value) : '')}
+                                                onChange={(e) => setBootcampId(e.target.value)}
                                                 className="w-full px-4 py-2.5 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none"
                                             >
                                                 <option value="">Selecciona un bootcamp</option>

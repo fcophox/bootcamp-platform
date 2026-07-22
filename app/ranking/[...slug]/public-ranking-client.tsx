@@ -35,7 +35,8 @@ const COLOR_MAP: Record<string, string> = {
 };
 
 interface Student {
-    id: number;
+    id: number | string;
+    legacyId?: number;
     email: string;
     status: string;
     joinedAt?: string;
@@ -43,10 +44,10 @@ interface Student {
 }
 
 interface Module {
-    id: number;
+    id: number | string;
     title: string;
     lessons?: {
-        id: number;
+        id: number | string;
         title: string;
         type?: string;
         content?: string;
@@ -55,7 +56,7 @@ interface Module {
 
 interface PublicRankingClientProps {
     bootcamp: {
-        id: number;
+        id: number | string;
         title: string;
         startDate?: string;
         duration?: string;
@@ -65,7 +66,7 @@ interface PublicRankingClientProps {
     };
     modules: Module[];
     students: Student[];
-    initialCompletions: { studentId: number; lessonId: number; completedAt: string }[];
+    initialCompletions: { studentId: number | string; lessonId: number | string; completedAt: string | number }[];
 }
 
 export function PublicRankingClient({
@@ -99,14 +100,17 @@ export function PublicRankingClient({
         const activeStudents = students.filter(s => s.status === 'active' && s.role === 'alumno');
 
         const data = activeStudents.map(student => {
-            const studentCompletions = initialCompletions.filter(c => c.studentId === student.id);
+            // Use legacyId for matching completions, fallback to id
+            const studentKey = String(student.legacyId || student.id);
+            const studentCompletions = initialCompletions.filter(c => String(c.studentId) === studentKey);
             // Unique completions to avoid double points for same lesson, excluding subtitles
+            // Normalize IDs to strings for comparison
             const uniqueCompletedLessons = Array.from(new Set(studentCompletions.map(c => c.lessonId)))
-                .filter(id => totalLessons.some(l => l.id === id));
+                .filter(id => totalLessons.some(l => String(l.id) === String(id)));
             
             let studentPoints = 0;
             uniqueCompletedLessons.forEach(lessonId => {
-                const lesson = totalLessons.find(l => l.id === lessonId);
+                const lesson = totalLessons.find(l => String(l.id) === String(lessonId));
                 if (lesson) {
                     if (lesson.type === 'check') {
                         try {
@@ -135,8 +139,13 @@ export function PublicRankingClient({
     })();
 
     // Process completions list for activity chart - only for active students
-    const activeStudentIds = new Set(students.filter(s => s.status === 'active' && s.role === 'alumno').map(s => s.id));
-    const completionsList = initialCompletions.filter(c => activeStudentIds.has(c.studentId));
+    // Use legacyId for matching
+    const activeStudentKeys = new Set(
+        students
+            .filter(s => s.status === 'active' && s.role === 'alumno')
+            .map(s => String(s.legacyId || s.id))
+    );
+    const completionsList = initialCompletions.filter(c => activeStudentKeys.has(String(c.studentId)));
 
     // Process chart data - timeline from start date to current date
     const chartData = (() => {

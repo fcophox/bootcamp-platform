@@ -9,9 +9,9 @@ import { useSidebar } from './sidebar-context';
 import { Home, ClipboardList, Bell, User, Globe, Moon, Sun, LogOut, ChevronLeft, ChevronRight, Award, MessageSquare, ClipboardCheck, BarChart3 } from 'lucide-react';
 import { Tooltip } from './tooltip';
 import { ThemeLogo } from './theme-logo';
-import { createClient } from '@/utils/supabase/client';
-import { getRoleFromEmail } from '@/utils/roles';
-import { getUserRoleFromDBClient } from '@/utils/roles-client';
+import { useConvexAuth, useQuery } from 'convex/react';
+import { useAuthActions } from '@convex-dev/auth/react';
+import { api } from '@/convex/_generated/api';
 
 const AVAILABLE_AVATARS = [0, 1, 2, 3, 4, 5, 6, 16, 17, 18, 19, 20, 21, 43, 44, 45, 46, 47];
 
@@ -59,11 +59,26 @@ const getMenuItems = (currentRole: string): MenuSection[] => {
     return studentItems;
 };
 
+function getEmailFromCookieToken(): string {
+    try {
+        if (typeof document === 'undefined') return '';
+        const match = document.cookie.match(/(?:^|; )convexAuthToken=([^;]*)/);
+        if (match && match[1]) {
+            const token = match[1];
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.email || '';
+        }
+    } catch {}
+    return '';
+}
+
 export function Sidebar() {
     const pathname = usePathname();
-    const router = useRouter(); // Initialize router
+    const router = useRouter();
     const { isCollapsed, toggleSidebar, isMobileOpen, setIsMobileOpen } = useSidebar();
     const { setTheme, resolvedTheme } = useTheme();
+    const { signOut } = useAuthActions();
+    const { isAuthenticated } = useConvexAuth();
 
     // Close mobile sidebar on route change
     useEffect(() => {
@@ -73,21 +88,21 @@ export function Sidebar() {
     const [mounted, setMounted] = useState(false);
     const [isHoveringBorder, setIsHoveringBorder] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const [userEmail, setUserEmail] = useState('');
-    const [userName, setUserName] = useState('');
     const [avatar, setAvatar] = useState('');
-    // Inicializar rol desde sessionStorage para evitar flash en navegaciones
-    const [role, setRole] = useState<string>(() => {
-        if (typeof window === 'undefined') return '';
-        // Buscar cualquier clave role_* en sessionStorage
-        for (let i = 0; i < sessionStorage.length; i++) {
-            const key = sessionStorage.key(i);
-            if (key?.startsWith('role_')) {
-                return sessionStorage.getItem(key) || '';
-            }
-        }
-        return '';
-    });
+
+    // Get current user from Convex Auth via the users table
+    const currentUser = useQuery(api.users.viewer);
+    const cookieEmail = getEmailFromCookieToken();
+    const userEmail = currentUser?.email || cookieEmail || '';
+    const userName = currentUser?.name || (userEmail ? userEmail.split('@')[0] : '');
+
+    // Get role from legacyAuth or users table
+    const roleFromDB = useQuery(
+        api.legacyAuth.getRoleByEmail,
+        userEmail ? { email: userEmail } : "skip"
+    );
+    const fallbackRole = pathname.startsWith('/cms') ? 'superadmin' : 'alumno';
+    const role = roleFromDB || (currentUser as any)?.role || fallbackRole;
 
     // Hydration check
     useEffect(() => {
@@ -97,36 +112,6 @@ export function Sidebar() {
 
     // Close dropdown when clicking outside
     useEffect(() => {
-        async function fetchUser() {
-            const supabase = createClient();
-            const { data } = await supabase.auth.getUser();
-            if (!data.user) return;
-
-            setUserEmail(data.user.email || '');
-            setUserName(data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || '');
-            setAvatar(data.user.user_metadata?.avatar || '');
-
-            const userId = data.user.id;
-            const cacheKey = `role_${userId}`;
-
-            // 1. Usar caché de sessionStorage para render inmediato
-            const cached = sessionStorage.getItem(cacheKey);
-            if (cached) {
-                setRole(cached);
-            } else {
-                // Fallback rápido desde metadata/email mientras llega la DB
-                const quick = getRoleFromEmail(data.user.email, data.user.user_metadata);
-                setRole(quick);
-            }
-
-            // 2. Siempre verificar con la DB y actualizar caché
-            const dbRole = await getUserRoleFromDBClient(userId);
-            const finalRole = dbRole || getRoleFromEmail(data.user.email, data.user.user_metadata);
-            sessionStorage.setItem(cacheKey, finalRole);
-            setRole(finalRole);
-        }
-        fetchUser();
-
         function handleClickOutside(event: MouseEvent) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsDropdownOpen(false);
@@ -140,9 +125,11 @@ export function Sidebar() {
     }, []);
 
     const handleLogout = async () => {
-        const supabase = createClient();
-        await supabase.auth.signOut();
-        router.push('/');
+        if (typeof window !== 'undefined') {
+            sessionStorage.clear();
+        }
+        await signOut();
+        window.location.href = '/login';
     };
 
     const menuItems = getMenuItems(role);

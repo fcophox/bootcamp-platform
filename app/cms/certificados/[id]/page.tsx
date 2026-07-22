@@ -1,3 +1,6 @@
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { EditCertificateClient } from './edit-client';
@@ -5,32 +8,29 @@ import { getCertificateById } from '@/app/actions/certificate';
 
 export default async function EditCertificatePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    const supabase = await createClient();
     
-    // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-        redirect('/sign-in');
+    const token = await convexAuthNextjsToken();
+    if (!token) return redirect('/login');
+
+    // Get current user with role from Convex
+    const currentUser = await fetchQuery(
+        api.users.getCurrentUserWithRole,
+        {},
+        { token }
+    );
+
+    if (!currentUser || currentUser.role !== 'superadmin') {
+        return redirect('/dashboard');
     }
 
-    // Check user role
-    const { data: roleData } = await supabase
-        .from('UserRole')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-    if (!roleData || roleData.role !== 'superadmin') {
-        redirect('/dashboard');
-    }
-
-    // Get certificate
-    const certificate = await getCertificateById(parseInt(id));
+    // Get certificate - handle both numeric and string IDs
+    const certificate = await getCertificateById(id);
     if (!certificate) {
         redirect('/cms/certificados');
     }
 
     // Get all bootcamps for the selector
+    const supabase = await createClient();
     const { data: bootcamps } = await supabase
         .from('Bootcamp')
         .select('id, title, icon, color')

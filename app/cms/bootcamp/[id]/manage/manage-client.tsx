@@ -31,10 +31,10 @@ import { formatDateString, formatDateToLocal } from '@/utils/date';
 import { createInvitation } from '@/app/actions/invitation';
 
 interface Lesson {
-    id: number;
+    id: number | string;
     title: string;
-    type: 'text' | 'video' | 'presentation' | 'podcast' | 'pdf' | 'exam' | 'subtitle' | 'check';
-    content: string;
+    type: string; // Accepts any lesson type from the database
+    content?: string;
 }
 
 interface ExamOption {
@@ -50,13 +50,14 @@ interface ExamQuestion {
 }
 
 interface Module {
-    id: number;
+    id: number | string;
     title: string;
     lessons: Lesson[];
 }
 
 interface Student {
-    id: number;
+    id: number | string;
+    legacyId?: number;
     email: string;
     status: 'invited' | 'active' | 'completed' | 'frozen';
     invitedAt: string;
@@ -66,7 +67,7 @@ interface Student {
 
 interface ManageBootcampClientProps {
     bootcamp: {
-        id: number;
+        id: number | string;
         title: string;
         description?: string;
         icon?: string;
@@ -111,16 +112,16 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
     // UI State
                                     const [activeTab, setActiveTab] = useState<'content' | 'students' | 'room' | 'ranking' | 'masterclass'>('content');
-    const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+    const [openMenuId, setOpenMenuId] = useState<number | string | null>(null);
     const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
-    const [openModuleMenuId, setOpenModuleMenuId] = useState<number | null>(null);
+    const [openModuleMenuId, setOpenModuleMenuId] = useState<number | string | null>(null);
     const moduleMenuRef = useRef<HTMLDivElement>(null);
 
     const { onlineUsers } = useOnlineUsers();
 
     // Masterclass State
-    const [masterclassId, setMasterclassId] = useState<number | null>(null);
+    const [masterclassId, setMasterclassId] = useState<number | string | null>(null);
     const [videoUrl, setVideoUrl] = useState<string>('');
     const [description, setDescription] = useState<string>('');
     const [materials, setMaterials] = useState<{ name: string; url: string }[]>([]);
@@ -152,10 +153,10 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [rankingData, setRankingData] = useState<{
         student: Student;
         points: number;
-        completedLessonIds: number[];
+        completedLessonIds: (number | string)[];
     }[]>([]);
     const [isRankingLoading, setIsRankingLoading] = useState(true);
-    const [completionsList, setCompletionsList] = useState<{ studentId: number; lessonId: number; completedAt: string }[]>([]);
+    const [completionsList, setCompletionsList] = useState<{ studentId: number | string; lessonId: number | string; completedAt: string | number }[]>([]);
     const [chartMode, setChartMode] = useState<'day' | 'week'>('day');
     const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
 
@@ -170,12 +171,21 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             }
             try {
                 const supabase = createClient();
-                const studentIds = activeStudents.map(s => s.id);
+                
+                // Get student IDs - prefer legacyId (numeric) for matching with lessonCompletions.legacyStudentId
+                // Also include the Convex ID for fallback matching
+                const studentLegacyIds = activeStudents
+                    .map(s => s.legacyId || s.id)
+                    .filter(Boolean);
+                
+                console.log('[Ranking] activeStudents details:', JSON.stringify(activeStudents.map(s => ({ id: s.id, legacyId: s.legacyId, email: s.email }))));
                 
                 // Get all lesson IDs in this bootcamp (excluding subtitles)
-                const lessonIds = modules.flatMap(m => m.lessons || []).filter(l => l.type !== 'subtitle').map(l => l.id);
+                // Include both numeric (legacy) and string (Convex) IDs
+                const allLessons = modules.flatMap(m => m.lessons || []).filter(l => l.type !== 'subtitle');
+                const allLessonIds = allLessons.map(l => l.id);
                 
-                if (lessonIds.length === 0) {
+                if (allLessonIds.length === 0) {
                     setRankingData(activeStudents.map(student => ({
                         student,
                         points: 0,
@@ -186,11 +196,16 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 }
 
                 // Query LessonCompletion for all students of this bootcamp
+                // Using studentLegacyIds to match against legacyStudentId in lessonCompletions
+                // Include both numeric and string lessonIds for Convex compatibility
+                console.log('[Ranking] Querying completions with:', { studentLegacyIds, allLessonIds });
                 const { data: completions, error } = await supabase
                     .from('LessonCompletion')
                     .select('studentId, lessonId, completedAt')
-                    .in('studentId', studentIds)
-                    .in('lessonId', lessonIds);
+                    .in('studentId', studentLegacyIds)
+                    .in('lessonId', allLessonIds);
+
+                console.log('[Ranking] Completions result:', { completions, error });
 
                 if (error) {
                     console.error('Error fetching completions for ranking:', error);
@@ -199,25 +214,63 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
                 setCompletionsList(completions || []);
 
-                // Group completions by studentId
-                const completionsMap: Record<number, number[]> = {};
-                studentIds.forEach(id => {
-                    completionsMap[id] = [];
+                // Group completions by studentId (which matches legacyStudentId in completions)
+                // Initialize with ALL possible keys - both legacyId and id for each student
+                const completionsMap: Record<string | number, (number | string)[]> = {};
+                
+                // Initialize map with both legacyId and id keys for each student
+                activeStudents.forEach(s => {
+                    if (s.legacyId) {
+                        completionsMap[String(s.legacyId)] = [];
+                    }
+                    completionsMap[String(s.id)] = [];
                 });
+                
+                console.log('[Ranking] Initialized completionsMap keys:', Object.keys(completionsMap));
 
                 completions?.forEach((c: any) => {
-                    if (completionsMap[c.studentId]) {
-                        completionsMap[c.studentId].push(c.lessonId);
+                    const studentIdKey = String(c.studentId);
+                    // If this key exists in our map, add the lesson
+                    if (completionsMap[studentIdKey]) {
+                        completionsMap[studentIdKey].push(c.lessonId);
+                    } else {
+                        // Key doesn't exist - this means the completion is for a student not in our map
+                        // This could happen if the completion uses a different ID format
+                        console.log('[Ranking] Completion studentId not found in map:', studentIdKey);
                     }
                 });
 
+                console.log('[Ranking] completionsMap:', completionsMap);
+                console.log('[Ranking] Sample completion:', completions?.[0]);
+
                 // Map students to ranking data
                 const mappedRanking = activeStudents.map(student => {
-                    const studentCompletions = completionsMap[student.id] || [];
+                    // Use legacyId to look up completions, fallback to id
+                    // Try multiple key formats to ensure matching
+                    const legacyKey = student.legacyId ? String(student.legacyId) : null;
+                    const idKey = String(student.id);
+                    
+                    // Try legacyId first, then id
+                    let studentCompletions = legacyKey ? (completionsMap[legacyKey] || []) : [];
+                    if (studentCompletions.length === 0 && completionsMap[idKey]) {
+                        studentCompletions = completionsMap[idKey];
+                    }
+                    
+                    console.log('[Ranking] Student lookup:', { 
+                        email: student.email, 
+                        legacyId: student.legacyId, 
+                        id: student.id,
+                        legacyKey,
+                        idKey,
+                        completionsFound: studentCompletions.length, 
+                        mapKeys: Object.keys(completionsMap).slice(0, 5) // Only first 5 to avoid log spam
+                    });
+                    
                     let points = 0;
                     studentCompletions.forEach(lessonId => {
-                        // Find lesson in localModules
-                        const lesson = localModules.flatMap(m => m.lessons || []).find(l => l.id === lessonId);
+                        // Find lesson in modules (prop) - normalize IDs to string for comparison
+                        const lessonIdStr = String(lessonId);
+                        const lesson = modules.flatMap(m => m.lessons || []).find(l => String(l.id) === lessonIdStr);
                         if (lesson) {
                             if (lesson.type === 'check') {
                                 try {
@@ -230,6 +283,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                 points += 1;
                             }
                         } else {
+                            // Lesson not found in modules, still count as 1 point
                             points += 1;
                         }
                     });
@@ -239,6 +293,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                         completedLessonIds: studentCompletions
                     };
                 });
+
+                console.log('[Ranking] mappedRanking FULL:', JSON.stringify(mappedRanking.map(r => ({ email: r.student.email, legacyId: r.student.legacyId, points: r.points, completedCount: r.completedLessonIds.length }))));
 
                 // Sort by points descending
                 mappedRanking.sort((a, b) => b.points - a.points);
@@ -257,10 +313,10 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     }, [activeTab, initialStudents, modules]);
 
     // Content Management State
-    const [expandedModule, setExpandedModule] = useState<number | null>(null);
+    const [expandedModule, setExpandedModule] = useState<number | string | null>(null);
     const [isCreatingModule, setIsCreatingModule] = useState(false);
     const [newModuleTitle, setNewModuleTitle] = useState('');
-    const [activeModuleForContent, setActiveModuleForContent] = useState<number | null>(null);
+    const [activeModuleForContent, setActiveModuleForContent] = useState<number | string | null>(null);
     const [isEditingBootcampModalOpen, setIsEditingBootcampModalOpen] = useState(false);
     const [tempBootcampTitle, setTempBootcampTitle] = useState(bootcamp.title);
     const [tempDescription, setTempDescription] = useState(bootcamp.description || '');
@@ -296,9 +352,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             setIsUploadingCover(false);
         }
     };
-    const [editingModuleId, setEditingModuleId] = useState<number | null>(null);
+    const [editingModuleId, setEditingModuleId] = useState<number | string | null>(null);
     const [editingModuleTitle, setEditingModuleTitle] = useState('');
-    const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
+    const [editingLessonId, setEditingLessonId] = useState<number | string | null>(null);
     const [contentType, setContentType] = useState<'text' | 'video' | 'presentation' | 'podcast' | 'pdf' | 'exam' | 'exam_formal' | 'subtitle' | 'check' | null>(null);
     const [contentTitle, setContentTitle] = useState('');
 
@@ -320,17 +376,17 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
     // Drag and Drop State
     const [localModules, setLocalModules] = useState(modules);
-    const [draggedLessonId, setDraggedLessonId] = useState<number | null>(null);
-    const [draggedModuleId, setDraggedModuleId] = useState<number | null>(null);
-    const [dragOverLessonId, setDragOverLessonId] = useState<number | null>(null);
-    const [dragOverModuleId, setDragOverModuleId] = useState<number | null>(null);
+    const [draggedLessonId, setDraggedLessonId] = useState<number | string | null>(null);
+    const [draggedModuleId, setDraggedModuleId] = useState<number | string | null>(null);
+    const [dragOverLessonId, setDragOverLessonId] = useState<number | string | null>(null);
+    const [dragOverModuleId, setDragOverModuleId] = useState<number | string | null>(null);
     const [draggedOptionId, setDraggedOptionId] = useState<string | null>(null);
     const [dragOverOptionId, setDragOverOptionId] = useState<string | null>(null);
 
     // Accordion state for separators (subtitles)
-    const [collapsedSeparators, setCollapsedSeparators] = useState<Record<number, boolean>>({});
+    const [collapsedSeparators, setCollapsedSeparators] = useState<Record<number | string, boolean>>({});
 
-    const toggleSeparator = (separatorId: number) => {
+    const toggleSeparator = (separatorId: number | string) => {
         setCollapsedSeparators(prev => ({
             ...prev,
             [separatorId]: !prev[separatorId]
@@ -407,7 +463,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     };
 
     // Helpers
-    const toggleModule = (id: number) => {
+    const toggleModule = (id: number | string) => {
         setExpandedModule(expandedModule === id ? null : id);
     };
 
@@ -532,14 +588,15 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
     };
 
-    const handleEditLesson = (lesson: Lesson, moduleId: number) => {
+    const handleEditLesson = (lesson: Lesson, moduleId: number | string) => {
         setActiveModuleForContent(moduleId);
         setEditingLessonId(lesson.id);
-        setContentType(lesson.type);
+        setContentType(lesson.type as any);
         setContentTitle(lesson.title);
+        const lessonContent = lesson.content || '';
         if (lesson.type === 'exam') {
             try {
-                const parsed = JSON.parse(lesson.content);
+                const parsed = JSON.parse(lessonContent);
                 if (Array.isArray(parsed)) {
                     setExamQuestions(parsed);
                     setExamDuration(15);
@@ -554,26 +611,26 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             }
         } else if (lesson.type === 'text') {
             try {
-                const parsed = JSON.parse(lesson.content);
+                const parsed = JSON.parse(lessonContent);
                 // Check if it's our new JSON format
                 if (parsed.html !== undefined || parsed.imageUrl !== undefined) {
                     setEditorContent(parsed.html || '');
                     setResourceContent(parsed.imageUrl || '');
                 } else {
                     // It's just a JSON string that isn't our structure? Unlikely for 'text', assume plain string fallback
-                    setEditorContent(lesson.content);
+                    setEditorContent(lessonContent);
                     setResourceContent('');
                 }
             } catch {
                 // Legacy plain text content
-                setEditorContent(lesson.content);
+                setEditorContent(lessonContent);
                 setResourceContent('');
             }
             // Reset exam state just in case
             setExamQuestions([{ id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }]);
         } else if (lesson.type === 'check') {
             try {
-                const parsed = JSON.parse(lesson.content);
+                const parsed = JSON.parse(lessonContent);
                 setCheckValue(Number(parsed.value) || 1);
                 setCheckDescription(parsed.description || '');
             } catch {
@@ -585,18 +642,18 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         } else {
             // Try to parse JSON for other types (Video, etc)
             try {
-                const parsed = JSON.parse(lesson.content);
+                const parsed = JSON.parse(lessonContent);
                 if (parsed.url !== undefined) {
                     setResourceContent(parsed.url);
                     setEditorContent(parsed.html || '');
                 } else {
                     // Legacy: content is just URL
-                    setResourceContent(lesson.content);
+                    setResourceContent(lessonContent);
                     setEditorContent('');
                 }
             } catch {
                 // Not JSON, treat as legacy URL
-                setResourceContent(lesson.content);
+                setResourceContent(lessonContent);
                 setEditorContent('');
             }
             // Reset exam state just in case
@@ -604,7 +661,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         }
     };
 
-    const handleToggleStatus = async (studentId: number, newStatus: 'invited' | 'active' | 'completed' | 'frozen') => {
+    const handleToggleStatus = async (studentId: number | string, newStatus: 'invited' | 'active' | 'completed' | 'frozen') => {
         setIsActionLoading(true);
         try {
             await updateStudentStatus(studentId, bootcamp.id, newStatus);
@@ -672,7 +729,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         }
     };
 
-    const handleUpdateModule = async (moduleId: number) => {
+    const handleUpdateModule = async (moduleId: number | string) => {
         if (!editingModuleTitle.trim()) return;
         setIsActionLoading(true);
         try {
@@ -741,11 +798,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     };
 
     // DRAG AND DROP HANDLERS
-    const handleLessonDragStart = (lessonId: number) => {
+    const handleLessonDragStart = (lessonId: number | string) => {
         setDraggedLessonId(lessonId);
     };
 
-    const handleLessonDragOver = (e: React.DragEvent, targetLessonId: number) => {
+    const handleLessonDragOver = (e: React.DragEvent, targetLessonId: number | string) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         if (draggedLessonId !== null && draggedLessonId !== targetLessonId) {
@@ -754,7 +811,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     };
 
 
-    const handleLessonDrop = async (targetLessonId: number, moduleId: number) => {
+    const handleLessonDrop = async (targetLessonId: number | string, moduleId: number | string) => {
         setDragOverLessonId(null);
         if (draggedLessonId === null || draggedLessonId === targetLessonId) return;
 
@@ -825,11 +882,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         }
     };
 
-    const handleModuleDragStart = (moduleId: number) => {
+    const handleModuleDragStart = (moduleId: number | string) => {
         setDraggedModuleId(moduleId);
     };
 
-    const handleModuleDragOver = (e: React.DragEvent, targetModuleId: number) => {
+    const handleModuleDragOver = (e: React.DragEvent, targetModuleId: number | string) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         if (draggedModuleId !== null && draggedModuleId !== targetModuleId) {
@@ -838,7 +895,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     };
 
 
-    const handleModuleDrop = async (targetModuleId: number) => {
+    const handleModuleDrop = async (targetModuleId: number | string) => {
         setDragOverModuleId(null);
         if (draggedModuleId === null || draggedModuleId === targetModuleId) return;
 
@@ -1407,6 +1464,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
     // Process chart data - timeline from start date to current date
     const chartData = (() => {
+        console.log('[Chart] bootcamp.startDate:', bootcamp.startDate);
+        
         const parseStartDate = (startDateStr?: string | null): Date => {
             if (!startDateStr) {
                 return new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
@@ -1449,7 +1508,13 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         const counts: Record<string, number> = {};
         completionsList.forEach(c => {
             if (c.completedAt) {
-                const date = new Date(c.completedAt);
+                // Handle both string dates and numeric timestamps
+                let date: Date;
+                if (typeof c.completedAt === 'number') {
+                    date = new Date(c.completedAt);
+                } else {
+                    date = new Date(c.completedAt);
+                }
                 if (!isNaN(date.getTime())) {
                     const key = getLocalDateString(date);
                     counts[key] = (counts[key] || 0) + 1;

@@ -13,7 +13,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { EncuestaGestion, AlumnoBootcamp } from '@/app/actions/medicion';
-import { enviarMedicion, retirarMedicion, eliminarEncuesta, getAlumnosBootcamp, pausarEncuesta, reactivarEncuesta } from '@/app/actions/medicion';
+import { enviarMedicion, retirarMedicion, eliminarEncuesta, getAlumnosBootcamp, pausarEncuesta, reactivarEncuesta, enviarEncuestaPorEmail } from '@/app/actions/medicion';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ICON_MAP: Record<string, any> = {
@@ -262,7 +262,7 @@ export function EncuestasGestionClient({ encuestas }: { encuestas: EncuestaGesti
     const [modalEliminarEnc, setModalEliminarEnc] = useState<EncuestaGestion | null>(null);
     const [isPending, startTransition] = useTransition();
     const [toast, setToast] = useState<string | null>(null);
-    const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+    const [openMenuId, setOpenMenuId] = useState<number | string | null>(null);
 
     // Cerrar menú al click fuera
     useEffect(() => {
@@ -317,11 +317,19 @@ export function EncuestasGestionClient({ encuestas }: { encuestas: EncuestaGesti
         if (!modalEnc) return;
         startTransition(async () => {
             try {
+                // Si ya estaba enviada, primero la retiramos para resetear
                 if (modalEnc.enviadas > 0) {
                     await retirarMedicion(modalEnc.bootcampId);
                 }
-                await enviarMedicion(modalEnc.bootcampId);
-                setToast(`Encuesta enviada a ${selectedEmails.length} alumno${selectedEmails.length !== 1 ? 's' : ''} de "${modalEnc.bootcampTitle}"`);
+                
+                // Activar encuesta para los alumnos seleccionados
+                await enviarEncuestaPorEmail(
+                    modalEnc.bootcampId,
+                    modalEnc.bootcampTitle,
+                    selectedEmails
+                );
+                
+                setToast(`Encuesta activada para ${selectedEmails.length} alumno${selectedEmails.length !== 1 ? 's' : ''} de "${modalEnc.bootcampTitle}". Ya pueden verla en su dashboard.`);
                 setModalEnc(null);
                 setTimeout(() => setToast(null), 4000);
                 router.refresh();

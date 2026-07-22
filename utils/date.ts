@@ -81,9 +81,22 @@ export function formatDateString(dateStr: string | null | undefined): string {
     return dateStr;
 }
 
-export function formatDateToLocal(dateInput: Date | string | null | undefined): string {
-    if (!dateInput) return '--';
-    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+export function formatDateToLocal(dateInput: Date | string | number | null | undefined): string {
+    if (dateInput === null || dateInput === undefined) return '--';
+    
+    let date: Date;
+    
+    if (dateInput instanceof Date) {
+        date = dateInput;
+    } else if (typeof dateInput === 'string') {
+        date = new Date(dateInput);
+    } else if (typeof dateInput === 'number') {
+        // Handle Unix timestamp (seconds or milliseconds)
+        date = new Date(dateInput > 9999999999 ? dateInput : dateInput * 1000);
+    } else {
+        return '--';
+    }
+    
     if (isNaN(date.getTime())) return '--';
     return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }

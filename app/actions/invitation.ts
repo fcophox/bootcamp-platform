@@ -8,7 +8,7 @@ function generateRandomToken(length: number = 24): string {
     return randomBytes(length).toString('hex').slice(0, length);
 }
 
-export async function createInvitation(bootcampId: number): Promise<{ token: string } | { error: string }> {
+export async function createInvitation(bootcampId: number | string): Promise<{ token: string } | { error: string }> {
     const supabase = await createClient();
     
     // 1. Get current user
@@ -36,24 +36,41 @@ export async function createInvitation(bootcampId: number): Promise<{ token: str
     }
 
     const token = generateRandomToken(30);
+    
+    // Set expiration to 7 days from now
+    const expiresAt = Date.now() + (7 * 24 * 60 * 60 * 1000);
+    
+    // Determine if bootcampId is numeric (legacy) or string (Convex ID)
+    const numericId = typeof bootcampId === 'number' 
+        ? bootcampId 
+        : parseInt(String(bootcampId), 10);
+    
+    const isLegacyId = !isNaN(numericId) && String(numericId) === String(bootcampId);
 
-    // 4. Perform insert. 
-    const { data: invitation, error } = await supabase
+    // 4. Perform insert with all required fields for Convex
+    const { error } = await supabase
         .from('Invitation')
-        .insert({ bootcampId, token })
-        .select('token')
-        .single();
+        .insert({ 
+            // Store the original bootcampId (could be Convex ID string or legacy numeric)
+            bootcampId: bootcampId,
+            // Only set legacyBootcampId if it's actually a numeric ID
+            legacyBootcampId: isLegacyId ? numericId : null,
+            token,
+            isUsed: false,
+            status: 'pending',
+            expiresAt,
+            createdAt: Date.now(),
+        });
 
     if (error) {
-        console.error('[INVITE ERROR] Code:', error.code, 'Msg:', error.message);
-        if (error.code === '42501') {
-            return { error: 'Error de permisos de base de datos (RS). Por favor, ejecuta la migración 11 en Supabase.' };
-        }
+        console.error('[INVITE ERROR]', error);
         return { error: 'No se pudo crear el enlace. Verifica los permisos de invitación.' };
     }
 
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
-    return { token: invitation.token };
+    
+    // Return the token we generated (not from DB response)
+    return { token };
 }
 
 export async function validateInvitation(token: string): Promise<{ bootcampId: number } | { error: string }> {

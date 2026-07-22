@@ -62,9 +62,9 @@ export async function submitExam(examId: number, answers: { questionId: number; 
 
     // Map correct options for easy lookup
     const correctMap = new Map(); // questionId -> optionId
-    correctOptions?.forEach(opt => correctMap.set(opt.questionId, opt.id));
+    (correctOptions as any[])?.forEach((opt: any) => correctMap.set(opt.questionId, opt.id));
 
-    answers.forEach(ans => {
+    answers.forEach((ans: any) => {
         if (correctMap.get(ans.questionId) === ans.optionId) {
             score++;
         }

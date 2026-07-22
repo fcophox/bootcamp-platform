@@ -39,7 +39,7 @@ import { submitLessonFeedback, getLessonFeedback } from '@/app/actions/feedback'
 import { LessonFeedbackModal } from '@/components/lesson-feedback-modal';
 
 interface ClassItem {
-    id: number;
+    id: number | string;
     title: string;
     type: string;
     content: string;
@@ -52,7 +52,7 @@ interface ClassItem {
 }
 
 interface Module {
-    id: number;
+    id: number | string;
     title: string;
     classes: ClassItem[];
 }
@@ -117,7 +117,8 @@ export default function ClassPlayerPage() {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const { isCompleted: isClassCompleted, toggleClassCompletion, completedClassIds } = useBootcampProgress(Number(bootcampId));
+    // Use bootcampId directly (can be numeric string or Convex string ID)
+    const { isCompleted: isClassCompleted, toggleClassCompletion, completedClassIds } = useBootcampProgress(bootcampId);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     const handleToggleComplete = () => {
@@ -162,20 +163,25 @@ export default function ClassPlayerPage() {
         router.push(`/dashboard/bootcamp/${bootcampId}`);
     };
 
-    const classId = Number(params.classId);
+    // Handle both numeric (legacy) and string (Convex) IDs
+    const classIdParam = params.classId as string;
+    const numericClassId = Number(classIdParam);
+    const classId = !isNaN(numericClassId) && String(numericClassId) === classIdParam ? numericClassId : classIdParam;
 
     // Fetch Content
     useEffect(() => {
         const fetchContent = async () => {
             if (!bootcampId) return;
             try {
-                const data = await getBootcampCurriculum(Number(bootcampId));
+                // Pass bootcampId directly - it can be numeric string or Convex string ID
+                const data = await getBootcampCurriculum(bootcampId);
                 // Map to match existing structure
-                const formattedModules = data.map((m: { id: number; title: string, lessons: { id: number; title: string; type: string; content: string; order: number }[] }) => ({
+                const formattedModules = data.map((m: any) => ({
                     id: m.id,
                     title: m.title,
-                    classes: m.lessons.map((l: { id: number; title: string; type: string; content: string; order: number }) => ({
+                    classes: (m.lessons || []).map((l: any) => ({
                         ...l,
+                        content: l.content || '',
                         duration: getLessonDurationInfo(l),
                         completed: false,
                     }))
@@ -225,9 +231,9 @@ export default function ClassPlayerPage() {
 
         if (modules.length === 0) return () => cancelAnimationFrame(frame);
 
-        // Find current class and module
+        // Find current class and module (compare as strings to handle both legacy and Convex IDs)
         for (const mod of modules) {
-            const foundClass = mod.classes.find((c: ClassItem) => c.id === classId);
+            const foundClass = mod.classes.find((c: ClassItem) => String(c.id) === String(classId));
             if (foundClass) {
                 // Process the class data
                 const processedClass = { ...foundClass };
@@ -321,7 +327,7 @@ export default function ClassPlayerPage() {
         try {
             await submitLessonFeedback({
                 lessonId: currentClass.id,
-                bootcampId: Number(bootcampId),
+                bootcampId: bootcampId,
                 isLiked: newValue,
                 comment: userFeedback?.comment
             });
@@ -343,7 +349,7 @@ export default function ClassPlayerPage() {
         try {
             await submitLessonFeedback({
                 lessonId: currentClass.id,
-                bootcampId: Number(bootcampId),
+                bootcampId: bootcampId,
                 isLiked: userFeedback?.isLiked,
                 comment: comment
             });

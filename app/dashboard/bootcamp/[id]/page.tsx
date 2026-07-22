@@ -1,32 +1,42 @@
-import { getBootcamp } from '@/app/actions/bootcamp';
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { getMasterclass } from '@/app/actions/masterclass';
 import BootcampDetailsClient from './bootcamp-client';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-export default async function BootcampDetailsPage({ params }: { params: { id: string } }) {
-    const resolvedParams = await Promise.resolve(params);
-    const id = parseInt(resolvedParams.id);
+export default async function BootcampDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+    const resolvedParams = await params;
+    const idParam = resolvedParams.id;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [bootcamp, masterclass] = await Promise.all([
-        getBootcamp(id),
-        getMasterclass(id),
-    ]);
+    const token = await convexAuthNextjsToken();
+    if (!token) return redirect('/login');
+
+    // Parse id - could be a number (legacyId) or a Convex ID string
+    const legacyId = parseInt(idParam, 10);
+    const isLegacyId = !isNaN(legacyId) && String(legacyId) === idParam;
+
+    // Get bootcamp with modules and lessons from Convex
+    const bootcamp = await fetchQuery(
+        api.bootcamps.getWithModulesAndLessons,
+        isLegacyId ? { legacyId } : { convexId: idParam },
+        { token }
+    );
 
     if (!bootcamp) {
         return notFound();
     }
 
+    // Get masterclass
+    const masterclass = await getMasterclass(isLegacyId ? legacyId : idParam);
+
     if (bootcamp.modules) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        bootcamp.modules.sort((a: any, b: any) => a.order - b.order || a.id - b.id);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        bootcamp.modules.sort((a: any, b: any) => a.order - b.order);
         bootcamp.modules.forEach((mod: any) => {
             if (mod.lessons) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                mod.lessons.sort((a: any, b: any) => a.order - b.order || a.id - b.id);
+                mod.lessons.sort((a: any, b: any) => a.order - b.order);
             }
         });
     }

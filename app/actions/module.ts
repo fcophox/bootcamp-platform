@@ -2,8 +2,10 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
 
-export async function createModule(bootcampId: number, title: string) {
+export async function createModule(bootcampId: number | string, title: string) {
     const supabase = await createClient();
 
     // Get max order
@@ -33,7 +35,7 @@ export async function createModule(bootcampId: number, title: string) {
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
 }
 
-export async function createLesson(moduleId: number, bootcampId: number, title: string, type: string, content: string) {
+export async function createLesson(moduleId: number | string, bootcampId: number | string, title: string, type: string, content: string) {
     const supabase = await createClient();
 
     // Get max order
@@ -66,7 +68,7 @@ export async function createLesson(moduleId: number, bootcampId: number, title: 
     revalidatePath(`/dashboard/bootcamp/${bootcampId}`);
 }
 
-export async function updateLesson(lessonId: number, bootcampId: number, title: string, type: string, content: string) {
+export async function updateLesson(lessonId: number | string, bootcampId: number | string, title: string, type: string, content: string) {
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -88,7 +90,7 @@ export async function updateLesson(lessonId: number, bootcampId: number, title: 
     revalidatePath(`/dashboard/bootcamp/${bootcampId}/clase/${lessonId}`);
 }
 
-export async function updateModule(moduleId: number, bootcampId: number, title: string) {
+export async function updateModule(moduleId: number | string, bootcampId: number | string, title: string) {
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -106,7 +108,7 @@ export async function updateModule(moduleId: number, bootcampId: number, title: 
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
 }
 
-export async function deleteModule(id: number, bootcampId: number) {
+export async function deleteModule(id: number | string, bootcampId: number | string) {
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -118,7 +120,7 @@ export async function deleteModule(id: number, bootcampId: number) {
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
 }
 
-export async function deleteLesson(id: number, bootcampId: number) {
+export async function deleteLesson(id: number | string, bootcampId: number | string) {
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -130,7 +132,7 @@ export async function deleteLesson(id: number, bootcampId: number) {
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
 }
 
-export async function reorderLessons(bootcampId: number, lessonOrders: { id: number, order: number }[]) {
+export async function reorderLessons(bootcampId: number | string, lessonOrders: { id: number | string, order: number }[]) {
     const supabase = await createClient();
     
     // Since we want to update only the 'order' column for multiple rows,
@@ -147,7 +149,7 @@ export async function reorderLessons(bootcampId: number, lessonOrders: { id: num
     revalidatePath(`/dashboard/bootcamp/${bootcampId}`);
 }
 
-export async function reorderModules(bootcampId: number, moduleOrders: { id: number, order: number }[]) {
+export async function reorderModules(bootcampId: number | string, moduleOrders: { id: number | string, order: number }[]) {
     const supabase = await createClient();
     
     for (const item of moduleOrders) {
@@ -161,37 +163,32 @@ export async function reorderModules(bootcampId: number, moduleOrders: { id: num
     revalidatePath(`/dashboard/bootcamp/${bootcampId}`);
 }
 
-export async function getBootcampCurriculum(bootcampId: number) {
-    const supabase = await createClient();
-
-    const { data: modules, error } = await supabase
-        .from('Module')
-        .select(`
-            id,
-            title,
-            order,
-            lessons:Lesson (
-                id,
-                title,
-                type,
-                content,
-                order
-            )
-        `)
-        .eq('bootcampId', bootcampId)
-        .order('order', { ascending: true });
-
-    if (error) {
-        console.error('Error fetching curriculum:', error);
+export async function getBootcampCurriculum(bootcampId: number | string) {
+    // Use Convex query that handles both legacyId (number) and convexId (string)
+    const numericId = typeof bootcampId === 'string' ? parseInt(bootcampId, 10) : bootcampId;
+    const isNumeric = !isNaN(numericId);
+    
+    const bootcamp = await fetchQuery(api.bootcamps.getWithModulesAndLessons, 
+        isNumeric 
+            ? { legacyId: numericId }
+            : { convexId: String(bootcampId) }
+    );
+    
+    if (!bootcamp) {
         return [];
     }
-
-    // Sort lessons by Order
-    modules.forEach(m => {
-        if (m.lessons) {
-            (m.lessons as any[]).sort((a, b) => (a.order || 0) - (b.order || 0));
-        }
-    });
-
-    return modules;
+    
+    // Return modules with lessons in the expected format
+    return bootcamp.modules.map(m => ({
+        id: m.id,
+        title: m.title,
+        order: m.order,
+        lessons: m.lessons.map(l => ({
+            id: l.id,
+            title: l.title,
+            type: l.type,
+            content: l.content,
+            order: l.order,
+        }))
+    }));
 }

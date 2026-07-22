@@ -1,62 +1,40 @@
-import { createClient } from '@/utils/supabase/server';
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { CmsClient } from './cms-client';
 import { redirect } from 'next/navigation';
-import { formatDateString } from '@/utils/date';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CmsPage() {
-    const supabase = await createClient();
+    const token = await convexAuthNextjsToken();
+    if (!token) {
+        return redirect('/login');
+    }
 
-    // Verification of the user session
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return redirect('/login');
+    // Get current user with role from Convex (uses getAuthUserId internally)
+    const currentUser = await fetchQuery(
+        api.users.getCurrentUserWithRole,
+        {},
+        { token }
+    );
 
-    // Definitive check for the user's role from the database
-    const { data: roleData } = await supabase
-        .from('UserRole')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
+    if (!currentUser) {
+        return redirect('/login');
+    }
 
-    const role = roleData?.role || 'alumno';
+    const { email, role } = currentUser;
 
-    // If the user is a student, then they should be directed towards the student dashboard
     if (role === 'alumno') {
         return redirect('/dashboard');
     }
 
-    let bootcampsQuery = supabase
-        .from('Bootcamp')
-        .select('*');
+    // Fetch CMS data
+    const bootcamps = await fetchQuery(
+        api.dashboard.getCmsData,
+        { email, role },
+        { token }
+    );
 
-    if (role === 'docente') {
-        const { data: enrollments } = await supabase
-            .from('BootcampStudent')
-            .select('bootcampId')
-            .eq('email', user.email || '');
-
-        const allowedBootcampIds = enrollments?.map(e => e.bootcampId) || [];
-        
-        if (allowedBootcampIds.length === 0) {
-            return <CmsClient bootcamps={[]} />;
-        }
-        
-        bootcampsQuery = bootcampsQuery.in('id', allowedBootcampIds);
-    }
-
-    const { data: bootcamps, error } = await bootcampsQuery
-        .order('createdAt', { ascending: false });
-
-    if (error) {
-        console.error('Error fetching bootcamps:', error);
-        return <CmsClient bootcamps={[]} />;
-    }
-
-    const cleanedBootcamps = (bootcamps || []).map((b) => ({
-        ...b,
-        startDate: formatDateString(b.startDate)
-    }));
-
-    return <CmsClient bootcamps={cleanedBootcamps} />;
+    return <CmsClient bootcamps={(bootcamps as any) || []} />;
 }

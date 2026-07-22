@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
-import { Plus, Award, Search, Trash2, Check, X, Eye, Menu, MoreHorizontal } from 'lucide-react';
+import { Plus, Award, Search, Trash2, Check, X, Eye, Menu, MoreHorizontal, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { deleteCertificate, activateCertificate, deactivateCertificate } from '@/app/actions/certificate';
 import { useRouter } from 'next/navigation';
@@ -22,16 +22,79 @@ interface Bootcamp {
     id: number; title: string; icon: string | null; color: string | null;
 }
 
+interface ConfirmModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    title: string;
+    description: string;
+    confirmText: string;
+    isLoading?: boolean;
+}
+
+function ConfirmModal({ isOpen, onClose, onConfirm, title, description, confirmText, isLoading }: ConfirmModalProps) {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-background/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose} />
+            <div className="relative w-full max-w-md bg-card-bg border border-white/10 rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-200 overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500/50 to-transparent opacity-50" />
+                
+                <div className="flex justify-between items-start mb-4">
+                    <div className="h-11 w-11 rounded-xl flex items-center justify-center bg-red-500/10 text-red-500">
+                        <Trash2 size={24} />
+                    </div>
+                    <button onClick={onClose} className="p-1 hover:bg-white/5 rounded-lg transition-colors text-muted hover:text-foreground">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <div className="space-y-2">
+                    <h3 className="text-lg font-semibold text-foreground tracking-tight">{title}</h3>
+                    <p className="text-sm text-muted leading-relaxed">{description}</p>
+                </div>
+
+                <div className="mt-8 flex gap-3">
+                    <button
+                        onClick={onClose}
+                        disabled={isLoading}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-sm font-medium hover:bg-white/5 transition-all text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-red-500 text-white hover:bg-red-600 shadow-[0_0_15px_rgba(239,68,68,0.3)] disabled:opacity-50"
+                    >
+                        {isLoading ? (
+                            <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                            confirmText
+                        )}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export function CertificadosClient({ certificates, bootcamps }: { certificates: Certificate[], bootcamps: Bootcamp[] }) {
     const { isCollapsed, setIsMobileOpen } = useSidebar();
     const router = useRouter();
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+    const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; certificateId: number | null; certificateTitle: string }>({
+        isOpen: false,
+        certificateId: null,
+        certificateTitle: ''
+    });
 
     const filteredCertificates = certificates.filter(cert =>
-        cert.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cert.Bootcamp?.title.toLowerCase().includes(searchTerm.toLowerCase())
+        (cert.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (cert.Bootcamp?.title || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     useEffect(() => {
@@ -42,12 +105,21 @@ export function CertificadosClient({ certificates, bootcamps }: { certificates: 
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const handleDelete = async (id: number) => {
-        if (!confirm('¿Estás seguro de eliminar este certificado?')) return;
-        setIsLoading(true);
-        await deleteCertificate(id);
-        setIsLoading(false);
+    const openDeleteModal = (cert: Certificate) => {
+        setDeleteModal({
+            isOpen: true,
+            certificateId: cert.id,
+            certificateTitle: cert.title
+        });
         setOpenMenuId(null);
+    };
+
+    const handleDelete = async () => {
+        if (!deleteModal.certificateId) return;
+        setIsLoading(true);
+        await deleteCertificate(deleteModal.certificateId);
+        setIsLoading(false);
+        setDeleteModal({ isOpen: false, certificateId: null, certificateTitle: '' });
         router.refresh();
     };
 
@@ -145,7 +217,7 @@ export function CertificadosClient({ certificates, bootcamps }: { certificates: 
                                                     </button>
                                                     <div className="h-px bg-border my-1" />
                                                     <button
-                                                        onClick={() => handleDelete(cert.id)}
+                                                        onClick={() => openDeleteModal(cert)}
                                                         disabled={isLoading}
                                                         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
                                                     >
@@ -172,6 +244,17 @@ export function CertificadosClient({ certificates, bootcamps }: { certificates: 
                     </div>
                 </main>
             </div>
+
+            {/* Modal de confirmación para eliminar */}
+            <ConfirmModal
+                isOpen={deleteModal.isOpen}
+                onClose={() => setDeleteModal({ isOpen: false, certificateId: null, certificateTitle: '' })}
+                onConfirm={handleDelete}
+                title="Eliminar certificado"
+                description={`¿Estás seguro de eliminar el certificado "${deleteModal.certificateTitle}"? Esta acción no se puede deshacer.`}
+                confirmText="Eliminar"
+                isLoading={isLoading}
+            />
         </div>
     );
 }

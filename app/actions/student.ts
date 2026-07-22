@@ -6,8 +6,10 @@ import { headers } from 'next/headers';
 import { getRoleFromEmail } from '@/utils/roles';
 import { hasBootcampStarted } from '@/utils/date';
 
-export async function getStudents(bootcampId: number) {
+export async function getStudents(bootcampId: number | string) {
     const supabase = await createClient();
+    
+    // Try to get students - bootcampId could be numeric (legacy) or Convex string ID
     const { data, error } = await supabase
         .from('BootcampStudent')
         .select('*')
@@ -19,8 +21,8 @@ export async function getStudents(bootcampId: number) {
         return [];
     }
 
-    if (data && data.length > 0) {
-        const emails = data.map(s => s.email);
+    if (data && (data as any[]).length > 0) {
+        const emails = (data as any[]).map((s: any) => s.email);
         const { data: rolesData, error: rolesError } = await supabase
             .from('UserRole')
             .select('email, role')
@@ -28,12 +30,12 @@ export async function getStudents(bootcampId: number) {
         
         const roleMap = new Map<string, string>();
         if (!rolesError && rolesData) {
-            rolesData.forEach(r => {
+            (rolesData as any[]).forEach((r: any) => {
                 roleMap.set(r.email.toLowerCase(), r.role);
             });
         }
         
-        return data.map(s => {
+        return (data as any[]).map((s: any) => {
             const dbRole = roleMap.get(s.email.toLowerCase());
             const finalRole = dbRole || getRoleFromEmail(s.email);
             return {
@@ -46,7 +48,7 @@ export async function getStudents(bootcampId: number) {
     return [];
 }
 
-export async function getStudentById(studentId: number) {
+export async function getStudentById(studentId: number | string) {
     const supabase = await createClient();
     const { data, error } = await supabase
         .from('BootcampStudent')
@@ -61,7 +63,7 @@ export async function getStudentById(studentId: number) {
     return data;
 }
 
-export async function getStudentCompletions(studentId: number) {
+export async function getStudentCompletions(studentId: number | string) {
     const supabase = await createClient();
     const { data, error } = await supabase
         .from('LessonCompletion')
@@ -149,7 +151,7 @@ export async function inviteStudent(bootcampId: number, email: string) {
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
 }
 
-export async function removeStudent(studentId: number, bootcampId: number) {
+export async function removeStudent(studentId: number | string, bootcampId: number | string) {
     const supabase = await createClient();
     
     // 1. Fetch student email and userId before deleting the record
@@ -172,85 +174,13 @@ export async function removeStudent(studentId: number, bootcampId: number) {
 
     // 3. If the user is registered in Supabase Auth, check if they have other enrollments left
     if (student) {
-        let targetUserId = student.userId;
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-        // If targetUserId is missing but we have the service role key, resolve it
-        if (!targetUserId && serviceRoleKey) {
-            try {
-                // A. Try UserRole table first
-                const { data: roleRecord } = await supabase
-                    .from('UserRole')
-                    .select('id')
-                    .eq('email', student.email)
-                    .maybeSingle();
-
-                if (roleRecord) {
-                    targetUserId = roleRecord.id;
-                } else {
-                    // B. Fallback to listing auth users using adminClient
-                    const { createClient: createAdminClient } = await import('@supabase/supabase-js');
-                    const adminClient = createAdminClient(
-                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                        serviceRoleKey,
-                        { auth: { autoRefreshToken: false, persistSession: false } }
-                    );
-                    const { data: listData } = await adminClient.auth.admin.listUsers();
-                    if (listData && listData.users) {
-                        const matchedUser = listData.users.find(u => u.email?.toLowerCase() === student.email.toLowerCase());
-                        if (matchedUser) {
-                            targetUserId = matchedUser.id;
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error('Error resolving userId for email:', student.email, err);
-            }
-        }
-
-        if (targetUserId) {
-            const { data: otherEnrollments } = await supabase
-                .from('BootcampStudent')
-                .select('id')
-                .eq('email', student.email);
-
-            // If they have no other bootcamps, and we have the service role key, delete them from auth.users and UserRole
-            if (serviceRoleKey && (!otherEnrollments || otherEnrollments.length === 0)) {
-                try {
-                    const { createClient: createAdminClient } = await import('@supabase/supabase-js');
-                    const adminClient = createAdminClient(
-                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                        serviceRoleKey,
-                        { auth: { autoRefreshToken: false, persistSession: false } }
-                    );
-
-                    const { error: deleteError } = await adminClient.auth.admin.deleteUser(targetUserId);
-                    if (deleteError) {
-                        console.error(`Error deleting auth user ${targetUserId} from Supabase Auth:`, deleteError);
-                    } else {
-                        console.log(`Successfully deleted auth user ${targetUserId} (${student.email}) from Supabase Auth.`);
-                        
-                        // Clean up UserRole table as well
-                        await adminClient
-                            .from('UserRole')
-                            .delete()
-                            .eq('id', targetUserId);
-                    }
-                } catch (e) {
-                    console.error(`Exception while deleting auth user ${targetUserId} from Supabase Auth:`, e);
-                }
-            } else if (!serviceRoleKey) {
-                console.log(`Student deleted from bootcamp, but Auth deletion skipped: SUPABASE_SERVICE_ROLE_KEY is not configured.`);
-            } else {
-                console.log(`Student deleted from bootcamp, but Auth deletion skipped: they are enrolled in other bootcamps.`);
-            }
-        }
+        console.log(`Student deleted from bootcamp ${bootcampId}: ${student.email}`);
     }
 
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
 }
 
-export async function updateStudentStatus(studentId: number, bootcampId: number, status: 'invited' | 'active' | 'completed' | 'frozen') {
+export async function updateStudentStatus(studentId: number | string, bootcampId: number | string, status: 'invited' | 'active' | 'completed' | 'frozen') {
     const supabase = await createClient();
     const { error } = await supabase
         .from('BootcampStudent')
@@ -261,76 +191,173 @@ export async function updateStudentStatus(studentId: number, bootcampId: number,
     revalidatePath(`/cms/bootcamp/${bootcampId}/manage`);
 }
 
-export async function toggleLessonCompletion(bootcampId: number, lessonId: number) {
+export async function toggleLessonCompletion(bootcampId: number | string, lessonId: number | string) {
     const supabase = await createClient();
     
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error('No autenticado');
 
-    // Find student record for this user and bootcamp
-    const { data: student, error: studentError } = await supabase
-        .from('BootcampStudent')
-        .select('id')
-        .ilike('email', user.email || '')
-        .eq('bootcampId', bootcampId)
-        .maybeSingle();
+    console.log('[toggleLessonCompletion] Starting:', { bootcampId, lessonId, userEmail: user.email });
 
-    if (studentError || !student) {
-        console.error('SERVER ACTION ERROR: Student record not found for email:', user.email, 'and bootcampId:', bootcampId);
+    // Find student record for this user and bootcamp
+    // Get full student data including legacyId
+    let student: { id: number | string; legacyId?: number } | null = null;
+    
+    // Try numeric first
+    const numericId = typeof bootcampId === 'string' ? parseInt(bootcampId, 10) : bootcampId;
+    
+    if (!isNaN(numericId)) {
+        const { data: studentData, error: studentError } = await supabase
+            .from('BootcampStudent')
+            .select('id, legacyId')
+            .ilike('email', user.email || '')
+            .eq('bootcampId', numericId)
+            .maybeSingle();
+        
+        console.log('[toggleLessonCompletion] Numeric bootcampId search:', { numericId, studentData, studentError });
+        
+        if (!studentError && studentData) {
+            student = studentData;
+        }
+    }
+    
+    // If not found with numeric ID, try with string (Convex ID)
+    if (!student && typeof bootcampId === 'string') {
+        const { data: studentData, error: studentError } = await supabase
+            .from('BootcampStudent')
+            .select('id, legacyId')
+            .ilike('email', user.email || '')
+            .eq('bootcampId', bootcampId)
+            .maybeSingle();
+        
+        console.log('[toggleLessonCompletion] String bootcampId search:', { bootcampId, studentData, studentError });
+        
+        if (!studentError && studentData) {
+            student = studentData;
+        }
+    }
+
+    if (!student) {
+        console.error('[toggleLessonCompletion] Student record not found for email:', user.email, 'and bootcampId:', bootcampId);
         throw new Error(`No estás registrado en este bootcamp con este correo (${user.email})`);
     }
 
-    // Check if already completed
-    const { data: existing } = await supabase
+    console.log('[toggleLessonCompletion] Found student:', student);
+
+    // Use legacyId for studentId if available (for compatibility with existing data)
+    const studentIdForCompletion = student.legacyId || student.id;
+
+    console.log('[toggleLessonCompletion] Looking for existing completion with:', { studentIdForCompletion, lessonId });
+
+    // Check if already completed - search by legacyStudentId
+    const { data: existing, error: existingError } = await supabase
         .from('LessonCompletion')
         .select('id')
-        .eq('studentId', student.id)
+        .eq('studentId', studentIdForCompletion)
         .eq('lessonId', lessonId)
         .maybeSingle();
 
+    console.log('[toggleLessonCompletion] Existing completion:', { existing, existingError });
+
     if (existing) {
         // Remove completion
-        await supabase
+        const { error: deleteError } = await supabase
             .from('LessonCompletion')
             .delete()
             .eq('id', existing.id);
+        
+        console.log('[toggleLessonCompletion] Deleted completion:', { deleteError });
     } else {
-        // Add completion
-        await supabase
+        // Add completion with all necessary fields for Convex compatibility
+        const insertData = {
+            studentId: studentIdForCompletion,
+            lessonId: lessonId,
+            bootcampId: bootcampId,
+            legacyStudentId: student.legacyId || null,
+            legacyLessonId: lessonId,
+            completedAt: Date.now() // Use timestamp number instead of ISO string
+        };
+        
+        console.log('[toggleLessonCompletion] Inserting completion:', insertData);
+        
+        const { data: insertResult, error: insertError } = await supabase
             .from('LessonCompletion')
-            .insert({
-                studentId: student.id,
-                lessonId: lessonId,
-                completedAt: new Date().toISOString()
-            });
+            .insert(insertData);
+        
+        console.log('[toggleLessonCompletion] Insert result:', { insertResult, insertError });
     }
 
     revalidatePath(`/dashboard/bootcamp/${bootcampId}`);
     revalidatePath(`/cms/bootcamp/${bootcampId}/student/${student.id}`);
 }
 
-export async function getMyCompletions(bootcampId: number) {
+export async function getMyCompletions(bootcampId: number | string) {
     const supabase = await createClient();
     
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    if (!user) {
+        console.log('[getMyCompletions] No user found');
+        return [];
+    }
 
-    const { data: student } = await supabase
-        .from('BootcampStudent')
-        .select('id')
-        .ilike('email', user.email || '')
-        .eq('bootcampId', bootcampId)
-        .maybeSingle();
+    console.log('[getMyCompletions] Starting:', { bootcampId, userEmail: user.email });
 
-    if (!student) return [];
+    // Try to find student with either numeric or string bootcampId
+    // Include legacyId for completion lookup
+    let student: { id: number | string; legacyId?: number } | null = null;
+    
+    const numericId = typeof bootcampId === 'string' ? parseInt(bootcampId, 10) : bootcampId;
+    
+    if (!isNaN(numericId)) {
+        const { data: studentData, error } = await supabase
+            .from('BootcampStudent')
+            .select('id, legacyId')
+            .ilike('email', user.email || '')
+            .eq('bootcampId', numericId)
+            .maybeSingle();
+        
+        console.log('[getMyCompletions] Numeric search result:', { numericId, studentData, error });
+        
+        if (studentData) {
+            student = studentData;
+        }
+    }
+    
+    // If not found with numeric ID, try with string (Convex ID)
+    if (!student && typeof bootcampId === 'string') {
+        const { data: studentData, error } = await supabase
+            .from('BootcampStudent')
+            .select('id, legacyId')
+            .ilike('email', user.email || '')
+            .eq('bootcampId', bootcampId)
+            .maybeSingle();
+        
+        console.log('[getMyCompletions] String search result:', { bootcampId, studentData, error });
+        
+        if (studentData) {
+            student = studentData;
+        }
+    }
 
-    const { data } = await supabase
+    if (!student) {
+        console.log('[getMyCompletions] No student found');
+        return [];
+    }
+
+    // Use legacyId for lookup if available (for compatibility with existing data)
+    const studentIdForLookup = student.legacyId || student.id;
+    
+    console.log('[getMyCompletions] Looking up completions for studentId:', studentIdForLookup);
+
+    const { data, error } = await supabase
         .from('LessonCompletion')
         .select('lessonId')
-        .eq('studentId', student.id);
+        .eq('studentId', studentIdForLookup);
 
-    return data?.map(c => c.lessonId) || [];
+    console.log('[getMyCompletions] Completions result:', { count: data?.length, data, error });
+
+    return ((data as any[]) || []).map((c: any) => c.lessonId);
 }
 
 export async function getStudentExamAttempts(userId: string) {

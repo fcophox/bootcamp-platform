@@ -1,4 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
 import { PublicRankingClient } from './public-ranking-client';
 import Image from 'next/image';
 
@@ -11,37 +13,19 @@ export default async function PublicRankingPage({
 }) {
     const resolvedParams = await Promise.resolve(params);
     const slugParam = resolvedParams.slug?.[0] || '';
-    const id = parseInt(slugParam.split('-')[0]);
+    
+    // Extract ID from slug - could be "123-bootcamp-name" or just a Convex ID
+    const idPart = slugParam.split('-')[0];
+    const numericId = parseInt(idPart, 10);
+    const isNumericId = !isNaN(numericId) && String(numericId) === idPart;
 
-    if (isNaN(id)) {
-        return <div className="min-h-screen bg-background text-foreground flex items-center justify-center">ID de bootcamp no válido.</div>;
-    }
+    // Fetch bootcamp from Convex
+    const bootcamp = await fetchQuery(
+        api.bootcamps.getWithModulesAndLessons,
+        isNumericId ? { legacyId: numericId } : { convexId: idPart }
+    );
 
-    const supabase = await createClient();
-
-    // Fetch bootcamp with modules and lessons
-    const { data: bootcamp, error: bootcampError } = await supabase
-        .from('Bootcamp')
-        .select(`
-            *,
-            modules:Module (
-                id,
-                title,
-                order,
-                lessons:Lesson (
-                    id,
-                    title,
-                    type,
-                    content,
-                    order
-                )
-            )
-        `)
-        .eq('id', id)
-        .single();
-
-    if (bootcampError || !bootcamp) {
-        console.error('Error fetching bootcamp details:', bootcampError);
+    if (!bootcamp) {
         return <div className="min-h-screen bg-background text-foreground flex items-center justify-center">Bootcamp no encontrado o error al cargar datos.</div>;
     }
 
@@ -88,28 +72,41 @@ export default async function PublicRankingPage({
     // Sort modules and lessons
     interface Resource {
         order: number;
-        id: number;
+        id: number | string;
         lessons?: Resource[];
     }
-    const modules = (bootcamp.modules || []).sort((a: Resource, b: Resource) => a.order - b.order || a.id - b.id);
+    const modules = (bootcamp.modules || []).sort((a: Resource, b: Resource) => a.order - b.order);
     modules.forEach((mod: Resource) => {
         if (mod.lessons) {
-            mod.lessons.sort((a: Resource, b: Resource) => a.order - b.order || a.id - b.id);
+            mod.lessons.sort((a: Resource, b: Resource) => a.order - b.order);
         }
     });
 
-    // Fetch students
+    // Fetch students - try with legacyId first, then Convex _id
     const { getStudents } = await import('@/app/actions/student');
-    const students = await getStudents(id);
+    let students: any[] = [];
+    
+    if (typeof bootcamp.id === 'number') {
+        students = await getStudents(bootcamp.id);
+    }
+    
+    if (students.length === 0 && bootcamp._id) {
+        students = await getStudents(bootcamp._id);
+    }
 
     // Fetch all completions for these students
-    const studentIds = students.map((s: any) => s.id);
+    // Use legacyId for matching with lessonCompletions.legacyStudentId
+    const supabase = await createClient();
+    const studentLegacyIds = students
+        .map((s: any) => s.legacyId || s.id)
+        .filter(Boolean);
+    
     let completions: any[] = [];
-    if (studentIds.length > 0) {
+    if (studentLegacyIds.length > 0) {
         const { data: completionsData, error: completionsError } = await supabase
             .from('LessonCompletion')
             .select('studentId, lessonId, completedAt')
-            .in('studentId', studentIds);
+            .in('studentId', studentLegacyIds);
         
         if (!completionsError && completionsData) {
             completions = completionsData;

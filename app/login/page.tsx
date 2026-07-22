@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useTransition, Suspense } from 'react';
+import { useState, useTransition, Suspense, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { ThemeLogo } from '@/components/theme-logo';
-import { login, signup } from './actions';
 import { Loader2, Sparkles } from 'lucide-react';
-import { useEffect } from 'react';
+import { useAuthActions } from '@convex-dev/auth/react';
+import { useAction, useQuery, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 
 const translations = {
     es: {
@@ -74,7 +75,16 @@ function LoginContent() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
-    // Initial mode priority: mode param > (invite/token) signup > default login
+    const { signIn } = useAuthActions();
+    const checkLegacyUser = useAction(api.legacyAuth.checkLegacyUser);
+    const acceptInvitation = useMutation(api.invitations.acceptInvitation);
+    
+    // Validate token if present
+    const tokenValidation = useQuery(
+        api.invitations.validateToken,
+        token ? { token } : "skip"
+    );
+
     const [mode, setMode] = useState<'login' | 'signup'>(
         modeParam || ((inviteId || token) ? 'signup' : 'login')
     );
@@ -98,30 +108,100 @@ function LoginContent() {
         e.preventDefault();
         setStatus(null);
 
-        const formData = new FormData();
-        formData.append('name', name);
-        formData.append('email', email);
-        formData.append('password', password);
-
         startTransition(async () => {
-            let result;
-            if (mode === 'login') {
-                result = await login(formData, inviteId, token);
-            } else {
-                result = await signup(formData, inviteId, token);
-            }
+            try {
+                if (mode === 'login') {
+                    // Check legacy / database role first so we know where to redirect
+                    const legacyResult = await checkLegacyUser({ email, password });
+                    const userRole = legacyResult.role;
 
-            const res = result as { error?: string; success?: string } | undefined;
+                    let loginSuccessful = false;
+                    try {
+                        await signIn("password", { email, password, flow: "signIn" });
+                        loginSuccessful = true;
+                    } catch {
+                        loginSuccessful = false;
+                    }
 
-            if (res?.error) {
-                if (res.error.toLowerCase().includes('ya tiene una cuenta')) {
-                    handleToggleMode('login');
-                    setStatus({ type: 'warning', message: res.error });
+                    if (!loginSuccessful) {
+                        if (legacyResult.valid) {
+                            try {
+                                await signIn("password", {
+                                    email,
+                                    password,
+                                    flow: "signUp",
+                                    name: email.split('@')[0],
+                                    role: legacyResult.role || 'alumno',
+                                });
+                                loginSuccessful = true;
+                            } catch {
+                                loginSuccessful = false;
+                            }
+                        } else if (legacyResult.isLegacy) {
+                            setStatus({ type: 'error', message: 'Contraseña incorrecta.' });
+                            return;
+                        } else {
+                            setStatus({ type: 'error', message: 'Correo o contraseña incorrectos.' });
+                            return;
+                        }
+                    }
+
+                    if (loginSuccessful) {
+                        // If there's a token, process the invitation after login
+                        if (token && tokenValidation?.valid) {
+                            try {
+                                await acceptInvitation({ token, userEmail: email, userName: name || email.split('@')[0] });
+                            } catch (inviteErr) {
+                                console.error("Error accepting invitation:", inviteErr);
+                                // Don't block login if invitation fails
+                            }
+                        }
+                        
+                        const target = (userRole === 'superadmin' || userRole === 'docente') ? '/cms' : '/dashboard';
+                        setTimeout(() => {
+                            window.location.href = target;
+                        }, 100);
+                        return;
+                    }
+
+                    setStatus({ type: 'error', message: 'Error durante el inicio de sesión.' });
                 } else {
-                    setStatus({ type: 'error', message: res.error });
+                    // Sign Up
+                    await signIn("password", {
+                        email,
+                        password,
+                        flow: "signUp",
+                        name,
+                        role: "alumno",
+                    });
+                    
+                    // If there's a token, process the invitation after signup
+                    console.log("[Signup] Token:", token, "TokenValidation:", tokenValidation);
+                    
+                    if (token && tokenValidation?.valid) {
+                        try {
+                            console.log("[Signup] Calling acceptInvitation with:", { token, userEmail: email, userName: name });
+                            const result = await acceptInvitation({ token, userEmail: email, userName: name });
+                            console.log("[Signup] acceptInvitation result:", result);
+                            setStatus({ type: 'success', message: `¡Cuenta creada! Te has unido a "${result.bootcampTitle}"` });
+                        } catch (inviteErr: any) {
+                            console.error("[Signup] Error accepting invitation:", inviteErr);
+                            setStatus({ type: 'warning', message: '¡Cuenta creada! Pero hubo un error al unirte al bootcamp.' });
+                        }
+                    } else if (token) {
+                        console.log("[Signup] Token present but validation failed:", tokenValidation);
+                        setStatus({ type: 'warning', message: '¡Cuenta creada! Pero el enlace de invitación no es válido.' });
+                    } else {
+                        setStatus({ type: 'success', message: '¡Cuenta creada exitosamente!' });
+                    }
+                    
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1000);
                 }
-            } else if (res?.success) {
-                setStatus({ type: 'success', message: res.success });
+            } catch (err: any) {
+                console.error("Auth error:", err);
+                setStatus({ type: 'error', message: err?.message || 'Error durante el inicio de sesión.' });
             }
         });
     };
@@ -163,7 +243,36 @@ function LoginContent() {
                     </div>
 
                     {/* Invitation Banner */}
-                    {inviteId && !status && (
+                    {token && tokenValidation?.valid && !status && (
+                        <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/20 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
+                            <div className="p-2 rounded-full bg-primary/20 text-primary">
+                                <Sparkles size={20} />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-primary capitalize">{t.invitedTitle}</p>
+                                <p className="text-xs text-primary/80">
+                                    {lang === 'es' 
+                                        ? `Únete a "${tokenValidation.bootcampTitle}"`
+                                        : `Join "${tokenValidation.bootcampTitle}"`
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {token && tokenValidation && !tokenValidation.valid && !status && (
+                        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
+                            <div className="p-2 rounded-full bg-red-500/20 text-red-500">
+                                <Sparkles size={20} />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-red-500">Enlace inválido</p>
+                                <p className="text-xs text-red-500/80">{tokenValidation.error}</p>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {inviteId && !token && !status && (
                         <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/20 flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
                             <div className="p-2 rounded-full bg-primary/20 text-primary">
                                 <Sparkles size={20} />
@@ -188,7 +297,6 @@ function LoginContent() {
                             </div>
                         </div>
                     )}
-
 
                     {/* Login Form */}
                     <form onSubmit={handleSubmit} className="space-y-4">

@@ -20,6 +20,42 @@ interface ConfirmModalProps {
     isLoading?: boolean;
 }
 
+// Componente de tooltip para los bootcamps
+function BootcampTooltip({ bootcamp }: { bootcamp: { name: string; status: string; icon?: string } }) {
+    const [showTooltip, setShowTooltip] = useState(false);
+    
+    return (
+        <div 
+            className="relative"
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+        >
+            <div className={`h-7 w-7 rounded-full flex items-center justify-center text-sm border cursor-pointer transition-all hover:scale-110 ${
+                bootcamp.status === 'invited'
+                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-500'
+                    : 'border-primary/30 bg-primary/10 text-primary'
+            }`}>
+                {bootcamp.icon ? (
+                    <span className="text-xs">{bootcamp.icon}</span>
+                ) : (
+                    <GraduationCap size={14} />
+                )}
+            </div>
+            {showTooltip && (
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-card-bg border border-white/10 rounded-lg shadow-xl z-50 whitespace-nowrap animate-in fade-in zoom-in-95 duration-150">
+                    <span className="text-xs font-medium text-foreground">{bootcamp.name}</span>
+                    {bootcamp.status === 'invited' && (
+                        <span className="ml-1.5 text-[10px] text-amber-500">(Invitado)</span>
+                    )}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
+                        <div className="border-4 border-transparent border-t-white/10"></div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ConfirmModal({ isOpen, onClose, onConfirm, title, description, confirmText, confirmVariant = 'primary', isLoading }: ConfirmModalProps) {
     if (!isOpen) return null;
 
@@ -80,7 +116,7 @@ export default function UsuariosCMSPage() {
         id: string;
         email: string;
         role: string;
-        bootcamps?: { name: string; status: string }[];
+        bootcamps?: { name: string; status: string; icon?: string }[];
     }
     const [users, setUsers] = useState<UserWithRoles[]>([]);
     const [mounted, setMounted] = useState(false);
@@ -88,6 +124,7 @@ export default function UsuariosCMSPage() {
 
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [roleFilter, setRoleFilter] = useState<'all' | 'alumno' | 'docente' | 'superadmin'>('all');
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -140,9 +177,29 @@ export default function UsuariosCMSPage() {
         };
     }, []);
 
-    const filteredUsers = users.filter(usr => {
-        return usr.email.toLowerCase().includes(searchQuery.toLowerCase());
-    });
+    // Orden de prioridad de roles
+    const roleOrder = { superadmin: 0, docente: 1, alumno: 2 };
+
+    const filteredUsers = users
+        .filter(usr => {
+            const matchesSearch = usr.email.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesRole = roleFilter === 'all' || usr.role === roleFilter;
+            return matchesSearch && matchesRole;
+        })
+        .sort((a, b) => {
+            const orderA = roleOrder[a.role as keyof typeof roleOrder] ?? 3;
+            const orderB = roleOrder[b.role as keyof typeof roleOrder] ?? 3;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.email.localeCompare(b.email);
+        });
+
+    // Contadores por rol
+    const roleCounts = {
+        all: users.length,
+        alumno: users.filter(u => u.role === 'alumno').length,
+        docente: users.filter(u => u.role === 'docente').length,
+        superadmin: users.filter(u => u.role === 'superadmin').length,
+    };
 
     const openConfirmModal = (type: 'delete' | 'promote' | 'demote', user: UserWithRoles) => {
 
@@ -220,6 +277,66 @@ export default function UsuariosCMSPage() {
                             </div>
                         </div>
 
+                        {/* Filtros por rol */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                onClick={() => setRoleFilter('all')}
+                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${
+                                    roleFilter === 'all'
+                                        ? 'bg-primary/10 text-primary border border-primary/30'
+                                        : 'bg-card-bg text-muted border border-border hover:bg-hover-bg hover:text-foreground'
+                                }`}
+                            >
+                                <Users size={14} />
+                                Todos
+                                <span className={`ml-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                                    roleFilter === 'all' ? 'bg-primary/20' : 'bg-hover-bg'
+                                }`}>{roleCounts.all}</span>
+                            </button>
+                            <button
+                                onClick={() => setRoleFilter('superadmin')}
+                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${
+                                    roleFilter === 'superadmin'
+                                        ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30'
+                                        : 'bg-card-bg text-muted border border-border hover:bg-hover-bg hover:text-foreground'
+                                }`}
+                            >
+                                <ShieldAlert size={14} />
+                                Admins
+                                <span className={`ml-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                                    roleFilter === 'superadmin' ? 'bg-amber-500/20' : 'bg-hover-bg'
+                                }`}>{roleCounts.superadmin}</span>
+                            </button>
+                            <button
+                                onClick={() => setRoleFilter('docente')}
+                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${
+                                    roleFilter === 'docente'
+                                        ? 'bg-blue-500/10 text-blue-500 border border-blue-500/30'
+                                        : 'bg-card-bg text-muted border border-border hover:bg-hover-bg hover:text-foreground'
+                                }`}
+                            >
+                                <GraduationCap size={14} />
+                                Docentes
+                                <span className={`ml-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                                    roleFilter === 'docente' ? 'bg-blue-500/20' : 'bg-hover-bg'
+                                }`}>{roleCounts.docente}</span>
+                            </button>
+                            <button
+                                onClick={() => setRoleFilter('alumno')}
+                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${
+                                    roleFilter === 'alumno'
+                                        ? 'bg-primary/10 text-primary border border-primary/30'
+                                        : 'bg-card-bg text-muted border border-border hover:bg-hover-bg hover:text-foreground'
+                                }`}
+                            >
+                                <User size={14} />
+                                Alumnos
+                                <span className={`ml-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                                    roleFilter === 'alumno' ? 'bg-primary/20' : 'bg-hover-bg'
+                                }`}>{roleCounts.alumno}</span>
+                            </button>
+                        </div>
+
                         {/* List View */}
                         <div className="mb-10 flex flex-col border border-border rounded-xl overflow-visible">
                             {loading ? (
@@ -257,25 +374,21 @@ export default function UsuariosCMSPage() {
                                                     {usr.role === 'superadmin' ? 'Admin' : usr.role === 'docente' ? 'Docente' : 'Alumno'}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                            <div className="flex items-center gap-3 mt-0.5">
                                                 <span className="flex items-center gap-1 text-xs text-muted">
                                                     <Mail size={10} className="text-primary/50" />{usr.email}
                                                 </span>
-                                                {(usr.bootcamps || []).length > 0 && (
-                                                    <div className="flex items-center gap-1 flex-wrap">
-                                                        {usr.bootcamps?.map((bc: { name: string; status: string }, idx: number) => (
-                                                            <span key={idx} className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-                                                                bc.status === 'invited'
-                                                                    ? 'border-amber-500/20 bg-amber-500/5 text-amber-500/70'
-                                                                    : 'border-primary/20 bg-primary/5 text-primary/80'
-                                                            }`}>
-                                                                {bc.name}{bc.status === 'invited' && ' ⏳'}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
+
+                                        {/* Bootcamps como círculos con iconos */}
+                                        {(usr.bootcamps || []).length > 0 && (
+                                            <div className="flex items-center gap-1.5 mr-2">
+                                                {usr.bootcamps?.map((bc, idx) => (
+                                                    <BootcampTooltip key={idx} bootcamp={bc} />
+                                                ))}
+                                            </div>
+                                        )}
 
                                         {/* Acciones */}
                                         <button

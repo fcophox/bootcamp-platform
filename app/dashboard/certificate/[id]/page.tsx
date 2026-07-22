@@ -1,5 +1,7 @@
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { createClient } from '@/utils/supabase/server';
-import { getBootcamp } from '@/app/actions/bootcamp';
 import { getCertificateByBootcamp } from '@/app/actions/certificate';
 import { CertificateClient } from './certificate-client';
 import { redirect } from 'next/navigation';
@@ -14,8 +16,21 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
     const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Estudiante';
     
     const resolvedParams = await params;
-    const bootcampId = parseInt(resolvedParams.id);
-    const bootcamp = await getBootcamp(bootcampId);
+    const idParam = resolvedParams.id;
+
+    // Parse id - could be a number (legacyId) or a Convex ID string
+    const legacyId = parseInt(idParam, 10);
+    const isLegacyId = !isNaN(legacyId) && String(legacyId) === idParam;
+
+    const token = await convexAuthNextjsToken();
+    if (!token) return redirect('/login');
+
+    // Get bootcamp from Convex (same as bootcamp page)
+    const bootcamp = await fetchQuery(
+        api.bootcamps.getWithModulesAndLessons,
+        isLegacyId ? { legacyId } : { convexId: idParam },
+        { token }
+    );
 
     if (!bootcamp) {
         return (
@@ -26,7 +41,9 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
     }
 
     // Get custom certificate template if exists
-    const customCertificate = await getCertificateByBootcamp(bootcampId);
+    // Use legacyId if available, otherwise use the bootcamp id
+    const bootcampIdForCertificate = bootcamp.legacyId ?? idParam;
+    const customCertificate = await getCertificateByBootcamp(bootcampIdForCertificate);
 
     return <CertificateClient bootcamp={bootcamp} userName={userName} customCertificate={customCertificate} />;
 }

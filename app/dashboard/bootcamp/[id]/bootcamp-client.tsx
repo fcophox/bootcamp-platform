@@ -175,11 +175,11 @@ export default function BootcampDetailsClient({ bootcamp, masterclass }: Bootcam
         ? bootcamp.modules
         : MOCK_MODULES_DATA;
 
-    const [activeModule, setActiveModule] = useState<number | null>(modulesToDisplay[0]?.id || null);
+    const [activeModule, setActiveModule] = useState<number | string | null>(modulesToDisplay[0]?.id || null);
     const [searchQuery, setSearchQuery] = useState('');
 
     // Accordion state for separators (subtitles)
-    const [collapsedSeparators, setCollapsedSeparators] = useState<Record<number, boolean>>({});
+    const [collapsedSeparators, setCollapsedSeparators] = useState<Record<number | string, boolean>>({});
 
     const toggleSeparator = (separatorId: number) => {
         setCollapsedSeparators(prev => ({

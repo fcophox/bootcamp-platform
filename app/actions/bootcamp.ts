@@ -46,7 +46,7 @@ export async function createBootcamp(formData: FormData) {
         .select()
         .single();
 
-    if (error) {
+    if (error || !bootcamp) {
         console.error('Error creating bootcamp:', error);
         throw new Error('Error al crear el bootcamp');
     }
@@ -73,18 +73,32 @@ export async function deleteBootcamp(id: number) {
     revalidatePath('/cms');
 }
 
-export async function updateBootcamp(id: number, updates: { title?: string; icon?: string; color?: string; description?: string; duration?: string; level?: string; startDate?: string; enableChecklist?: boolean; enableRanking?: boolean; imageUrl?: string | null }) {
+export async function updateBootcamp(id: number | string, updates: { title?: string; icon?: string; color?: string; description?: string; duration?: string; level?: string; startDate?: string; enableChecklist?: boolean; enableRanking?: boolean; imageUrl?: string | null }) {
 
-    const supabase = await createClient();
+    let supabase;
+    try {
+        supabase = await createClient();
+    } catch (err: any) {
+        throw new Error(`Error al actualizar el bootcamp (createClient): ${err?.message || String(err)}`);
+    }
 
-    const { error } = await supabase
-        .from('Bootcamp')
-        .update({ ...updates, updatedAt: new Date().toISOString() })
-        .eq('id', id);
+    // Use timestamp number instead of ISO string for Convex compatibility
+    const updateData = { ...updates, updatedAt: Date.now() };
 
-    if (error) {
-        console.error('Error updating bootcamp:', error);
-        throw new Error('Error al actualizar el bootcamp');
+    try {
+        const { data, error } = await supabase
+            .from('Bootcamp')
+            .update(updateData)
+            .eq('id', id);
+
+        if (error) {
+            throw new Error(`Error al actualizar el bootcamp (db): ${error?.message || JSON.stringify(error)}`);
+        }
+    } catch (err: any) {
+        if (err?.message?.includes('Error al actualizar')) {
+            throw err;
+        }
+        throw new Error(`Error al actualizar el bootcamp (exception): ${err?.message || String(err)}`);
     }
 
     revalidatePath(`/cms/bootcamp/${id}/manage`);

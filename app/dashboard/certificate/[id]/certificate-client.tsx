@@ -11,18 +11,19 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 interface Module {
-    id: number;
+    id: number | string;
     title: string;
 }
 
 interface Bootcamp {
-    id: number;
+    id: number | string;
     title: string;
     modules?: Module[];
+    legacyId?: number;
 }
 
 interface CustomCertificate {
-    id: number;
+    id: number | string;
     title: string;
     backgroundImageUrl: string | null;
     textColor: string;

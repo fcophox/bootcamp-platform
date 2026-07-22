@@ -1,14 +1,13 @@
-import { createClient } from '@/utils/supabase/server';
-import { Role } from './roles';
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { Role } from "./roles";
 
-export async function getUserRoleFromDB(userId: string): Promise<Role> {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-        .from('UserRole')
-        .select('role')
-        .eq('id', userId)
-        .maybeSingle();
-
-    if (error || !data) return 'alumno'; // Default
-    return data.role as Role;
+export async function getUserRoleFromDB(email: string): Promise<Role> {
+  try {
+    const role = await fetchQuery(api.legacyAuth.getRoleByEmail, { email });
+    return (role as Role) || "alumno";
+  } catch (error) {
+    console.error("Error fetching user role from Convex:", error);
+    return "alumno";
+  }
 }

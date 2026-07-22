@@ -1,4 +1,6 @@
-import { createClient } from '@/utils/supabase/server';
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { redirect } from 'next/navigation';
 import { EncuestasGestionClient } from './encuestas-gestion-client';
 import { getEncuestasGestion } from '@/app/actions/medicion';
@@ -6,18 +8,19 @@ import { getEncuestasGestion } from '@/app/actions/medicion';
 export const dynamic = 'force-dynamic';
 
 export default async function EncuestasGestionPage() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return redirect('/login');
+    const token = await convexAuthNextjsToken();
+    if (!token) return redirect('/login');
 
-    const { data: roleData } = await supabase
-        .from('UserRole')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
+    // Get current user with role from Convex
+    const currentUser = await fetchQuery(
+        api.users.getCurrentUserWithRole,
+        {},
+        { token }
+    );
 
-    const role = roleData?.role || 'alumno';
-    if (role === 'alumno') return redirect('/dashboard');
+    if (!currentUser || currentUser.role === 'alumno') {
+        return redirect('/dashboard');
+    }
 
     const encuestas = await getEncuestasGestion();
 

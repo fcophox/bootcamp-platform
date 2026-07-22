@@ -221,7 +221,9 @@ function EncuestaDetalle({
     };
 
     const preguntaActual = encuesta.preguntas[current];
-    const valorActual = preguntaActual ? (respuestas[preguntaActual.id] ?? '') : '';
+    // Usar _id si está disponible, sino id (para compatibilidad con datos existentes)
+    const getPreguntaId = (p: MedicionPregunta) => p._id || p.id;
+    const valorActual = preguntaActual ? (respuestas[getPreguntaId(preguntaActual)] ?? '') : '';
     const respondida = valorActual !== '';
 
     const goNext = () => {
@@ -314,7 +316,7 @@ function EncuestaDetalle({
                     <PreguntaWidget
                         pregunta={preguntaActual}
                         value={valorActual}
-                        onChange={v => handleChange(preguntaActual.id, v)}
+                        onChange={v => handleChange(getPreguntaId(preguntaActual), v)}
                     />
                 </div>
             </div>

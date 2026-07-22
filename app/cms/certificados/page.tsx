@@ -1,3 +1,6 @@
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { getAllCertificates } from '@/app/actions/certificate';
@@ -6,19 +9,21 @@ import { CertificadosClient } from './certificados-client';
 export const dynamic = 'force-dynamic';
 
 export default async function CertificadosPage() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return redirect('/login');
+    const token = await convexAuthNextjsToken();
+    if (!token) return redirect('/login');
 
-    const { data: roleData } = await supabase
-        .from('UserRole')
-        .select('role')
-        .eq('id', user.id)
-        .single();
+    // Get current user with role from Convex
+    const currentUser = await fetchQuery(
+        api.users.getCurrentUserWithRole,
+        {},
+        { token }
+    );
 
-    if (!roleData || roleData.role !== 'superadmin') {
+    if (!currentUser || currentUser.role !== 'superadmin') {
         return redirect('/cms');
     }
+
+    const supabase = await createClient();
 
     // Get all bootcamps for the select dropdown
     const { data: bootcamps } = await supabase

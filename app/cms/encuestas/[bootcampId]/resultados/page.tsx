@@ -1,5 +1,8 @@
-import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
+import { createClient } from '@/utils/supabase/server';
 import { getResultadosEncuesta } from '@/app/actions/medicion';
 import { ResultadosEncuestaClient } from './resultados-client';
 
@@ -10,31 +13,37 @@ export default async function ResultadosEncuestaPage({
 }: {
     params: Promise<{ bootcampId: string }>;
 }) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return redirect('/login');
+    const token = await convexAuthNextjsToken();
+    if (!token) return redirect('/login');
 
-    const { data: roleData } = await supabase
-        .from('UserRole')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
+    const currentUser = await fetchQuery(
+        api.users.getCurrentUserWithRole,
+        {},
+        { token }
+    );
 
-    const role = roleData?.role || 'alumno';
+    if (!currentUser) return redirect('/login');
+
+    const { role } = currentUser;
     if (role === 'alumno') return redirect('/dashboard');
 
     const { bootcampId } = await params;
-    const id = Number(bootcampId);
+    
+    // Handle both numeric and string IDs
+    const numericId = parseInt(bootcampId, 10);
+    const isNumericId = !isNaN(numericId) && String(numericId) === bootcampId;
 
+    const supabase = await createClient();
     const { data: bootcamp } = await supabase
         .from('Bootcamp')
         .select('id, title')
-        .eq('id', id)
+        .eq('id', isNumericId ? numericId : bootcampId)
         .maybeSingle();
 
     if (!bootcamp) return redirect('/cms/encuestas');
 
-    const resultados = await getResultadosEncuesta(id);
+    // Pass the bootcampId as-is (action handles type normalization)
+    const resultados = await getResultadosEncuesta(isNumericId ? numericId : bootcampId);
 
     return (
         <ResultadosEncuestaClient

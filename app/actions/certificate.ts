@@ -2,9 +2,25 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { fetchQuery } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
+
+async function getCurrentUser() {
+    const token = await convexAuthNextjsToken();
+    if (!token) return null;
+    
+    const currentUser = await fetchQuery(
+        api.users.getCurrentUserWithRole,
+        {},
+        { token }
+    );
+    
+    return currentUser;
+}
 
 export interface CertificateData {
-    bootcampId: number;
+    bootcampId: number | string;
     title: string;
     backgroundImageUrl?: string;
     textColor?: string;
@@ -25,23 +41,16 @@ export interface CertificateData {
 }
 
 export async function createCertificate(data: CertificateData) {
-    const supabase = await createClient()
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
         return { error: 'No autorizado' }
     }
 
-    // Check user role
-    const { data: roleData } = await supabase
-        .from('UserRole')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-    if (!roleData || roleData.role !== 'superadmin') {
+    if (currentUser.role !== 'superadmin') {
         return { error: 'No tienes permisos para crear certificados' }
     }
+
+    const supabase = await createClient()
 
     const { data: certificate, error } = await supabase
         .from('Certificate')
@@ -77,24 +86,17 @@ export async function createCertificate(data: CertificateData) {
     return { success: true, certificate }
 }
 
-export async function updateCertificate(id: number, data: Partial<CertificateData>) {
-    const supabase = await createClient()
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
+export async function updateCertificate(id: number | string, data: Partial<CertificateData>) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
         return { error: 'No autorizado' }
     }
 
-    // Check user role
-    const { data: roleData } = await supabase
-        .from('UserRole')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-    if (!roleData || roleData.role !== 'superadmin') {
+    if (currentUser.role !== 'superadmin') {
         return { error: 'No tienes permisos para editar certificados' }
     }
+
+    const supabase = await createClient()
 
     // If activating this certificate, deactivate others for the same bootcamp
     if (data.isActive) {
@@ -127,24 +129,17 @@ export async function updateCertificate(id: number, data: Partial<CertificateDat
     return { success: true }
 }
 
-export async function deleteCertificate(id: number) {
-    const supabase = await createClient()
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
+export async function deleteCertificate(id: number | string) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
         return { error: 'No autorizado' }
     }
 
-    // Check user role
-    const { data: roleData } = await supabase
-        .from('UserRole')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-    if (!roleData || roleData.role !== 'superadmin') {
+    if (currentUser.role !== 'superadmin') {
         return { error: 'No tienes permisos para eliminar certificados' }
     }
+
+    const supabase = await createClient()
 
     const { error } = await supabase
         .from('Certificate')
@@ -163,17 +158,10 @@ export async function deleteCertificate(id: number) {
 export async function getAllCertificates() {
     const supabase = await createClient()
 
-    const { data, error } = await supabase
+    // Get all certificates
+    const { data: certificates, error } = await supabase
         .from('Certificate')
-        .select(`
-            *,
-            Bootcamp:bootcampId (
-                id,
-                title,
-                icon,
-                color
-            )
-        `)
+        .select('*')
         .order('createdAt', { ascending: false })
 
     if (error) {
@@ -181,23 +169,36 @@ export async function getAllCertificates() {
         return []
     }
 
-    return data
+    if (!certificates || certificates.length === 0) return []
+
+    // Get unique bootcamp IDs
+    const bootcampIds = [...new Set((certificates as any[]).map(c => c.bootcampId))]
+    
+    // Get bootcamps separately
+    const { data: bootcamps } = await supabase
+        .from('Bootcamp')
+        .select('id, title, icon, color')
+        .in('id', bootcampIds)
+
+    // Create bootcamp map
+    const bootcampMap: Record<string, any> = {}
+    for (const bc of (bootcamps || []) as any[]) {
+        bootcampMap[bc.id] = bc
+    }
+
+    // Add Bootcamp info to each certificate
+    return (certificates as any[]).map(cert => ({
+        ...cert,
+        Bootcamp: bootcampMap[cert.bootcampId] || null
+    }))
 }
 
-export async function getCertificateById(id: number) {
+export async function getCertificateById(id: number | string) {
     const supabase = await createClient()
 
-    const { data, error } = await supabase
+    const { data: certificate, error } = await supabase
         .from('Certificate')
-        .select(`
-            *,
-            Bootcamp:bootcampId (
-                id,
-                title,
-                icon,
-                color
-            )
-        `)
+        .select('*')
         .eq('id', id)
         .single()
 
@@ -206,10 +207,22 @@ export async function getCertificateById(id: number) {
         return null
     }
 
-    return data
+    if (!certificate) return null
+
+    // Get bootcamp separately
+    const { data: bootcamp } = await supabase
+        .from('Bootcamp')
+        .select('id, title, icon, color')
+        .eq('id', (certificate as any).bootcampId)
+        .single()
+
+    return {
+        ...certificate,
+        Bootcamp: bootcamp || null
+    }
 }
 
-export async function getCertificateByBootcamp(bootcampId: number) {
+export async function getCertificateByBootcamp(bootcampId: number | string) {
     const supabase = await createClient()
 
     const { data, error } = await supabase
@@ -231,10 +244,10 @@ export async function getCertificateByBootcamp(bootcampId: number) {
     return data
 }
 
-export async function activateCertificate(id: number) {
+export async function activateCertificate(id: number | string) {
     return updateCertificate(id, { isActive: true })
 }
 
-export async function deactivateCertificate(id: number) {
+export async function deactivateCertificate(id: number | string) {
     return updateCertificate(id, { isActive: false })
 }

@@ -432,7 +432,7 @@ export function ResultadosEncuestaClient({ bootcamp, resultados }: Props) {
                                 Encuestas
                             </Link>
                             <span className="text-muted text-xs">/</span>
-                            <Link href="/cms/encuestas/crear" className="text-xs text-muted hover:text-foreground transition-colors">
+                            <Link href={`/cms/encuestas/crear?bootcamp=${bootcamp.id}`} className="text-xs text-muted hover:text-foreground transition-colors">
                                 {bootcamp.title}
                             </Link>
                             <span className="text-muted text-xs">/</span>

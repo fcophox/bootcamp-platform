@@ -2,7 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemeLogo } from "@/components/theme-logo";
-import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { getRoleFromEmail } from "@/utils/roles";
 import { getUserRoleFromDB } from "@/utils/roles-server";
@@ -62,20 +61,6 @@ type Props = {
 };
 
 export default async function Home(props: Props) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (user) {
-    const dbRole = await getUserRoleFromDB(user.id);
-    const fallbackRole = getRoleFromEmail(user.email, user.user_metadata);
-    const role = (dbRole && dbRole !== 'alumno') ? dbRole : fallbackRole;
-    if (role === 'superadmin' || role === 'docente') {
-      redirect('/cms');
-    } else {
-      redirect('/dashboard');
-    }
-  }
-
   const resolvedParams = await props.searchParams;
   const lang = (resolvedParams?.lang === 'en') ? 'en' : 'es';
   const t = translations[lang];

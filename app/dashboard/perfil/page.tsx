@@ -6,8 +6,8 @@ import { Mail, MapPin, Briefcase, Calendar, Award, BookOpen, ShieldCheck, CheckC
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
 import { MobileMenuButton } from '@/components/mobile-menu-button';
-import { createClient } from '@/utils/supabase/client';
-import { updateProfile } from '@/app/actions/profile';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import { autoActivateStudents } from '@/app/actions/student';
 import { formatDateString } from '@/utils/date';
 
@@ -34,7 +34,6 @@ const COLOR_MAP: Record<string, string> = {
 };
 
 export default function ProfilePage() {
-    const supabase = createClient();
     const [isPending, startTransition] = useTransition();
     const [isEditing, setIsEditing] = useState(false);
     const [status, setStatus] = useState<{ type: 'error' | 'success', message: string } | null>(null);
@@ -63,91 +62,58 @@ export default function ProfilePage() {
     const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
     const [skillInput, setSkillInput] = useState('');
 
+    const mutateProfile = useMutation(api.users.updateProfile);
+
+    // Get current authenticated user details from Convex
+    const currentUser = useQuery(api.users.viewer);
+    const userEmail = currentUser?.email || '';
+    const roleFromDB = useQuery(
+        api.legacyAuth.getRoleByEmail,
+        userEmail ? { email: userEmail } : "skip"
+    );
+    const userRole = roleFromDB || (currentUser as any)?.role || 'alumno';
+
+    // Get dashboard data to retrieve bootcamps
+    const dashboardData = useQuery(
+        api.dashboard.getStudentData,
+        userEmail ? { email: userEmail } : "skip"
+    );
+
     useEffect(() => {
-        async function fetchUser() {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            if (authUser) {
-                const metadata = authUser.user_metadata || {};
-                const userData = {
-                    id: authUser.id,
-                    name: metadata.full_name || authUser.email?.split('@')[0] || '',
-                    role: metadata.role === 'superadmin' ? 'Super Administrador' : (metadata.role === 'docente' ? 'Docente' : 'Alumno'),
-                    email: authUser.email || '',
-                    location: metadata.location || 'Santiago, Chile',
-                    joinDate: new Date(authUser.created_at).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }),
-                    bio: metadata.bio || 'Sin biografía disponible.',
-                    skills: metadata.skills || '',
-                    avatar: metadata.avatar || '',
-                    jobTitle: metadata.job_title || '',
-                    stats: {
-                        courses: metadata.role === 'alumno' ? 0 : 4,
-                        students: metadata.role === 'alumno' ? 0 : 250,
-                        rating: 4.8,
-                    }
-                };
-                setUser(userData);
-                setFormData(userData);
-
-                // Auto-activate enrolled students whose start date has arrived
-                if (authUser.email) {
-                    await autoActivateStudents(authUser.email);
+        if (currentUser) {
+            const displayRole = userRole === 'superadmin' ? 'Super Administrador' : (userRole === 'docente' ? 'Docente' : 'Alumno');
+            const userData = {
+                id: currentUser._id,
+                name: currentUser.name || userEmail.split('@')[0] || '',
+                role: displayRole,
+                email: userEmail || '',
+                location: (currentUser as any).location || 'Santiago, Chile',
+                joinDate: new Date(currentUser._creationTime).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }),
+                bio: (currentUser as any).bio || 'Sin biografía disponible.',
+                skills: (currentUser as any).skills || '',
+                avatar: (currentUser as any).avatar || '',
+                jobTitle: (currentUser as any).jobTitle || '',
+                stats: {
+                    courses: userRole === 'alumno' ? 0 : 4,
+                    students: userRole === 'alumno' ? 0 : 250,
+                    rating: 4.8,
                 }
+            };
+            setUser(userData);
+            setFormData(prev => prev.id ? prev : userData);
 
-                // Fetch enrolled bootcamps
-                const { data: enrolledBootcamps } = await supabase
-                    .from('Bootcamp')
-                    .select('*, BootcampStudent!inner(*)')
-                    .eq('BootcampStudent.email', authUser.email)
-                    .eq('BootcampStudent.status', 'active')
-                    .order('createdAt', { ascending: false });
-                
-                if (enrolledBootcamps) {
-                    const bootcampsWithProgress = await Promise.all(enrolledBootcamps.map(async (bootcamp: any) => {
-                        // Get total lessons
-                        const { data: modules } = await supabase
-                            .from('Module')
-                            .select('id, Lesson(id, type)')
-                            .eq('bootcampId', bootcamp.id);
-                        
-                        let totalLessons = 0;
-                        if (modules) {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            modules.forEach((mod: any) => {
-                                  const consumableLessons = mod.Lesson?.filter((l: any) => l.type !== 'subtitle') || [];
-                                  totalLessons += consumableLessons.length;
-                            });
-                        }
-
-                        // Get completions
-                        const studentId = bootcamp.BootcampStudent?.[0]?.id;
-                        let completedLessons = 0;
-                        if (studentId) {
-                            const { data: completions } = await supabase
-                                .from('LessonCompletion')
-                                .select('id')
-                                .eq('studentId', studentId);
-                            completedLessons = completions?.length || 0;
-                        }
-
-                        let progress = 0;
-                        if (totalLessons > 0) {
-                            progress = Math.round((completedLessons / totalLessons) * 100);
-                        }
-
-                        return {
-                            ...bootcamp,
-                            startDate: formatDateString(bootcamp.startDate),
-                            calculatedProgress: progress
-                        };
-                    }));
-
-                    setMyBootcamps(bootcampsWithProgress);
-                }
+            // Auto-activate enrolled students whose start date has arrived
+            if (userEmail) {
+                autoActivateStudents(userEmail).catch(console.error);
             }
         }
+    }, [currentUser, userRole, userEmail]);
 
-        fetchUser();
-    }, [supabase.auth]);
+    useEffect(() => {
+        if (dashboardData?.bootcamps) {
+            setMyBootcamps(dashboardData.bootcamps);
+        }
+    }, [dashboardData]);
 
     const handleEdit = () => {
         setStatus(null);
@@ -163,24 +129,21 @@ export default function ProfilePage() {
     const handleSave = () => {
         setStatus(null);
         startTransition(async () => {
-            const result = await updateProfile({
-                full_name: formData.name,
-                bio: formData.bio,
-                location: formData.location,
-                skills: formData.skills,
-                avatar: formData.avatar,
-                job_title: formData.jobTitle,
-            });
-
-            if (result.error) {
-                setStatus({ type: 'error', message: result.error });
-            } else {
+            try {
+                await mutateProfile({
+                    name: formData.name,
+                    bio: formData.bio,
+                    location: formData.location,
+                    skills: formData.skills,
+                    avatar: formData.avatar,
+                    jobTitle: formData.jobTitle,
+                });
                 setUser(formData);
                 setIsEditing(false);
                 setStatus({ type: 'success', message: '¡Perfil actualizado con éxito!' });
-                
-                // Limpiar mensaje de éxito después de unos segundos
                 setTimeout(() => setStatus(null), 5000);
+            } catch (err: any) {
+                setStatus({ type: 'error', message: err.message || 'Error al actualizar el perfil' });
             }
         });
     };

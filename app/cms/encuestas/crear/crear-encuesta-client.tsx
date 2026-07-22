@@ -9,7 +9,7 @@ import { MedicionTab } from '@/components/medicion-tab';
 import { limpiarMedicionPreguntas } from '@/app/actions/medicion';
 
 interface Bootcamp {
-    id: number;
+    id: number | string;
     title: string;
     icon: string | null;
     color: string | null;
@@ -21,23 +21,26 @@ export function CrearEncuestaClient({
     initialBootcampId,
 }: {
     bootcamps: Bootcamp[];
-    initialBootcampId: number | null;
+    initialBootcampId: number | string | null;
 }) {
     const { isCollapsed, setIsMobileOpen } = useSidebar();
-    const [bootcampId, setBootcampId] = useState<number | ''>(initialBootcampId ?? '');
-    const [confirmedBootcampId, setConfirmedBootcampId] = useState<number | ''>(initialBootcampId ?? '');
-    const [pendingBootcampId, setPendingBootcampId] = useState<number | null>(null); // bootcamp esperando confirmación
+    const [bootcampId, setBootcampId] = useState<number | string | ''>(initialBootcampId ?? '');
+    const [confirmedBootcampId, setConfirmedBootcampId] = useState<number | string | ''>(initialBootcampId ?? '');
+    const [pendingBootcampId, setPendingBootcampId] = useState<number | string | null>(null); // bootcamp esperando confirmación
     const [isPending, startTransition] = useTransition();
 
-    const selectedBootcamp = bootcamps.find(b => b.id === confirmedBootcampId);
+    // Si viene con initialBootcampId, es modo edición y no se puede cambiar el bootcamp
+    const isEditMode = initialBootcampId !== null;
 
-    const handleSelectBootcamp = (value: number | '') => {
+    const selectedBootcamp = bootcamps.find(b => String(b.id) === String(confirmedBootcampId));
+
+    const handleSelectBootcamp = (value: string) => {
         setBootcampId(value);
         if (!value) {
             setConfirmedBootcampId('');
             return;
         }
-        const bc = bootcamps.find(b => b.id === value);
+        const bc = bootcamps.find(b => String(b.id) === value);
         if (bc && bc.totalPreguntas > 0) {
             // Tiene preguntas → pedir confirmación
             setPendingBootcampId(value);
@@ -62,7 +65,7 @@ export function CrearEncuestaClient({
         setPendingBootcampId(null);
     };
 
-    const pendingBootcamp = bootcamps.find(b => b.id === pendingBootcampId);
+    const pendingBootcamp = bootcamps.find(b => String(b.id) === String(pendingBootcampId));
 
     return (
         <div className="min-h-screen bg-background">
@@ -86,7 +89,16 @@ export function CrearEncuestaClient({
                                 Encuestas
                             </Link>
                             <span className="text-muted text-xs">/</span>
-                            <span className="text-xs text-foreground font-medium">Crear encuesta</span>
+                            {isEditMode && selectedBootcamp ? (
+                                <Link 
+                                    href={`/cms/encuestas/${initialBootcampId}/resultados`} 
+                                    className="text-xs text-foreground font-medium hover:text-primary transition-colors"
+                                >
+                                    {selectedBootcamp.title}
+                                </Link>
+                            ) : (
+                                <span className="text-xs text-foreground font-medium">Crear encuesta</span>
+                            )}
                         </div>
                     </div>
                 </header>
@@ -94,9 +106,11 @@ export function CrearEncuestaClient({
                 <main className="flex-1 overflow-y-auto pt-[92px] px-6 pb-6">
                     <div className="max-w-3xl mx-auto space-y-8">
 
-                        {/* Card: Crear encuesta */}
+                        {/* Card: Crear/Editar encuesta */}
                         <div className="bg-card-bg border border-border rounded-2xl p-8">
-                            <h2 className="text-lg font-semibold text-foreground mb-6">Crear encuesta</h2>
+                            <h2 className="text-lg font-semibold text-foreground mb-6">
+                                {isEditMode ? 'Editar encuesta' : 'Crear encuesta'}
+                            </h2>
 
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-foreground">
@@ -104,8 +118,9 @@ export function CrearEncuestaClient({
                                 </label>
                                 <select
                                     value={bootcampId}
-                                    onChange={e => handleSelectBootcamp(e.target.value ? Number(e.target.value) : '')}
-                                    className="w-full px-4 py-3 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors appearance-none cursor-pointer"
+                                    onChange={e => handleSelectBootcamp(e.target.value)}
+                                    disabled={isEditMode}
+                                    className={`w-full px-4 py-3 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors appearance-none ${isEditMode ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                                 >
                                     <option value="">Selecciona un bootcamp</option>
                                     {bootcamps.map(b => (
@@ -113,7 +128,9 @@ export function CrearEncuestaClient({
                                     ))}
                                 </select>
                                 <p className="text-xs text-muted">
-                                    La encuesta se asociará al bootcamp seleccionado y sus alumnos podrán responderla.
+                                    {isEditMode 
+                                        ? 'El bootcamp no puede ser modificado una vez creada la encuesta.'
+                                        : 'La encuesta se asociará al bootcamp seleccionado y sus alumnos podrán responderla.'}
                                 </p>
                             </div>
                         </div>

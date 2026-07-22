@@ -268,8 +268,8 @@ function PreguntaCard({
     onTogglePausa: (id: string, pausada: boolean) => void;
     isSent: boolean;
 }) {
-    const [texto, setTexto] = useState(pregunta.texto);
-    const [tipo, setTipo] = useState<TipoPregunta>(pregunta.tipo);
+    const [texto, setTexto] = useState(pregunta.texto || '');
+    const [tipo, setTipo] = useState<TipoPregunta>(pregunta.tipo || 'likert_5');
     const [opciones, setOpciones] = useState<string[]>(pregunta.opciones ?? DEFAULT_OPCIONES);
     const [isDirty, setIsDirty] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -310,7 +310,7 @@ function PreguntaCard({
                 </div>
                 <div className="flex-1 min-w-0">
                     <span className="text-xs font-bold text-muted uppercase tracking-wider">{getTipoLabel(tipo)}</span>
-                    {isCollapsed && texto.trim() && (
+                    {isCollapsed && (texto || '').trim() && (
                         <p className="text-xs text-foreground/70 truncate mt-0.5">{texto}</p>
                     )}
                 </div>
@@ -403,7 +403,7 @@ function PreguntaCard({
                 {!isSent && (
                     <button
                         onClick={handleSave}
-                        disabled={isSaving || !texto.trim() || (tipo === 'alternativas' && opciones.filter(o => o.trim()).length < 2) || !isDirty}
+                        disabled={isSaving || !(texto || '').trim() || (tipo === 'alternativas' && opciones.filter(o => (o || '').trim()).length < 2) || !isDirty}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-colors disabled:opacity-40"
                     >
                         {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
@@ -429,7 +429,7 @@ function formatValor(tipo: TipoPregunta, valor: string): string {
     }
 }
 
-export function MedicionTab({ bootcampId, hideEnviar }: { bootcampId: number; hideEnviar?: boolean }) {
+export function MedicionTab({ bootcampId, hideEnviar }: { bootcampId: number | string; hideEnviar?: boolean }) {
     const [preguntas, setPreguntas] = useState<MedicionPregunta[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAdding, startAdd] = useTransition();
