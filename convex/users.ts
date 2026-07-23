@@ -1,6 +1,9 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, action, internalMutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
+import { Scrypt } from "lucia";
+import bcrypt from "bcryptjs";
+import { internal } from "./_generated/api";
 
 /**
  * Returns the currently authenticated user's document from the "users" table.
@@ -146,5 +149,88 @@ export const listAllUsersWithRoles = query({
     }
 
     return Array.from(mergedUsersMap.values());
+  },
+});
+
+/**
+ * Internal mutation para crear usuario desde legacy.
+ */
+export const createUserFromLegacyInternal = internalMutation({
+  args: {
+    email: v.string(),
+    scryptHash: v.string(),
+    bcryptHash: v.string(),
+  },
+  handler: async (ctx, { email, scryptHash, bcryptHash }) => {
+    // Verificar si ya existe en users
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", email))
+      .first();
+    
+    if (existingUser) {
+      throw new Error("El usuario ya existe en Convex Auth");
+    }
+    
+    // Buscar en legacyAuth para obtener el rol
+    const legacyUser = await ctx.db
+      .query("legacyAuth")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
+    
+    if (!legacyUser) {
+      throw new Error("Usuario no encontrado en legacyAuth");
+    }
+    
+    // Crear usuario en users
+    const userId = await ctx.db.insert("users", {
+      email: email,
+      name: email.split("@")[0],
+      role: legacyUser.role || "alumno",
+    });
+    
+    // Crear cuenta de auth
+    await ctx.db.insert("authAccounts", {
+      userId: userId,
+      provider: "password",
+      providerAccountId: email,
+      secret: scryptHash,
+    } as any);
+    
+    // Actualizar legacyAuth
+    await ctx.db.patch(legacyUser._id, {
+      passwordHash: bcryptHash,
+      migrated: true,
+    });
+    
+    return { userId: userId.toString() };
+  },
+});
+
+/**
+ * ADMIN: Crea un usuario en Convex Auth desde legacyAuth con una contraseña temporal.
+ * Útil para migrar usuarios que estaban en Supabase.
+ */
+export const createUserFromLegacy = action({
+  args: {
+    email: v.string(),
+    password: v.string(),
+  },
+  handler: async (ctx, { email, password }): Promise<{ success: boolean; message: string }> => {
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Crear hashes
+    const scrypt = new Scrypt();
+    const scryptHash = await scrypt.hash(password);
+    const bcryptHash = await bcrypt.hash(password, 10);
+    
+    // Crear usuario usando mutation interna
+    await ctx.runMutation(internal.users.createUserFromLegacyInternal, {
+      email: normalizedEmail,
+      scryptHash,
+      bcryptHash,
+    });
+    
+    return { success: true, message: `Usuario ${normalizedEmail} creado exitosamente con contraseña temporal` };
   },
 });

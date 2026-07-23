@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
-import { Mail, MapPin, Briefcase, Calendar, Award, BookOpen, ShieldCheck, CheckCircle2, Save, X, Edit2, Loader2, Trophy, Clock, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Camera, Building2 } from 'lucide-react';
+import { Mail, MapPin, Briefcase, Calendar, Award, BookOpen, ShieldCheck, CheckCircle2, Save, X, Edit2, Loader2, Trophy, Clock, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Camera, Building2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
 import { MobileMenuButton } from '@/components/mobile-menu-button';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { autoActivateStudents } from '@/app/actions/student';
 import { formatDateString } from '@/utils/date';
@@ -61,8 +61,16 @@ export default function ProfilePage() {
     const [myBootcamps, setMyBootcamps] = useState<any[]>([]);
     const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
     const [skillInput, setSkillInput] = useState('');
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [passwordStatus, setPasswordStatus] = useState<{ type: 'error' | 'success', message: string } | null>(null);
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
 
     const mutateProfile = useMutation(api.users.updateProfile);
+    const changePassword = useAction(api.passwordReset.changePassword);
 
     // Get current authenticated user details from Convex
     const currentUser = useQuery(api.users.viewer);
@@ -177,6 +185,56 @@ export default function ProfilePage() {
             ...prev,
             skills: currentSkills.filter(s => s !== skillToRemove).join(', ')
         }));
+    };
+
+    const handleOpenPasswordModal = () => {
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setPasswordStatus(null);
+        setShowCurrentPassword(false);
+        setShowNewPassword(false);
+        setShowConfirmPassword(false);
+        setIsPasswordModalOpen(true);
+    };
+
+    const handleChangePassword = async () => {
+        setPasswordStatus(null);
+
+        // Validaciones
+        if (!passwordForm.currentPassword) {
+            setPasswordStatus({ type: 'error', message: 'Ingresa tu contraseña actual.' });
+            return;
+        }
+        if (!passwordForm.newPassword) {
+            setPasswordStatus({ type: 'error', message: 'Ingresa tu nueva contraseña.' });
+            return;
+        }
+        if (passwordForm.newPassword.length < 6) {
+            setPasswordStatus({ type: 'error', message: 'La nueva contraseña debe tener al menos 6 caracteres.' });
+            return;
+        }
+        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+            setPasswordStatus({ type: 'error', message: 'Las contraseñas no coinciden.' });
+            return;
+        }
+
+        setIsChangingPassword(true);
+        try {
+            await changePassword({
+                currentPassword: passwordForm.currentPassword,
+                newPassword: passwordForm.newPassword,
+            });
+            setPasswordStatus({ type: 'success', message: '¡Contraseña actualizada correctamente!' });
+            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            // Cerrar modal después de 2 segundos
+            setTimeout(() => {
+                setIsPasswordModalOpen(false);
+                setPasswordStatus(null);
+            }, 2000);
+        } catch (err: any) {
+            setPasswordStatus({ type: 'error', message: err.message || 'Error al cambiar la contraseña.' });
+        } finally {
+            setIsChangingPassword(false);
+        }
     };
 
     const skillsList = typeof user.skills === 'string'
@@ -365,7 +423,7 @@ export default function ProfilePage() {
                                         </div>
 
                                         {/* Botones de Acción */}
-                                        <div className="w-full mt-8">
+                                        <div className="w-full mt-8 space-y-3">
                                             {isEditing ? (
                                                 <div className="flex flex-col gap-3">
                                                     <button onClick={handleSave} disabled={isPending} className="w-full px-5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-bold transition-all shadow-lg shadow-primary/25 flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50">
@@ -378,10 +436,16 @@ export default function ProfilePage() {
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <button onClick={handleEdit} className="w-full px-5 py-3 bg-hover-bg hover:bg-white/10 text-foreground border border-white/5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
-                                                    <Edit2 size={18} className="text-primary" />
-                                                    <span>Editar Perfil</span>
-                                                </button>
+                                                <>
+                                                    <button onClick={handleEdit} className="w-full px-5 py-3 bg-hover-bg hover:bg-white/10 text-foreground border border-white/5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
+                                                        <Edit2 size={18} className="text-primary" />
+                                                        <span>Editar Perfil</span>
+                                                    </button>
+                                                    <button onClick={handleOpenPasswordModal} className="w-full px-5 py-3 bg-transparent hover:bg-hover-bg text-muted hover:text-foreground border border-border rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 active:scale-[0.98]">
+                                                        <KeyRound size={18} className="text-muted" />
+                                                        <span>Cambiar Clave</span>
+                                                    </button>
+                                                </>
                                             )}
                                         </div>
                                     </div>
@@ -517,6 +581,123 @@ export default function ProfilePage() {
                                     className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-bold transition-all shadow-md active:scale-95"
                                 >
                                     Listo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Password Change Modal */}
+                {isPasswordModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+                        <div className="bg-card-bg border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative animate-in zoom-in-95 duration-200">
+                            <div className="flex items-center justify-between p-5 border-b border-border bg-background/50">
+                                <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                                    <KeyRound size={18} className="text-primary" />
+                                    Cambiar Contraseña
+                                </h3>
+                                <button 
+                                    onClick={() => setIsPasswordModalOpen(false)}
+                                    disabled={isChangingPassword}
+                                    className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-hover-bg transition-colors disabled:opacity-50"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            
+                            <div className="p-6 space-y-4">
+                                {passwordStatus && (
+                                    <div className={`p-3 rounded-lg border text-sm ${
+                                        passwordStatus.type === 'error' 
+                                            ? 'bg-red-500/10 border-red-500/20 text-red-500' 
+                                            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+                                    }`}>
+                                        {passwordStatus.message}
+                                    </div>
+                                )}
+
+                                {/* Contraseña Actual */}
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-foreground">Contraseña Actual</label>
+                                    <div className="relative">
+                                        <input
+                                            type={showCurrentPassword ? "text" : "password"}
+                                            value={passwordForm.currentPassword}
+                                            onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                                            placeholder="Ingresa tu contraseña actual"
+                                            className="w-full bg-background border border-border rounded-lg px-4 py-2.5 pr-10 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                                            disabled={isChangingPassword}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
+                                        >
+                                            {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Nueva Contraseña */}
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-foreground">Nueva Contraseña</label>
+                                    <div className="relative">
+                                        <input
+                                            type={showNewPassword ? "text" : "password"}
+                                            value={passwordForm.newPassword}
+                                            onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                                            placeholder="Mínimo 6 caracteres"
+                                            className="w-full bg-background border border-border rounded-lg px-4 py-2.5 pr-10 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                                            disabled={isChangingPassword}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowNewPassword(!showNewPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
+                                        >
+                                            {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Confirmar Contraseña */}
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-foreground">Confirmar Nueva Contraseña</label>
+                                    <div className="relative">
+                                        <input
+                                            type={showConfirmPassword ? "text" : "password"}
+                                            value={passwordForm.confirmPassword}
+                                            onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                                            placeholder="Repite tu nueva contraseña"
+                                            className="w-full bg-background border border-border rounded-lg px-4 py-2.5 pr-10 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                                            disabled={isChangingPassword}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground transition-colors"
+                                        >
+                                            {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="p-4 border-t border-border bg-background/50 flex justify-end gap-3">
+                                <button
+                                    onClick={() => setIsPasswordModalOpen(false)}
+                                    disabled={isChangingPassword}
+                                    className="px-4 py-2 bg-transparent border border-border hover:bg-hover-bg text-muted hover:text-foreground rounded-lg text-sm font-medium transition-all disabled:opacity-50"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleChangePassword}
+                                    disabled={isChangingPassword}
+                                    className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-bold transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {isChangingPassword ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />}
+                                    <span>{isChangingPassword ? 'Cambiando...' : 'Cambiar Clave'}</span>
                                 </button>
                             </div>
                         </div>

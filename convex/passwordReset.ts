@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import bcrypt from "bcryptjs";
 import { Scrypt } from "lucia";
 import { internal } from "./_generated/api";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 /**
  * Genera un token de recuperación de contraseña para un email.
@@ -362,5 +363,101 @@ export const debugAuthAccounts = query({
         role: legacyUser.role,
       } : null,
     };
+  },
+});
+
+/**
+ * Internal query para obtener el email del usuario autenticado.
+ */
+export const getAuthenticatedUserEmail = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    
+    const user = await ctx.db.get(userId);
+    return user?.email || null;
+  },
+});
+
+/**
+ * Internal query para verificar la contraseña actual del usuario.
+ */
+export const verifyCurrentPassword = internalQuery({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Buscar el usuario en la tabla users
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", normalizedEmail))
+      .first();
+    
+    if (!user) return null;
+    
+    // Buscar la cuenta de auth
+    const authAccounts = await ctx.db.query("authAccounts").collect();
+    const account = authAccounts.find(
+      (a: any) => a.userId?.toString() === user._id.toString() && a.provider === "password"
+    );
+    
+    return account?.secret || null;
+  },
+});
+
+/**
+ * Action para cambiar la contraseña del usuario autenticado.
+ * Requiere la contraseña actual para verificar la identidad.
+ */
+export const changePassword = action({
+  args: {
+    currentPassword: v.string(),
+    newPassword: v.string(),
+  },
+  handler: async (ctx, { currentPassword, newPassword }): Promise<{ success: boolean; message: string }> => {
+    // Obtener el email del usuario autenticado
+    const email = await ctx.runQuery(internal.passwordReset.getAuthenticatedUserEmail, {});
+    
+    if (!email) {
+      throw new Error("No estás autenticado. Por favor, inicia sesión nuevamente.");
+    }
+    
+    // Validar la nueva contraseña
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error("La nueva contraseña debe tener al menos 6 caracteres.");
+    }
+    
+    if (currentPassword === newPassword) {
+      throw new Error("La nueva contraseña debe ser diferente a la actual.");
+    }
+    
+    // Obtener el hash actual de la contraseña
+    const currentHash = await ctx.runQuery(internal.passwordReset.verifyCurrentPassword, { email });
+    
+    if (!currentHash) {
+      throw new Error("No se encontró tu cuenta. Contacta al administrador.");
+    }
+    
+    // Verificar la contraseña actual con Scrypt
+    const scrypt = new Scrypt();
+    const isValid = await scrypt.verify(currentHash, currentPassword);
+    
+    if (!isValid) {
+      throw new Error("La contraseña actual es incorrecta.");
+    }
+    
+    // Hashear la nueva contraseña
+    const newScryptHash = await scrypt.hash(newPassword);
+    const newBcryptHash = await bcrypt.hash(newPassword, 10);
+    
+    // Actualizar la contraseña
+    await ctx.runMutation(internal.passwordReset.updatePasswordInternal, {
+      email,
+      passwordHash: newScryptHash,
+      bcryptHash: newBcryptHash,
+    });
+    
+    return { success: true, message: "Contraseña actualizada correctamente." };
   },
 });
