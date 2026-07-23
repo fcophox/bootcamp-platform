@@ -337,9 +337,12 @@ function LoginContent() {
                                     {t.passwordLabel}
                                 </label>
                                 {mode === 'login' && (
-                                    <a href="#" className="text-xs text-muted hover:text-foreground transition-colors">
+                                    <Link 
+                                        href={`/forgot-password${lang === 'en' ? '?lang=en' : ''}`}
+                                        className="text-xs text-muted hover:text-foreground transition-colors"
+                                    >
                                         {t.forgotPassword}
-                                    </a>
+                                    </Link>
                                 )}
                             </div>
                             <div className="relative">

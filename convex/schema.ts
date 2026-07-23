@@ -258,4 +258,13 @@ export default defineSchema({
     createdAt: v.optional(v.any()),
     updatedAt: v.optional(v.any()),
   }).index("by_pregunta", ["preguntaId"]).index("by_user", ["userId"]),
+
+  // Tokens para recuperación de contraseña
+  passwordResetTokens: defineTable({
+    email: v.string(),
+    token: v.string(),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  }).index("by_token", ["token"]).index("by_email", ["email"]),
 });

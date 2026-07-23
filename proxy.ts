@@ -6,8 +6,14 @@ import {
 
 const isProtectedRoute = createRouteMatcher(["/cms(.*)", "/dashboard(.*)"]);
 const isAuthRoute = createRouteMatcher(["/login(.*)"]);
+const isPublicAuthRoute = createRouteMatcher(["/reset-password(.*)", "/forgot-password(.*)"]);
 
 export const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
+  // Skip auth check for password reset routes
+  if (isPublicAuthRoute(request)) {
+    return;
+  }
+  
   if (isProtectedRoute(request) && !(await convexAuth.isAuthenticated())) {
     return nextjsMiddlewareRedirect(request, "/login");
   }

@@ -20,6 +20,7 @@ import type * as legacyAuth from "../legacyAuth.js";
 import type * as lessons from "../lessons.js";
 import type * as masterclass from "../masterclass.js";
 import type * as modules from "../modules.js";
+import type * as passwordReset from "../passwordReset.js";
 import type * as presence from "../presence.js";
 import type * as seed from "../seed.js";
 import type * as students from "../students.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   lessons: typeof lessons;
   masterclass: typeof masterclass;
   modules: typeof modules;
+  passwordReset: typeof passwordReset;
   presence: typeof presence;
   seed: typeof seed;
   students: typeof students;
