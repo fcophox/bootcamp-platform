@@ -7,7 +7,7 @@ backlog to triage, not a promise.
 ## 1. Retire the Supabase-compatibility shim
 `utils/supabase/{server,client}.ts` (see
 [ADR 0003](adr/0003-supabase-compatibility-shim.md)) let the Supabase→Convex
-migration ship without touching 29 action files, but it's a permanent
+migration ship without touching 11 action files, but it's a permanent
 indirection layer now: in-memory filtering after `collect()` in
 `genericQuery` (`convex/db.ts`) won't scale as table sizes grow, and it only
 implements the subset of the Supabase API already in use. Migrating
