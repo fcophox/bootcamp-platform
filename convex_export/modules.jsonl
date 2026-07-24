@@ -1,0 +1,17 @@
+{"id":39,"bootcampId":18,"title":"Course 1","order":0,"createdAt":"2026-07-08T19:30:44.290195+00:00"}
+{"id":40,"bootcampId":18,"title":"Course 2","order":1,"createdAt":"2026-07-08T19:35:40.310036+00:00"}
+{"id":41,"bootcampId":18,"title":"Course 3","order":2,"createdAt":"2026-07-08T19:36:04.477575+00:00"}
+{"id":42,"bootcampId":18,"title":"Course 4","order":3,"createdAt":"2026-07-08T19:36:08.103148+00:00"}
+{"id":44,"bootcampId":18,"title":"Course 6","order":5,"createdAt":"2026-07-08T19:49:13.108572+00:00"}
+{"id":43,"bootcampId":18,"title":"Course 5","order":4,"createdAt":"2026-07-08T19:49:12.571142+00:00"}
+{"id":45,"bootcampId":18,"title":"Course 7","order":6,"createdAt":"2026-07-08T20:14:32.872761+00:00"}
+{"id":14,"bootcampId":8,"title":"Módulo 1: Ideación y co-creación con IA","order":0,"createdAt":"2026-04-01T20:50:01.053718+00:00"}
+{"id":15,"bootcampId":8,"title":"Módulo 2: Prototipado Rápido con IA (De Wireframes a Alta Fidelidad)","order":0,"createdAt":"2026-04-01T20:50:06.893371+00:00"}
+{"id":21,"bootcampId":12,"title":"Introduction to Model Context Protocol","order":0,"createdAt":"2026-06-04T17:10:31.607076+00:00"}
+{"id":19,"bootcampId":12,"title":"Introduction to agent skills","order":0,"createdAt":"2026-06-04T17:07:43.216025+00:00"}
+{"id":22,"bootcampId":12,"title":"Claude Code in Action","order":1,"createdAt":"2026-06-05T15:44:14.746154+00:00"}
+{"id":20,"bootcampId":12,"title":"Building with the Claude API","order":0,"createdAt":"2026-06-04T17:10:05.537659+00:00"}
+{"id":29,"bootcampId":15,"title":"Introduction to Model Context Protocol","order":0,"createdAt":"2026-06-20T17:50:06.507769+00:00"}
+{"id":30,"bootcampId":15,"title":"Introduction to agent skills","order":0,"createdAt":"2026-06-20T17:50:06.627134+00:00"}
+{"id":31,"bootcampId":15,"title":"Building with the Claude API","order":0,"createdAt":"2026-06-20T17:50:06.708933+00:00"}
+{"id":32,"bootcampId":15,"title":"Claude Code in Action","order":1,"createdAt":"2026-06-20T17:50:06.862856+00:00"}
