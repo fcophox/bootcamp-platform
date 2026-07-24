@@ -1,0 +1,48 @@
+# syntax=docker/dockerfile:1
+ARG NODE_VERSION=22-alpine
+
+# --- deps: install dependencies only (better layer caching) ---
+FROM node:${NODE_VERSION} AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# --- builder: build the Next.js standalone output ---
+FROM node:${NODE_VERSION} AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time, and
+# app/api/password-reset/route.ts constructs a ConvexHttpClient at module
+# scope, so `next build` fails without a non-empty NEXT_PUBLIC_CONVEX_URL.
+# Pass the real deployment URL as a build arg for a deployable image; the
+# placeholder below only exists so the image still builds without one.
+ARG NEXT_PUBLIC_CONVEX_URL=https://placeholder.convex.cloud
+ENV NEXT_PUBLIC_CONVEX_URL=${NEXT_PUBLIC_CONVEX_URL}
+
+RUN npm run build
+
+# --- runner: minimal production image ---
+FROM node:${NODE_VERSION} AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+COPY --from=builder --chown=node:node /app/public ./public
+
+RUN mkdir .next && chown node:node .next
+
+# Reduced image size via output file tracing: https://nextjs.org/docs/advanced-features/output-file-tracing
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+
+USER node
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]

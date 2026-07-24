@@ -22,7 +22,9 @@ if (process.env.NODE_ENV === "development") {
 }
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Minimal, self-contained build output for the Docker image (.github/workflows + Dockerfile).
+  // Doesn't affect `next dev` or Vercel deploys.
+  output: "standalone",
 };
 
 export default nextConfig;

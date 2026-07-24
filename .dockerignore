@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.github
+.vercel
+.env
+.env.*
+!.env.example
+npm-debug.log*
+*.tsbuildinfo
+next-env.d.ts
+dev.db
+convex_export
+scratch
+architecture-roadmap
+docs
