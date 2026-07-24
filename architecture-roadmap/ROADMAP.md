@@ -51,3 +51,25 @@ can be simplified to Convex-ID-only.
 cleanup path for orphaned Azure Blob assets when the referencing Convex
 record is deleted. Confirm whether this is intentional (e.g. handled by a
 retention policy on the Azure side) or a gap.
+
+## 7. `xlsx` has no fix on the npm registry
+`xlsx@0.18.5` (direct dependency, used for exports) has two known high-severity
+CVEs (prototype pollution, ReDoS) with fixes only published by SheetJS to
+their own CDN (`cdn.sheetjs.com`), not to the npm registry — `npm view xlsx
+versions` tops out at `0.18.5`, confirmed no newer npm release exists. A real
+fix means switching the dependency source to a CDN tarball URL (e.g.
+`"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"`), which is a
+supply-chain trust change (installing from a third-party CDN instead of the
+npm registry) worth a deliberate decision, not a routine bump — deferred here.
+
+## 8. eslint 9→10 major bump needed to clear remaining dev-only CVEs
+The last ~10 open Dependabot/`npm audit` findings (`ajv`, `brace-expansion`,
+`minimatch`, `@eslint/config-array`, `@eslint/eslintrc`, and `eslint` itself)
+are all transitive, lint-time-only dependencies of `eslint@9.39.x` — they
+never ship to users or run on untrusted input, so the real-world risk is low.
+`npm audit` reports the fix requires `eslint@10.8.0`, a major version, and
+`eslint-config-next@16.1.4` is pinned to `eslint` peer range `>=9.0.0` with no
+confirmed 10.x compatibility yet — bumping needs its own verification pass
+(does `eslint-config-next` support eslint 10? does the Next.js flat-config
+setup still work?) rather than a blind version bump. Deferred as a separate,
+focused piece of work.
