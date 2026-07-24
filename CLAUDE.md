@@ -17,7 +17,7 @@ UI text, error messages, and many code comments are in **Spanish**. Match that w
 
 ## Architecture
 
-Next.js 16 App Router + React 19 + Tailwind v4 + TypeScript. Backend is **Convex** (see `### Data & backend` below — `@supabase/ssr`-shaped calls are a compatibility shim over Convex, not real Supabase). The `@/*` path alias maps to the repo root.
+Next.js 16 App Router + React 19 + Tailwind v4 + TypeScript. Backend is **Convex** (see `### Data & backend` below — Supabase-*shaped* calls are a compatibility shim over Convex, not real Supabase; no `supabase` package is installed). The `@/*` path alias maps to the repo root.
 
 Two product surfaces under `app/`:
 - `app/cms/*` — admin/instructor CMS (manage bootcamps, modules, lessons, exams, students, certificates, feedback).
@@ -49,7 +49,7 @@ See `architecture-roadmap/adr/0004-convex-auth-and-role-model.md` for the
 full rationale (Convex Auth, the VIP-email fallback, legacy account bridging).
 
 ### Mutations
-Data changes go through server actions in `app/actions/*.ts` (`'use server'`), one file per domain (`bootcamp`, `module`, `exam`, `student`, `invitation`, `certificate`, `feedback`, `profile`). They use the server Supabase client and call `revalidatePath` / `redirect`. Some flows are self-healing (e.g. invitation acceptance upserts a missing `UserRole`).
+Data changes go through server actions in `app/actions/*.ts` (`'use server'`), one file per domain (`bootcamp`, `module`, `exam`, `student`, `invitation`, `certificate`, `feedback`, `profile`). They use the server-side compatibility shim (`utils/supabase/server.ts`, Convex under the hood — see `### Data & backend` above) and call `revalidatePath` / `redirect`. Some flows are self-healing (e.g. invitation acceptance upserts a missing `UserRole`).
 
 ### Design tokens (Design.MD → globals.css)
 `Design.MD` is the **source of truth** for the design system. `scripts/sync-design.js` parses its CSS-variable tables and regenerates the token blocks in `app/globals.css` (dark + light). `next.config.ts` auto-starts this watcher during `next dev`, so editing `Design.MD` live-updates styles — edit `Design.MD`, not the generated token blocks in `globals.css` directly. Dark mode is the default; theming via `next-themes`.
@@ -59,8 +59,8 @@ Data changes go through server actions in `app/actions/*.ts` (`'use server'`), o
 
 ### Other notable pieces
 - Rich text: Tiptap (`components/rich-text-editor.tsx`, `tiptap-editor.tsx`).
-- Live presence / online users: `contexts/OnlineUsersContext.tsx` + `components/presence-tracker.tsx` (Supabase Realtime).
+- Live presence / online users: `contexts/OnlineUsersContext.tsx` + `components/presence-tracker.tsx` (Convex real-time queries).
 - Certificates: generated client-side as PDFs (`jspdf` + `html2canvas`).
 
 ## Environment
-Required env (`.env.local`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (admin-only operations), plus email creds (`RESEND_API_KEY` or `SMTP_*`).
+Required env (`.env.local`): `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL` (Convex backend — see `### Data & backend` above), `AZURE_STORAGE_ACCOUNT` / `AZURE_STORAGE_KEY` / `AZURE_STORAGE_CONTAINER` / `AZURE_STORAGE_CONNECTION_STRING` (media uploads), plus email creds (`RESEND_API_KEY` or `SMTP_*`). No `SUPABASE_*` vars are used or needed.

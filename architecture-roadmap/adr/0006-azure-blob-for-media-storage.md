@@ -11,9 +11,10 @@ were available alternatives at their respective points in time.
 
 ## Decision
 Media uploads go through Azure Blob Storage regardless of which
-database/auth backend was in use: `lib/azure-upload.ts` wraps
-`@azure/storage-blob`, and `app/actions/storage.ts` exposes the server action
-used by upload flows. Required env vars: `AZURE_STORAGE_ACCOUNT`,
+database/auth backend was in use: `app/actions/storage.ts` uses
+`@azure/storage-blob` to mint a SAS upload URL (server action), and
+`lib/azure-upload.ts` performs the actual upload client-side via a direct
+`fetch` PUT to that SAS URL. Required env vars: `AZURE_STORAGE_ACCOUNT`,
 `AZURE_STORAGE_KEY`, `AZURE_STORAGE_CONTAINER`,
 `AZURE_STORAGE_CONNECTION_STRING`, `NEXT_PUBLIC_AZURE_BLOB_BASE`.
 

@@ -5,7 +5,7 @@ Accepted (retroactively documented)
 
 ## Context
 `app/actions/*.ts` (bootcamp, student, profile, exam, invitation, feedback,
-masterclass, module, storage, medicion, certificate — 29 files at time of
+masterclass, module, storage, medicion, certificate — 11 files at time of
 writing) all call `createClient()` from `@/utils/supabase/server` and use the
 Supabase-style `.from(table).select().eq(...).order(...)` query builder.
 Rewriting all of them to call Convex functions directly at the same time as
@@ -29,7 +29,7 @@ Supabase Auth API actually used (`getUser`, `getSession`) by resolving the
 current user through `convexAuthNextjsToken()` + `api.users.getCurrentUserWithRole`.
 
 ## Consequences
-- Every one of the 29 `app/actions/*.ts` files works unmodified against Convex —
+- Every one of the 11 `app/actions/*.ts` files works unmodified against Convex —
   the migration was possible without touching call-site logic.
 - Filtering happens **in-memory after `collect()`** inside `genericQuery`
   (see `convex/db.ts`), not via Convex indexes — acceptable at current data

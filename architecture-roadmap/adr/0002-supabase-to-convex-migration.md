@@ -27,7 +27,7 @@ Fully migrate persistence and auth to Convex:
   pre-migration schema; it is not applied against anything live.
 
 Inferred rationale (not confirmed in commit messages): avoid a costly rewrite
-of ~29 files under `app/actions/*.ts` that call a Supabase-shaped client — see
+of the 11 files under `app/actions/*.ts` that call a Supabase-shaped client — see
 [[0003-supabase-compatibility-shim]] for how that was achieved.
 
 ## Consequences
