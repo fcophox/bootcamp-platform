@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Full stack/architecture/status reference:** see `AGENTS.md` — kept there
+> once, pointed to from here, to avoid drift. This file covers only
+> Claude-Code-specific workflow notes.
+
 ## Commands
 
 - `npm run dev` — start dev server (Next.js, http://localhost:3000). Also auto-spawns the Design.MD watcher (see Design tokens below).
@@ -13,21 +17,36 @@ UI text, error messages, and many code comments are in **Spanish**. Match that w
 
 ## Architecture
 
-Next.js 16 App Router + React 19 + Tailwind v4 + TypeScript. Backend is **Supabase** (Postgres + Auth, accessed via `@supabase/ssr`). The `@/*` path alias maps to the repo root.
+Next.js 16 App Router + React 19 + Tailwind v4 + TypeScript. Backend is **Convex** (see `### Data & backend` below — `@supabase/ssr`-shaped calls are a compatibility shim over Convex, not real Supabase). The `@/*` path alias maps to the repo root.
 
 Two product surfaces under `app/`:
 - `app/cms/*` — admin/instructor CMS (manage bootcamps, modules, lessons, exams, students, certificates, feedback).
 - `app/dashboard/*` — student learning experience (bootcamp player, lessons, exams, certificate, profile).
 
-### Data & Supabase
-- Tables use **PascalCase** names and **camelCase** columns (e.g. `Bootcamp`, `Lesson`, `UserRole`, `BootcampStudent`, `LessonFeedback`) — a Prisma-style schema queried directly via the Supabase client. There is **no Prisma/ORM** in use; `dev.db` and `CMS_SETUP.md` are stale SQLite-era artifacts — ignore them.
-- Supabase clients: `utils/supabase/server.ts` (server components/actions, throws if env unset), `utils/supabase/client.ts` (browser), `utils/supabase/middleware.ts` (session refresh).
-- Schema changes are hand-written numbered SQL in `supabase/migrations/NN_*.sql`, applied manually against the Supabase project (no automated migration step). Several migrations exist specifically to fix recursive **RLS** policies — RLS is relied on heavily and is easy to break; mirror existing policy patterns when touching tables.
+### Data & backend (Convex — not Supabase, despite file/folder names)
+
+- The backend is **Convex** (`convex/schema.ts` is the live data model), not
+  Supabase. `utils/supabase/{server,client}.ts` are compatibility shims that
+  expose a Supabase-shaped `.from(table).select().eq()...` API but translate
+  every call to Convex functions — see `AGENTS.md` and
+  `architecture-roadmap/adr/0003-supabase-compatibility-shim.md`. Don't be
+  misled by the `supabase` naming when reading `app/actions/*.ts`.
+- `supabase/migrations/*.sql` documents the **historical**, pre-migration
+  Postgres schema only — not applied against anything live. `dev.db` and
+  `CMS_SETUP.md` are stale SQLite-era artifacts predating even that — ignore
+  all three.
+- Convex has no RLS equivalent. Authorization lives in Convex function
+  handlers and in per-page/per-action checks (see the Auth & roles section
+  below), not database policies — there is no structural guardrail against a
+  page forgetting its role check.
 
 ### Auth & roles
 Three roles: `superadmin`, `docente`, `alumno`. The `UserRole` table is authoritative. `utils/roles.ts` resolves a role with fallbacks (user metadata, then hardcoded VIP emails) and is the canonical source for role logic. Server-side lookups go through `utils/roles-server.ts`, client-side through `utils/roles-client.ts`.
 
 Middleware lives in **`proxy.ts`** (Next.js 16's renamed middleware) and only does coarse auth gating — redirects unauthenticated `/cms` and `/dashboard` requests to `/login`. **Role-based authorization is enforced inside pages/actions**, not in middleware (e.g. CMS pages re-check `UserRole` and redirect `alumno` to `/dashboard`).
+
+See `architecture-roadmap/adr/0004-convex-auth-and-role-model.md` for the
+full rationale (Convex Auth, the VIP-email fallback, legacy account bridging).
 
 ### Mutations
 Data changes go through server actions in `app/actions/*.ts` (`'use server'`), one file per domain (`bootcamp`, `module`, `exam`, `student`, `invitation`, `certificate`, `feedback`, `profile`). They use the server Supabase client and call `revalidatePath` / `redirect`. Some flows are self-healing (e.g. invitation acceptance upserts a missing `UserRole`).
