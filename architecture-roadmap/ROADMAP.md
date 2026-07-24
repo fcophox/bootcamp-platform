@@ -52,12 +52,24 @@ cleanup path for orphaned Azure Blob assets when the referencing Convex
 record is deleted. Confirm whether this is intentional (e.g. handled by a
 retention policy on the Azure side) or a gap.
 
-## 7. `xlsx` has no fix on the npm registry
-`xlsx@0.18.5` (direct dependency, used for exports) has two known high-severity
-CVEs (prototype pollution, ReDoS) with fixes only published by SheetJS to
-their own CDN (`cdn.sheetjs.com`), not to the npm registry — `npm view xlsx
-versions` tops out at `0.18.5`, confirmed no newer npm release exists. A real
-fix means switching the dependency source to a CDN tarball URL (e.g.
+## 7. `xlsx` has no fix on the npm registry (confirmed low current exploitability)
+`xlsx@0.18.5` (direct dependency) has two known high-severity CVEs (prototype
+pollution `GHSA-4r6h-8v6p-xvw6`, ReDoS `GHSA-5pgg-2g8v-p4x9`) with fixes only
+published by SheetJS to their own CDN (`cdn.sheetjs.com`), not to the npm
+registry — `npm view xlsx versions` tops out at `0.18.5`, confirmed no newer
+npm release exists.
+
+Checked actual usage: the only call site is
+`app/cms/encuestas/[bootcampId]/resultados/resultados-client.tsx`, which
+only *writes* an export (`utils.aoa_to_sheet` / `utils.book_new` /
+`writeFile`) built from data already fetched from Convex — it never calls
+`XLSX.read`/`readFile`/parses any uploaded or user-supplied file. Both CVEs
+live in SheetJS's parsing path, which this codebase never invokes, so the
+real-world exploitability today is low (no attacker-reachable input reaches
+the vulnerable code). Still worth fixing since usage could change, but not
+urgent.
+
+A real fix means switching the dependency source to a CDN tarball URL (e.g.
 `"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"`), which is a
 supply-chain trust change (installing from a third-party CDN instead of the
 npm registry) worth a deliberate decision, not a routine bump — deferred here.
