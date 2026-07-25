@@ -1,38 +1,46 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
+import { convexAuthNextjsToken } from '@convex-dev/auth/nextjs/server'
+import { fetchMutation, fetchAction } from 'convex/nextjs'
+import { api } from '@/convex/_generated/api'
 import { revalidatePath } from 'next/cache'
 
 export async function updateProfile(data: {
-    full_name?: string;
+    name?: string;
     bio?: string;
     location?: string;
     skills?: string;
     avatar?: string;
-    job_title?: string;
+    jobTitle?: string;
 }) {
-    const supabase = await createClient()
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
+    const token = await convexAuthNextjsToken()
+    if (!token) {
         return { error: 'No autorizado' }
     }
 
-    const { error } = await supabase.auth.updateUser({
-        data: {
-            full_name: data.full_name,
-            bio: data.bio,
-            location: data.location,
-            skills: data.skills,
-            avatar: data.avatar,
-            job_title: data.job_title,
-        }
-    })
-
-    if (error) {
-        return { error: error.message }
+    try {
+        await fetchMutation(api.users.updateProfile, data, { token })
+    } catch (err) {
+        return { error: err instanceof Error ? err.message : 'Error al actualizar el perfil' }
     }
 
     revalidatePath('/dashboard/perfil')
     return { success: true }
+}
+
+export async function changePassword(data: {
+    currentPassword: string;
+    newPassword: string;
+}) {
+    const token = await convexAuthNextjsToken()
+    if (!token) {
+        return { error: 'No autorizado' }
+    }
+
+    try {
+        const result = await fetchAction(api.passwordReset.changePassword, data, { token })
+        return { success: result.success, message: result.message }
+    } catch (err) {
+        return { error: err instanceof Error ? err.message : 'Error al cambiar la contraseña.' }
+    }
 }

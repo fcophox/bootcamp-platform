@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeHotkey } from "@/components/theme-hotkey";
 import { OnlineUsersProvider } from "@/contexts/OnlineUsersContext";
+import { PresenceTracker } from "@/components/presence-tracker";
 import { EnvBanner } from "@/components/env-banner";
 import { ClarityAnalytics } from "@/components/clarity-analytics";
 import { VersionTag } from "@/components/version-tag";
@@ -103,6 +104,7 @@ export default function RootLayout({
               disableTransitionOnChange
             >
               <ThemeHotkey />
+              <PresenceTracker />
               <OnlineUsersProvider>
                 {children}
               </OnlineUsersProvider>
