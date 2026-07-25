@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import path from 'path';
 import JSZip from 'jszip';
@@ -20,11 +21,11 @@ export async function GET() {
         zip.file(relPath, content);
     }
 
-    const buffer = await zip.generateAsync({ type: 'uint8array' });
+    const buffer = await zip.generateAsync({ type: 'nodebuffer' });
+    const uint8buffer = new Uint8Array(buffer);
 
-    return new Response(buffer, {
+    return new NextResponse(new Blob([uint8buffer], { type: 'application/zip' }), {
         headers: {
-            'Content-Type': 'application/zip',
             'Content-Disposition': 'attachment; filename="curso-plantilla.zip"',
         },
     });
