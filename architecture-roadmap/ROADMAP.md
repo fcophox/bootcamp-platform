@@ -85,3 +85,18 @@ confirmed 10.x compatibility yet — bumping needs its own verification pass
 (does `eslint-config-next` support eslint 10? does the Next.js flat-config
 setup still work?) rather than a blind version bump. Deferred as a separate,
 focused piece of work.
+
+## 9. `.update()` on the compatibility shim silently no-ops without `.eq('id', ...)`
+Found while writing tests for `utils/supabase/server.ts`
+(`utils/supabase/server.test.ts`): `ConvexMutationBuilder.execute()` only
+calls `genericUpdate`/`genericDelete` `if (this.targetId || this.targetIds)`.
+Calling `.from(table).update(doc)` — or `.delete()` — without a preceding
+`.eq('id', x)` (or `.in('id', [...])`) matches nothing, calls no mutation,
+and resolves as `{ data: null, error: null }` with no error, no warning, no
+thrown exception. Every current call site in `app/actions/*.ts` happens to
+always chain `.eq('id', ...)`, so this hasn't caused a known bug — but the
+shim itself gives no protection against a future call site that forgets
+it, since the Supabase client it mimics would normally require some target
+condition too, just not silently. Worth either throwing when no target is
+set, or auditing call sites once the shim is being touched anyway (see
+item 1).
