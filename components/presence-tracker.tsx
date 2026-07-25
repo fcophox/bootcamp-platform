@@ -1,18 +1,24 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useMutation, useQuery } from 'convex/react';
-import { api } from '@/convex/_generated/api';
+import { useConvexAuth } from 'convex/react';
+
+const HEARTBEAT_INTERVAL_MS = 30000;
 
 export function PresenceTracker() {
-  const heartbeat = useMutation(api.presence.heartbeat);
+  const { isAuthenticated } = useConvexAuth();
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      // Send heartbeat periodically
-    }, 30000);
+    if (!isAuthenticated) return;
+
+    const sendHeartbeat = () => {
+      fetch('/api/presence', { method: 'POST' }).catch(() => {});
+    };
+
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [heartbeat]);
+  }, [isAuthenticated]);
 
   return null;
 }

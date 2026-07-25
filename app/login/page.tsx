@@ -9,8 +9,7 @@ import { useTheme } from 'next-themes';
 import { ThemeLogo } from '@/components/theme-logo';
 import { Loader2, Sparkles } from 'lucide-react';
 import { useAuthActions } from '@convex-dev/auth/react';
-import { useAction, useQuery, useMutation } from 'convex/react';
-import { api } from '@/convex/_generated/api';
+import { checkLegacyUser, validateInvitationToken, acceptInvitation } from '@/app/actions/auth';
 
 const translations = {
     es: {
@@ -76,14 +75,18 @@ function LoginContent() {
     const [showPassword, setShowPassword] = useState(false);
 
     const { signIn } = useAuthActions();
-    const checkLegacyUser = useAction(api.legacyAuth.checkLegacyUser);
-    const acceptInvitation = useMutation(api.invitations.acceptInvitation);
-    
+
     // Validate token if present
-    const tokenValidation = useQuery(
-        api.invitations.validateToken,
-        token ? { token } : "skip"
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [tokenValidation, setTokenValidation] = useState<any>(undefined);
+    useEffect(() => {
+        if (!token) return;
+        let cancelled = false;
+        validateInvitationToken(token).then((result) => {
+            if (!cancelled) setTokenValidation(result);
+        });
+        return () => { cancelled = true; };
+    }, [token]);
 
     const [mode, setMode] = useState<'login' | 'signup'>(
         modeParam || ((inviteId || token) ? 'signup' : 'login')
@@ -112,7 +115,7 @@ function LoginContent() {
             try {
                 if (mode === 'login') {
                     // Check legacy / database role first so we know where to redirect
-                    const legacyResult = await checkLegacyUser({ email, password });
+                    const legacyResult = await checkLegacyUser(email, password);
                     const userRole = legacyResult.role;
 
                     let loginSuccessful = false;
@@ -150,7 +153,7 @@ function LoginContent() {
                         // If there's a token, process the invitation after login
                         if (token && tokenValidation?.valid) {
                             try {
-                                await acceptInvitation({ token, userEmail: email, userName: name || email.split('@')[0] });
+                                await acceptInvitation(token, email, name || email.split('@')[0]);
                             } catch (inviteErr) {
                                 console.error("Error accepting invitation:", inviteErr);
                                 // Don't block login if invitation fails
@@ -176,20 +179,15 @@ function LoginContent() {
                     });
                     
                     // If there's a token, process the invitation after signup
-                    console.log("[Signup] Token:", token, "TokenValidation:", tokenValidation);
-                    
                     if (token && tokenValidation?.valid) {
                         try {
-                            console.log("[Signup] Calling acceptInvitation with:", { token, userEmail: email, userName: name });
-                            const result = await acceptInvitation({ token, userEmail: email, userName: name });
-                            console.log("[Signup] acceptInvitation result:", result);
+                            const result = await acceptInvitation(token, email, name);
                             setStatus({ type: 'success', message: `¡Cuenta creada! Te has unido a "${result.bootcampTitle}"` });
                         } catch (inviteErr: any) {
                             console.error("[Signup] Error accepting invitation:", inviteErr);
                             setStatus({ type: 'warning', message: '¡Cuenta creada! Pero hubo un error al unirte al bootcamp.' });
                         }
                     } else if (token) {
-                        console.log("[Signup] Token present but validation failed:", tokenValidation);
                         setStatus({ type: 'warning', message: '¡Cuenta creada! Pero el enlace de invitación no es válido.' });
                     } else {
                         setStatus({ type: 'success', message: '¡Cuenta creada exitosamente!' });

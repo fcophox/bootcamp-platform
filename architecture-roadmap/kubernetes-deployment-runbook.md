@@ -187,3 +187,77 @@ curl -sI https://bootcamp.nodrize.dev
 An `ExternalSecret` stuck `SecretSyncedError` almost always means step 1-3
 above wasn't done yet, or a typo in the mount/role/policy names. A pod stuck
 `ImagePullBackOff` means step 5 wasn't done, or the PAT lacks `read:packages`.
+
+## 8. Self-hosted Convex test (bootcamp-platform-dev only)
+
+Standalone test — deploys `convex-backend` (StatefulSet + 5Gi PVC) and
+`convex-dashboard` into `bootcamp-platform-dev`, internal-only (no Ingress —
+the admin key derived below is a root credential over all data). Does **not**
+touch the app's own config; `bootcamp-platform-dev` keeps using Convex Cloud
+until/unless you decide to switch it.
+
+### 8.1 Seed INSTANCE_NAME/INSTANCE_SECRET
+
+```bash
+export VAULT_ADDR=https://vault.nodrize.dev   # or the port-forward address
+vault kv put bootcamp-platform/convex-selfhosted-dev \
+  INSTANCE_NAME="bootcamp-platform-dev-selfhosted" \
+  INSTANCE_SECRET="<a fresh `openssl rand -hex 32` value — never commit this to git>"
+```
+
+Once this is written, wait for the `convex-selfhosted` ExternalSecret to sync
+— `kubectl get externalsecret convex-selfhosted -n bootcamp-platform-dev` —
+and `convex-backend-0` should go `1/1 Running`.
+
+### 8.2 Generate an admin key
+
+```bash
+export KUBECONFIG=~/.kube/orbital-k3s-1.yaml
+kubectl exec -n bootcamp-platform-dev convex-backend-0 -- ./generate_admin_key.sh
+```
+
+Save the printed key — it's needed for every command below and is **not**
+stored anywhere else (Vault only has the instance secret it's derived from).
+
+### 8.3 Export the real data from Convex Cloud
+
+From this repo, with the existing `.env`/`CONVEX_DEPLOYMENT` already pointed
+at the cloud dev deployment (`tame-finch-608`):
+
+```bash
+npx convex export --path /tmp/convex-snapshot.zip
+```
+
+(Note: the `convex_export/*.jsonl` files already committed in this repo are
+a different, custom per-table dump — not Convex's own snapshot format, and
+won't work with `convex import`. Use a fresh `convex export` instead.)
+
+### 8.4 Push schema/functions to the self-hosted backend
+
+```bash
+kubectl port-forward -n bootcamp-platform-dev svc/convex-backend 3210:3210 3211:3211 &
+
+npx convex deploy \
+  --admin-key="<the admin key from 8.2>" \
+  --url="http://127.0.0.1:3210"
+```
+
+### 8.5 Import the data
+
+```bash
+CONVEX_SELF_HOSTED_URL="http://127.0.0.1:3210" \
+CONVEX_SELF_HOSTED_ADMIN_KEY="<the admin key from 8.2>" \
+npx convex import --replace-all /tmp/convex-snapshot.zip
+```
+
+### 8.6 Verify
+
+```bash
+kubectl port-forward -n bootcamp-platform-dev svc/convex-dashboard 6791:6791 &
+open http://127.0.0.1:6791
+```
+
+Log in with the same admin key and confirm the tables/data look right.
+`kubectl exec -n bootcamp-platform-dev convex-backend-0 -- curl -s
+http://localhost:3210/version` is a quick liveness check without a
+port-forward.

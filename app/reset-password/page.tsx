@@ -6,8 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { ThemeLogo } from '@/components/theme-logo';
 import { Loader2, CheckCircle2, XCircle, Eye, EyeOff, KeyRound } from 'lucide-react';
-import { useQuery, useAction } from 'convex/react';
-import { api } from '@/convex/_generated/api';
+import { validateResetToken, resetPassword } from '@/app/actions/auth';
 
 const translations = {
   es: {
@@ -66,44 +65,29 @@ function ResetPasswordContent() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [status, setStatus] = useState<'loading' | 'form' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'form' | 'success' | 'error'>(() => (token ? 'loading' : 'error'));
   const [errorMessage, setErrorMessage] = useState('');
   const [isPending, startTransition] = useTransition();
-  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [tokenError, setTokenError] = useState<string | null>(() => (token ? null : "El enlace no es válido."));
+  const [tokenValidation, setTokenValidation] = useState<{ valid: boolean; error?: string; email?: string } | undefined>(undefined);
 
   // Validar token - solo una vez al inicio
-  const tokenValidation = useQuery(
-    api.passwordReset.validateResetToken,
-    token && status === 'loading' ? { token } : "skip"
-  );
-  
-  // Efecto para establecer el estado inicial basado en la validación del token
   React.useEffect(() => {
-    if (status !== 'loading') return;
-    
-    if (!token) {
-      setTokenError("El enlace no es válido.");
-      setStatus('error');
-      return;
-    }
-    
-    if (tokenValidation === undefined) return; // Aún cargando
-    
-    if (tokenValidation.valid) {
-      setStatus('form');
-    } else {
-      setTokenError(tokenValidation.error || "El enlace no es válido.");
-      setStatus('error');
-    }
-  }, [token, tokenValidation, status]);
-  
-  // Debug logging
-  console.log("[ResetPassword] token from URL:", token);
-  console.log("[ResetPassword] tokenValidation:", tokenValidation);
-  console.log("[ResetPassword] status:", status);
-  
-  // Action para resetear la contraseña
-  const resetPassword = useAction(api.passwordReset.resetPassword);
+    if (!token || status !== 'loading') return;
+
+    let cancelled = false;
+    validateResetToken(token).then((result) => {
+      if (cancelled) return;
+      setTokenValidation(result);
+      if (result.valid) {
+        setStatus('form');
+      } else {
+        setTokenError(result.error || "El enlace no es válido.");
+        setStatus('error');
+      }
+    });
+    return () => { cancelled = true; };
+  }, [token, status]);
 
   // Requisitos de contraseña
   const hasMinLength = password.length >= 6;
@@ -137,10 +121,7 @@ function ResetPasswordContent() {
         }
 
         // Usar la action para resetear la contraseña
-        await resetPassword({
-          token,
-          newPassword: password,
-        });
+        await resetPassword(token, password);
 
         setStatus('success');
       } catch (err) {
