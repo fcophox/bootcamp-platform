@@ -6,14 +6,14 @@ the platform from the CMS — without hand-authoring the same content twice
 between a repo and the manual UI.
 
 **Architecture:** One idempotent upsert engine (a Convex mutation) fed by
-files parsed out of a GitHub repo tarball. The manual CMS UI already writes
+files parsed out of GitHub's Git Trees/Blobs API. The manual CMS UI already writes
 through the single-record equivalent of this engine; the git importer is a
 new front door onto the same underlying model, not a second copy of it.
 Fetching, parsing, and diffing happens in Next.js (server action), matching
 the existing rule that only Next.js talks to Convex and to the outside
 world — Convex only ever receives a clean, already-parsed upsert payload.
 
-**Tech stack:** GitHub REST API (tarball endpoint) for fetching, a markdown
+**Tech stack:** GitHub REST API (Git Trees + Blobs endpoints) for fetching, a markdown
 parser (`remark`/`rehype` or equivalent) to convert lesson bodies to the
 HTML shape lessons already store, `js-yaml` for frontmatter/config parsing,
 Convex mutations for the upsert engine, Node's built-in `crypto` (AES-256-GCM,
@@ -187,7 +187,7 @@ lessons: defineTable({
 
 `sourcePath` (not Convex's `_id`) is the stable key re-sync matches against.
 `sourceHash` (e.g. SHA-256 of the raw file bytes) lets re-sync skip
-unchanged files without needing GitHub blob SHAs from the tarball.
+unchanged files without needing to re-fetch a blob whose SHA hasn't changed.
 
 ---
 
@@ -197,9 +197,15 @@ Both "Add course from repo" and "Sync now" run the same two-step flow:
 
 ### Plan
 
-1. Server action fetches `GET /repos/{owner}/{repo}/tarball/{ref}` using the
-   (decrypted, in-memory-only) PAT.
-2. Extracts and reads only the configured subpath.
+1. Server action fetches `GET /repos/{owner}/{repo}/git/trees/{ref}?recursive=1`
+   using the (decrypted, in-memory-only) PAT to list every path in the repo,
+   then fetches `GET /repos/{owner}/{repo}/git/blobs/{sha}` for each blob
+   under the configured subpath. Both are plain JSON + base64 content — no
+   gzip/tar parsing, no new dependency, lower correctness risk than
+   streaming-extracting a tarball for a first version of this feature. Blob
+   count for a realistic course (tens of files) is negligible against
+   GitHub's 5,000 req/hr authenticated rate limit.
+2. Filters to the configured subpath.
 3. Parses `course.yaml`, each `module.yaml`, and each lesson file. Any
    parse error (bad YAML, missing required frontmatter field, unrecognized
    `type`) aborts the whole plan with a clear per-file error — no partial
@@ -340,9 +346,10 @@ Initial import and re-sync are the same code path; initial import is just
 ## Risks / open items to watch during implementation
 
 - GitHub API rate limits: a read-only fine-grained PAT still shares the
-  standard 5,000 req/hr authenticated limit — one tarball download per sync
-  keeps this a non-issue, but worth confirming the extraction step doesn't
-  accidentally make per-file API calls.
+  standard 5,000 req/hr authenticated limit — one tree call plus one blob
+  call per file keeps this well within budget for realistic course sizes
+  (dozens to low hundreds of files); would need revisiting only if a course
+  repo grew into the thousands of files.
 - Deleting a lesson with student `lessonCompletions`/`examSubmissions`
   attached orphans that history rather than cascading (schema doesn't
   enforce foreign keys here already) — acceptable per this design, but
