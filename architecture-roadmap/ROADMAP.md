@@ -100,3 +100,16 @@ it, since the Supabase client it mimics would normally require some target
 condition too, just not silently. Worth either throwing when no target is
 set, or auditing call sites once the shim is being touched anyway (see
 item 1).
+
+## 10. Dead PostgREST-era error-code check in `getCertificateByBootcamp`
+Found while writing `app/actions/certificate.test.ts`:
+`app/actions/certificate.ts`'s `getCertificateByBootcamp` checks
+`error.code === 'PGRST116'` (PostgREST's "no rows returned" code) to treat
+"no active certificate" as a non-error. The Convex-backed shim never
+produces PostgREST-shaped errors, and its `.single()` already resolves
+`{ data: null, error: null }` on an empty result set rather than erroring —
+so the function still behaves correctly (returns `null` for "no active
+certificate"), just via the `data === null` fallthrough, never through the
+dead `PGRST116` branch. Harmless today, but misleading for a future reader
+who might assume that branch is load-bearing. Cheap cleanup whenever
+`app/actions/certificate.ts` is touched next — not urgent on its own.
