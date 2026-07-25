@@ -18,8 +18,10 @@ once merged to that repo's `main`.
 | | dev | prod |
 |---|---|---|
 | Namespace | `bootcamp-platform-dev` | `bootcamp-platform-prod` |
-| Image | `ghcr.io/cleveritdemo/bootcamp-platform:develop` | `ghcr.io/cleveritdemo/bootcamp-platform:prod` |
+| Floating image tag | `:develop` | `:prod` |
+| SHA-pinned image tag (what's actually deployed) | `:develop-<short-sha>` | `:prod-<short-sha>` |
 | Built from | push to `develop` | push to `main` |
+| Deployed by | CI auto-promotion (see §6) | Manual — bump `newTag` in the prod overlay and PR it |
 | Ingress host | `bootcamp-dev.nodrize.dev` | `bootcamp.nodrize.dev` |
 | Vault secret path | `bootcamp-platform/dev` | `bootcamp-platform/prod` |
 
@@ -145,7 +147,30 @@ vault kv put bootcamp-platform/ghcr \
   token="<the read:packages PAT you created above>"
 ```
 
-## 6. Merge and verify
+## 6. Set up dev auto-promotion (GITOPS_PAT)
+
+Without this, a new image pushed to `:develop` builds and publishes fine, but
+never actually deploys — `bootcamp-platform-dev` keeps running whatever it was
+last running until someone manually bumps the image tag (this bit us once
+already: see ADR 0009 / the incident where a pull-secret fix synced but the
+already-crashed pods needed a manual `kubectl rollout restart` to pick it up).
+
+1. github.com → Settings → Developer settings → **Fine-grained tokens** → Generate new token.
+2. Repository access: **Only select repositories** → `CleveritDemo/orbital-k3s-gitops` only (least privilege — this token must not be able to touch any other repo).
+3. Permissions: **Contents: Read and write**. Nothing else needed.
+4. Set it as a secret on the `bootcamp-platform` repo:
+   ```bash
+   gh secret set GITOPS_PAT --repo CleveritDemo/bootcamp-platform
+   # paste the token when prompted
+   ```
+5. Next push to `develop` will have CI auto-commit the new `develop-<short-sha>`
+   tag into `orbital-k3s-gitops`'s `apps/bootcamp-platform/workloads/overlays/dev/kustomization.yaml`,
+   which Flux then syncs — no more manual restarts for dev.
+
+Prod is **not** auto-promoted, on purpose — see that overlay's
+`kustomization.yaml` comment for the manual promotion step.
+
+## 7. Merge and verify
 
 Once the `orbital-k3s-gitops` PR is merged and Flux has synced (or force it:
 `flux reconcile kustomization apps -n flux-system --with-source`, using the

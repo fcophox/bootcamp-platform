@@ -78,14 +78,38 @@ domain, calling the compatibility shim then `revalidatePath`/`redirect`. See
   directly (`scripts/sync-design.js` regenerates them; `next.config.ts`
   auto-watches in dev).
 
+## Branch strategy
+
+Modeled on `soporte-ti-knowledgebase-wikijs`'s conventions:
+
+```
+main ─────────────────────────────────────────────► production
+  └── develop ────────────────────────────────────► dev env (auto-deployed)
+        └── feature/* or fix/* ──► PR to develop
+```
+
+| Branch | Purpose | Protected | Auto-deploy |
+|---|---|---|---|
+| `main` | Production | Yes — PR + passing CI required, no direct push | No — prod promotion is a manual, deliberate step (bump the image tag in `orbital-k3s-gitops`'s prod overlay) |
+| `develop` | Integration / dev staging | No (not yet enabled) | Yes — every push builds `:develop-<sha>` and CI auto-commits it to the gitops repo |
+| `feature/*`, `fix/*` | New work | No | No |
+
+Day to day: branch off `develop`, PR into `develop`, verify on
+`bootcamp-dev.nodrize.dev`, then PR `develop` → `main` when ready to ship.
+After merging to `main`, promote to prod manually (see
+`architecture-roadmap/kubernetes-deployment-runbook.md` §7).
+
 ## Deployment
 
 Docker image built via `Dockerfile` (Next.js standalone output), pushed to
-`ghcr.io/cleveritdemo/bootcamp-platform` — `:develop` on push to `develop`,
-`:prod` on push to `main` (`.github/workflows/ci.yml`). Deployed to the
-shared `orbital-k3s-1` k3s cluster (Flux GitOps, separate repo
-`orbital-k3s-gitops`), namespaces `bootcamp-platform-dev`/`-prod`, secrets
-via Vault + External Secrets Operator on a dedicated KV mount. See
+`ghcr.io/cleveritdemo/bootcamp-platform` — `:develop`/`:develop-<sha>` on push
+to `develop`, `:prod`/`:prod-<sha>` on push to `main`
+(`.github/workflows/ci.yml`). Deployed to the shared `orbital-k3s-1` k3s
+cluster (Flux GitOps, separate repo `orbital-k3s-gitops`), namespaces
+`bootcamp-platform-dev`/`-prod`, secrets via Vault + External Secrets
+Operator on a dedicated KV mount, `/api/healthz` backing real readiness/
+liveness probes, per-namespace ResourceQuota/LimitRange, a prod
+PodDisruptionBudget, and Traefik rate limiting on both ingresses. See
 `architecture-roadmap/adr/0009-kubernetes-deployment-shared-cluster.md` and
 `architecture-roadmap/kubernetes-deployment-runbook.md`.
 

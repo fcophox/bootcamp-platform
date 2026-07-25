@@ -31,6 +31,11 @@ ENV NEXT_PUBLIC_APP_ENV=${NEXT_PUBLIC_APP_ENV}
 ARG NEXT_PUBLIC_CLARITY_PROJECT_ID=""
 ENV NEXT_PUBLIC_CLARITY_PROJECT_ID=${NEXT_PUBLIC_CLARITY_PROJECT_ID}
 
+# Short commit SHA shown in the footer (utils/version.ts) — dev builds only;
+# CI passes an empty string for prod so the footer stays clean there.
+ARG NEXT_PUBLIC_APP_COMMIT=""
+ENV NEXT_PUBLIC_APP_COMMIT=${NEXT_PUBLIC_APP_COMMIT}
+
 RUN npm run build
 
 # --- runner: minimal production image ---
@@ -53,5 +58,8 @@ COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 USER node
 
 EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:3000/api/healthz || exit 1
 
 CMD ["node", "server.js"]
