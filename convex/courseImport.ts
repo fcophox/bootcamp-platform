@@ -144,11 +144,14 @@ export const applyImport = mutation({
       });
     }
 
-    // Lessons before modules: modules.remove (see convex/modules.ts) already
-    // cascade-deletes its own lessons, so any lesson listed here that
-    // belongs to a module also being deleted must go first -- otherwise the
-    // module's cascade would have already removed it and this delete would
-    // throw "not found".
+    // lessonsToDelete and modulesToDelete are disjoint ID sets, each deleted
+    // via a plain ctx.db.delete (not convex/modules.ts's cascading `remove`
+    // mutation) -- so their order here doesn't affect correctness today.
+    // Every lesson under a wholly-removed module is already included in
+    // lessonsToDelete (see lib/courseImport/diff.ts), which is what actually
+    // guarantees no orphaned lessons remain. Lessons are still deleted first
+    // as defensive practice, in case a future change routes module deletion
+    // through the cascading `remove` mutation instead.
     for (const lessonId of args.lessonsToDelete) {
       await ctx.db.delete(lessonId);
     }
