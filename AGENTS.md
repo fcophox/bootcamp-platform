@@ -78,6 +78,17 @@ domain, calling the compatibility shim then `revalidatePath`/`redirect`. See
   directly (`scripts/sync-design.js` regenerates them; `next.config.ts`
   auto-watches in dev).
 
+## Deployment
+
+Docker image built via `Dockerfile` (Next.js standalone output), pushed to
+`ghcr.io/cleveritdemo/bootcamp-platform` — `:develop` on push to `develop`,
+`:prod` on push to `main` (`.github/workflows/ci.yml`). Deployed to the
+shared `orbital-k3s-1` k3s cluster (Flux GitOps, separate repo
+`orbital-k3s-gitops`), namespaces `bootcamp-platform-dev`/`-prod`, secrets
+via Vault + External Secrets Operator on a dedicated KV mount. See
+`architecture-roadmap/adr/0009-kubernetes-deployment-shared-cluster.md` and
+`architecture-roadmap/kubernetes-deployment-runbook.md`.
+
 ## Known issues / in progress
 
 See `architecture-roadmap/ROADMAP.md` for full detail. Highlights:
