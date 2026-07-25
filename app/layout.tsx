@@ -6,6 +6,7 @@ import { ThemeHotkey } from "@/components/theme-hotkey";
 import { OnlineUsersProvider } from "@/contexts/OnlineUsersContext";
 import { EnvBanner } from "@/components/env-banner";
 import { ClarityAnalytics } from "@/components/clarity-analytics";
+import { VersionTag } from "@/components/version-tag";
 import { isProdEnv } from "@/utils/env";
 
 const sansation = Sansation({
@@ -93,6 +94,7 @@ export default function RootLayout({
         >
           <EnvBanner />
           <ClarityAnalytics />
+          <VersionTag />
           <ConvexClientProvider>
             <ThemeProvider
               attribute="data-theme"
