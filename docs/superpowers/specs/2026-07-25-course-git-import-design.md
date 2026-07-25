@@ -123,19 +123,24 @@ Body is parsed markdown → HTML, stored in the same
 git-imported text lessons in this iteration (no local-image-embedding
 pipeline — see "Deferred" below).
 
-### Video / PDF / podcast lesson (`NN-slug.md`, frontmatter only)
+### Video / PDF / podcast lesson (`NN-slug.md`)
 
 ```markdown
 ---
 title: "Introducción en video"
 type: video          # video | pdf | podcast
 url: "https://..."    # already-hosted URL — no upload pipeline in v1
-duration: 600          # optional, seconds
 ---
+
+Descripción opcional del recurso.
 ```
 
-Body is ignored for these types (or can hold optional lesson notes —
-parser should just not require one).
+Maps to the `{ url, html }` shape `lessons.content` already stores for
+these types (`manage-client.tsx:544-548` — `url` is the resource link,
+`html` is a free-text description). The markdown body, if present, becomes
+`html` via the same markdown→HTML conversion as text lessons; an empty body
+maps to `html: ''`. There's no separate `duration` field in this shape —
+the manual UI doesn't set one either, so git-import doesn't invent one.
 
 ### Exam lesson (`NN-slug.yaml`)
 
