@@ -5,6 +5,10 @@ on:
     branches: [develop, main]
   pull_request:
     branches: [develop, main]
+  # Manual re-build without a code change -- e.g. to pick up a new repo
+  # variable (vars.NEXT_PUBLIC_CONVEX_URL etc.) that's build-time-baked and
+  # can't take effect until the image is rebuilt.
+  workflow_dispatch:
 
 permissions:
   contents: read
