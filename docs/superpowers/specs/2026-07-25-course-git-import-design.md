@@ -16,7 +16,9 @@ world — Convex only ever receives a clean, already-parsed upsert payload.
 **Tech stack:** GitHub REST API (tarball endpoint) for fetching, a markdown
 parser (`remark`/`rehype` or equivalent) to convert lesson bodies to the
 HTML shape lessons already store, `js-yaml` for frontmatter/config parsing,
-Convex mutations for the upsert engine, AES encryption (key from Vault) for
+Convex mutations for the upsert engine, Node's built-in `crypto` (AES-256-GCM,
+key from Vault) plus the `server-only` package (already a transitive
+dependency via `@convex-dev/auth` — add it as a direct dependency) for
 PAT-at-rest.
 
 ## Global Constraints
@@ -231,12 +233,62 @@ Initial import and re-sync are the same code path; initial import is just
 - CMS UI copy explicitly instructs: create a **fine-grained personal access
   token**, scoped to **this one repository**, with **Contents: Read-only**
   permission. No write scope needed anywhere in this design.
-- PAT is encrypted (AES-256-GCM or equivalent) using a key read from an env
-  var sourced via Vault/ESO (matching how every other platform secret is
-  already handled), before being written to `bootcamps.sourcePatEncrypted`.
-- Decrypted only in-memory, only for the duration of a single sync's fetch
-  call. Never logged, never returned to the client (the "connected to repo"
-  panel shows the repo/path/branch, never the token).
+
+### Encryption scheme (concrete, no new dependency)
+
+- **AES-256-GCM** via Node's built-in `crypto` module — authenticated
+  encryption, not just confidentiality: GCM's auth tag means a
+  tampered/corrupted ciphertext fails decryption loudly instead of silently
+  producing garbage bytes that get used as a "PAT."
+- New server-only module, e.g. `utils/crypto.ts`, exporting `encryptPat`/
+  `decryptPat`. Guarded with the `server-only` package (`import
+  'server-only'` at the top) so an accidental client-side import is a build
+  error, not a runtime leak.
+- Per encryption: generate a random 12-byte IV, encrypt, capture the 16-byte
+  auth tag. Store as one string in `sourcePatEncrypted`:
+  `base64(iv).base64(authTag).base64(ciphertext)`. Decrypt reverses this and
+  throws (surfaced as a clear "reconnect this repo" error) if the tag check
+  fails.
+- **Key**: 32 random bytes (`openssl rand -hex 32`), one new key per Vault
+  KV path already backing `bootcamp-platform-{dev,prod}`'s existing
+  `ExternalSecret` (`orbital-k3s-gitops/apps/bootcamp-platform/
+  external-secrets/{dev,prod}.yaml` — both use `dataFrom: extract`, so this
+  is one more field in the existing secret, no new manifest). Exposed as
+  `PAT_ENCRYPTION_KEY`, read server-side only — **never** prefixed
+  `NEXT_PUBLIC_*`, since those are baked into the client bundle at build
+  time.
+- Dev and prod get independent keys (same as every other secret here) —
+  ciphertext from one environment is never decryptable in the other, which
+  is fine since dev/prod already have entirely separate Convex data.
+
+### Access boundaries
+
+- Decryption happens **only** inside the Next.js server action that's about
+  to call GitHub, immediately before the fetch. The decrypted value is a
+  local variable scoped to that single call — never cached, never returned
+  to the client, never passed into any Convex mutation/query argument.
+- The "connected to repo" panel in the CMS shows repo/path/branch/last-sync
+  status only — never the token, never even a masked suffix.
+- Error messages from a failed GitHub fetch (401/403/etc.) must be
+  sanitized before logging or surfacing to the UI — never include the
+  `Authorization` header or the raw PAT in a thrown error, a `console.error`,
+  or the `lastSyncError` field written back to Convex.
+- Storing ciphertext rather than plaintext also matters against a second
+  audience: the self-hosted Convex dashboard is admin-key-gated but shared
+  (no per-user login, see the Convex self-hosting ADR) — anyone with that
+  admin key can browse table contents directly, so a plaintext PAT sitting
+  in a `bootcamps` row would otherwise be trivially readable there.
+
+### Key rotation (accepted limitation, not built in v1)
+
+- Rotating `PAT_ENCRYPTION_KEY` makes every previously-stored
+  `sourcePatEncrypted` value undecryptable — the next sync attempt fails
+  with the tag-mismatch error above. V1 does **not** implement key
+  versioning or multi-key decryption. Given the expected number of
+  connected repos is small, the accepted mitigation is operational: rotating
+  the key requires each affected docente to reconnect (re-enter their PAT)
+  via the CMS. Worth revisiting if/when the number of connected courses
+  grows enough that this becomes a real operational burden.
 
 ---
 
