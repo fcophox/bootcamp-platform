@@ -49,13 +49,17 @@ jobs:
 
       # develop -> :develop (deployed to bootcamp-platform-dev), main -> :prod
       # (deployed to bootcamp-platform-prod). See orbital-k3s-gitops
-      # apps/bootcamp-platform/ for the k8s side of this mapping.
+      # apps/bootcamp-platform/ for the k8s side of this mapping. Also drives
+      # the dev banner / noindex / Clarity gating baked into the image
+      # (utils/env.ts) -- NEXT_PUBLIC_* vars are build-time, not runtime.
       - name: Compute environment tag
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "ENV_TAG=prod" >> "$GITHUB_ENV"
+            echo "APP_ENV=production" >> "$GITHUB_ENV"
           else
             echo "ENV_TAG=develop" >> "$GITHUB_ENV"
+            echo "APP_ENV=development" >> "$GITHUB_ENV"
           fi
 
       - name: Log in to GHCR
@@ -75,6 +79,8 @@ jobs:
           push: true
           build-args: |
             NEXT_PUBLIC_CONVEX_URL=${{ vars.NEXT_PUBLIC_CONVEX_URL || 'https://placeholder.convex.cloud' }}
+            NEXT_PUBLIC_APP_ENV=${{ env.APP_ENV }}
+            NEXT_PUBLIC_CLARITY_PROJECT_ID=${{ env.ENV_TAG == 'prod' && vars.NEXT_PUBLIC_CLARITY_PROJECT_ID || '' }}
           tags: |
             ghcr.io/${{ env.IMAGE_NAME }}:${{ env.ENV_TAG }}
             ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}

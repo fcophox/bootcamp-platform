@@ -4,6 +4,9 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeHotkey } from "@/components/theme-hotkey";
 import { OnlineUsersProvider } from "@/contexts/OnlineUsersContext";
+import { EnvBanner } from "@/components/env-banner";
+import { ClarityAnalytics } from "@/components/clarity-analytics";
+import { isProdEnv } from "@/utils/env";
 
 const sansation = Sansation({
   subsets: ["latin"],
@@ -50,17 +53,28 @@ export const metadata: Metadata = {
     description: "Optimiza el aprendizaje de tu equipo con bootcamps estructurados, evaluaciones avanzadas y certificados integrados.",
     images: ["/og-image.png"],
   },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
-  },
+  // Dev builds must never get indexed — bootcamp-dev.nodrize.dev is publicly
+  // reachable but isn't the real site.
+  robots: isProdEnv()
+    ? {
+        index: true,
+        follow: true,
+        googleBot: {
+          index: true,
+          follow: true,
+          'max-video-preview': -1,
+          'max-image-preview': 'large',
+          'max-snippet': -1,
+        },
+      }
+    : {
+        index: false,
+        follow: false,
+        googleBot: {
+          index: false,
+          follow: false,
+        },
+      },
 };
 
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
@@ -75,8 +89,10 @@ export default function RootLayout({
     <ConvexAuthNextjsServerProvider>
       <html lang="es" suppressHydrationWarning>
         <body
-          className={`${sansation.variable} ${sansation.className} antialiased`}
+          className={`${sansation.variable} ${sansation.className} antialiased ${isProdEnv() ? "" : "pt-6"}`}
         >
+          <EnvBanner />
+          <ClarityAnalytics />
           <ConvexClientProvider>
             <ThemeProvider
               attribute="data-theme"

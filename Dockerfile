@@ -22,6 +22,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ARG NEXT_PUBLIC_CONVEX_URL=https://placeholder.convex.cloud
 ENV NEXT_PUBLIC_CONVEX_URL=${NEXT_PUBLIC_CONVEX_URL}
 
+# Drives the dev banner, noindex robots meta, and prod-only Clarity analytics
+# (utils/env.ts) — CI sets this per branch (develop -> development, main ->
+# production). Also build-time-baked, same reasoning as above.
+ARG NEXT_PUBLIC_APP_ENV=development
+ENV NEXT_PUBLIC_APP_ENV=${NEXT_PUBLIC_APP_ENV}
+
+ARG NEXT_PUBLIC_CLARITY_PROJECT_ID=""
+ENV NEXT_PUBLIC_CLARITY_PROJECT_ID=${NEXT_PUBLIC_CLARITY_PROJECT_ID}
+
 RUN npm run build
 
 # --- runner: minimal production image ---
