@@ -14,6 +14,10 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': path.resolve(__dirname, '.'),
+            // server-only's default export throws unless a bundler applies
+            // Next's "react-server" condition; vitest doesn't, so alias it
+            // to the package's own no-op build for tests.
+            'server-only': path.resolve(__dirname, 'node_modules/server-only/empty.js'),
         },
     },
 });
