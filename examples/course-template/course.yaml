@@ -1,0 +1,9 @@
+title: "Curso de Ejemplo"
+description: "Plantilla de ejemplo para crear cursos desde un repositorio."
+duration: "1 semana"
+level: "Principiante"
+startDate: "2026-01-01"
+icon: "code"
+color: "green"
+enableChecklist: true
+enableRanking: true

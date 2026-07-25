@@ -116,6 +116,12 @@ export default function CreateCourseFromRepoPage() {
                                 <p className="mt-1.5 text-xs text-muted">
                                     Usa un token &quot;fine-grained&quot;, limitado a este repositorio, con permiso de solo lectura de contenido (Contents: Read-only).
                                 </p>
+                                <a
+                                    href="/api/courses/template"
+                                    className="mt-2 inline-block text-xs text-primary hover:underline"
+                                >
+                                    Descargar plantilla .zip
+                                </a>
                             </div>
                             <button
                                 type="submit"
