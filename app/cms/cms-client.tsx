@@ -2,7 +2,7 @@
 
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
-import { FileText, Plus, Search, Menu } from 'lucide-react';
+import { FileText, Plus, Search, Menu, GitBranch } from 'lucide-react';
 import Link from 'next/link';
 import { BootcampCard } from '@/components/bootcamp-card';
 
@@ -144,13 +144,22 @@ export function CmsClient({ bootcamps }: CmsClientProps) {
                                     Administra y gestiona los recursos, lecciones y materiales del bootcamp.
                                 </p>
                             </div>
-                            <Link
-                                href="/cms/bootcamp/create"
-                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-                            >
-                                <Plus size={20} />
-                                <span>Crear bootcamp</span>
-                            </Link>
+                            <div className="flex items-center gap-3">
+                                <Link
+                                    href="/cms/bootcamp/create-from-repo"
+                                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                                >
+                                    <GitBranch size={20} />
+                                    <span>Agregar desde repositorio</span>
+                                </Link>
+                                <Link
+                                    href="/cms/bootcamp/create"
+                                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                                >
+                                    <Plus size={20} />
+                                    <span>Crear bootcamp</span>
+                                </Link>
+                            </div>
                         </div>
 
                         {/* Search and Filters */}
