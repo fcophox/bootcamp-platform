@@ -174,6 +174,117 @@ describe('applyImport', () => {
         const remainingModules = await t.query(api.modules.listByBootcamp, { bootcampId });
         expect(remainingModules).toHaveLength(0);
     });
+
+    it('rejects a plan that references another bootcamp\'s module/lesson IDs', async () => {
+        // Bootcamp A: has a module and lesson we'll try to smuggle into B's plan.
+        const { bootcampId: bootcampIdA } = await t.mutation(api.courseImport.applyImport, {
+            course: COURSE,
+            connection: CONNECTION,
+            modulesToCreate: [{ sourcePath: 'modules/01-a', title: 'A', order: 1 }],
+            modulesToUpdate: [],
+            modulesToDelete: [],
+            lessonsToCreate: [
+                {
+                    moduleSourcePath: 'modules/01-a',
+                    sourcePath: 'modules/01-a/01-l.md',
+                    title: 'L',
+                    type: 'text',
+                    order: 1,
+                    content: '{}',
+                    sourceHash: 'h1',
+                },
+            ],
+            lessonsToUpdate: [],
+            lessonsToDelete: [],
+        });
+        const modulesA = await t.query(api.modules.listByBootcamp, { bootcampId: bootcampIdA });
+        const lessonsA = await t.query(api.lessons.listByModule, { moduleId: modulesA[0]._id });
+
+        // Bootcamp B: an unrelated bootcamp.
+        const { bootcampId: bootcampIdB } = await t.mutation(api.courseImport.applyImport, {
+            course: COURSE,
+            connection: CONNECTION,
+            modulesToCreate: [],
+            modulesToUpdate: [],
+            modulesToDelete: [],
+            lessonsToCreate: [],
+            lessonsToUpdate: [],
+            lessonsToDelete: [],
+        });
+
+        // Try to patch bootcamp A's module via a plan targeting bootcamp B.
+        await expect(
+            t.mutation(api.courseImport.applyImport, {
+                bootcampId: bootcampIdB,
+                course: COURSE,
+                modulesToCreate: [],
+                modulesToUpdate: [
+                    { convexId: modulesA[0]._id, sourcePath: 'modules/01-a', title: 'Hijacked', order: 1 },
+                ],
+                modulesToDelete: [],
+                lessonsToCreate: [],
+                lessonsToUpdate: [],
+                lessonsToDelete: [],
+            })
+        ).rejects.toThrow('no pertenece a este bootcamp');
+
+        // Try to delete bootcamp A's module via a plan targeting bootcamp B.
+        await expect(
+            t.mutation(api.courseImport.applyImport, {
+                bootcampId: bootcampIdB,
+                course: COURSE,
+                modulesToCreate: [],
+                modulesToUpdate: [],
+                modulesToDelete: [modulesA[0]._id],
+                lessonsToCreate: [],
+                lessonsToUpdate: [],
+                lessonsToDelete: [],
+            })
+        ).rejects.toThrow('no pertenece a este bootcamp');
+
+        // Try to patch bootcamp A's lesson via a plan targeting bootcamp B.
+        await expect(
+            t.mutation(api.courseImport.applyImport, {
+                bootcampId: bootcampIdB,
+                course: COURSE,
+                modulesToCreate: [],
+                modulesToUpdate: [],
+                modulesToDelete: [],
+                lessonsToCreate: [],
+                lessonsToUpdate: [
+                    {
+                        convexId: lessonsA[0]._id,
+                        title: 'Hijacked',
+                        type: 'text',
+                        order: 1,
+                        content: '{}',
+                        sourceHash: 'h2',
+                    },
+                ],
+                lessonsToDelete: [],
+            })
+        ).rejects.toThrow('no pertenece a este bootcamp');
+
+        // Try to delete bootcamp A's lesson via a plan targeting bootcamp B.
+        await expect(
+            t.mutation(api.courseImport.applyImport, {
+                bootcampId: bootcampIdB,
+                course: COURSE,
+                modulesToCreate: [],
+                modulesToUpdate: [],
+                modulesToDelete: [],
+                lessonsToCreate: [],
+                lessonsToUpdate: [],
+                lessonsToDelete: [lessonsA[0]._id],
+            })
+        ).rejects.toThrow('no pertenece a este bootcamp');
+
+        // Bootcamp A's data must be untouched by all of the rejected attempts.
+        const modulesAAfter = await t.query(api.modules.listByBootcamp, { bootcampId: bootcampIdA });
+        expect(modulesAAfter[0].title).toBe('A');
+        const lessonsAAfter = await t.query(api.lessons.listByModule, { moduleId: modulesA[0]._id });
+        expect(lessonsAAfter[0].title).toBe('L');
+    });
 });
 
 describe('getBootcampSyncMeta', () => {

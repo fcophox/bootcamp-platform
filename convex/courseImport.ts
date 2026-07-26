@@ -123,6 +123,40 @@ export const applyImport = mutation({
     lessonsToDelete: v.array(v.id("lessons")),
   },
   handler: async (ctx, args) => {
+    // Validate that every module/lesson ID referenced by the plan actually
+    // belongs to the target bootcamp BEFORE performing any writes. The plan
+    // is computed client-side (planResync/applyImportPlan in
+    // app/actions/courseImport.ts) and round-trips through the browser
+    // between the "plan" and "apply" steps, so a stale or tampered ID could
+    // otherwise cause this mutation's bulk patch/delete to touch another
+    // bootcamp's data. On initial import (args.bootcampId undefined) these
+    // arrays are always empty -- nothing exists yet to update/delete -- so
+    // these loops naturally do nothing in that case.
+    const targetBootcampId = args.bootcampId;
+
+    const moduleIdsToCheck = new Set([
+      ...args.modulesToUpdate.map((m) => m.convexId),
+      ...args.modulesToDelete,
+    ]);
+    for (const id of moduleIdsToCheck) {
+      const mod = await ctx.db.get(id);
+      if (!mod || mod.bootcampId !== targetBootcampId) {
+        throw new Error(`El módulo ${id} no pertenece a este bootcamp`);
+      }
+    }
+
+    const lessonIdsToCheck = new Set([
+      ...args.lessonsToUpdate.map((l) => l.convexId),
+      ...args.lessonsToDelete,
+    ]);
+    for (const id of lessonIdsToCheck) {
+      const lesson = await ctx.db.get(id);
+      const mod = lesson?.moduleId ? await ctx.db.get(lesson.moduleId) : null;
+      if (!lesson || !mod || mod.bootcampId !== targetBootcampId) {
+        throw new Error(`La lección ${id} no pertenece a este bootcamp`);
+      }
+    }
+
     let bootcampId = args.bootcampId;
     if (!bootcampId) {
       if (!args.connection) {
