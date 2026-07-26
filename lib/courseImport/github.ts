@@ -57,8 +57,16 @@ export async function fetchRepoFiles(
     const normalizedBase = basePath.replace(/^\/+|\/+$/g, '');
     const prefix = normalizedBase ? `${normalizedBase}/` : '';
 
+    // Beyond scoping to basePath, only fetch blobs that could plausibly be
+    // course.yaml, module.yaml, or a lesson file -- this is a bandwidth
+    // optimization, not the source of truth for what's a valid lesson.
+    // parseCourseTree still applies its own folder-structure logic and
+    // rejects/ignores anything that isn't actually a real course file.
     const blobs = tree.tree.filter(
-        (entry) => entry.type === 'blob' && (prefix === '' || entry.path.startsWith(prefix))
+        (entry) =>
+            entry.type === 'blob' &&
+            (prefix === '' || entry.path.startsWith(prefix)) &&
+            /\.(ya?ml|md)$/i.test(entry.path.split('/').pop() ?? '')
     );
 
     if (blobs.length === 0) {

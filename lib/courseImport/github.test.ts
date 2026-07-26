@@ -31,6 +31,7 @@ describe('fetchRepoFiles', () => {
                         { path: 'cursos/x/README.md', type: 'blob', sha: 'sha2' },
                         { path: 'other-course/course.yaml', type: 'blob', sha: 'sha3' },
                         { path: 'cursos/x/modules', type: 'tree', sha: 'sha4' },
+                        { path: 'cursos/x/assets/diagram.png', type: 'blob', sha: 'sha5' },
                     ],
                 });
             }
@@ -47,6 +48,16 @@ describe('fetchRepoFiles', () => {
 
         expect(files).toHaveLength(2);
         expect(files.find((f) => f.path === 'cursos/x/course.yaml')?.content).toBe('title: X');
+        // The non-yaml/md blob (a committed image) is scoped under the base
+        // path but must never be fetched -- see fetchRepoFiles's filename
+        // filter. mockFetch's catch-all throws on any unexpected URL
+        // (including /git/blobs/sha5), so this also fails loudly if that
+        // filter regresses.
+        expect(files.find((f) => f.path === 'cursos/x/assets/diagram.png')).toBeUndefined();
+        expect(mockFetch).not.toHaveBeenCalledWith(
+            expect.stringContaining('/git/blobs/sha5'),
+            expect.anything()
+        );
         expect(mockFetch).toHaveBeenCalledWith(
             expect.stringContaining('/repos/owner/repo/git/trees/main?recursive=1'),
             expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer token123' }) })
