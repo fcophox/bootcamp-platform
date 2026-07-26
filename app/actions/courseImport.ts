@@ -143,6 +143,24 @@ export async function applyResync(input: {
     }
 }
 
+export async function reconnectRepo(input: {
+    bootcampId: string;
+    pat: string;
+}): Promise<{ error: string } | { success: true }> {
+    try {
+        const { token } = await requireDocenteOrSuperadmin();
+        await fetchMutation(
+            api.courseImport.updatePatConnection,
+            { bootcampId: input.bootcampId as never, sourcePatEncrypted: encryptPat(input.pat) },
+            { token },
+        );
+        revalidatePath(`/cms/bootcamp/${input.bootcampId}/manage`);
+        return { success: true };
+    } catch (err) {
+        return { error: err instanceof Error ? err.message : 'Error al actualizar el token de acceso' };
+    }
+}
+
 async function tryRecordFailure(bootcampId: string, message: string): Promise<void> {
     try {
         const token = await convexAuthNextjsToken();

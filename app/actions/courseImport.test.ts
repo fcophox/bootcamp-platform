@@ -20,6 +20,7 @@ vi.mock('@/convex/_generated/api', () => ({
             getSyncState: 'courseImport.getSyncState',
             applyImport: 'courseImport.applyImport',
             recordSyncFailure: 'courseImport.recordSyncFailure',
+            updatePatConnection: 'courseImport.updatePatConnection',
         },
     },
 }));
@@ -45,7 +46,7 @@ const COURSE = {
     modules: [{ sourcePath: 'modules/01-a', title: 'A', order: 1, lessons: [] }],
 };
 
-const { planImportFromRepo, applyImportPlan, planResync } = await import('./courseImport');
+const { planImportFromRepo, applyImportPlan, planResync, reconnectRepo } = await import('./courseImport');
 
 beforeEach(() => {
     fetchQuery.mockReset();
@@ -150,5 +151,40 @@ describe('planResync', () => {
 
         expect(fetchRepoFiles).toHaveBeenCalledWith('o', 'r', 'main', 'cursos/x', 'stored-secret');
         expect('summary' in result).toBe(true);
+    });
+});
+
+describe('reconnectRepo', () => {
+    it('rejects a non-docente/superadmin caller without calling fetchMutation', async () => {
+        convexAuthNextjsToken.mockResolvedValue('token');
+        fetchQuery.mockResolvedValue({ role: 'alumno' });
+
+        const result = await reconnectRepo({ bootcampId: 'bc1', pat: 'new-secret' });
+
+        expect('error' in result && result.error).toContain('permisos');
+        expect(fetchMutation).not.toHaveBeenCalled();
+    });
+
+    it('encrypts the PAT before sending it to Convex', async () => {
+        convexAuthNextjsToken.mockResolvedValue('token');
+        fetchQuery.mockResolvedValue({ role: 'docente' });
+        fetchMutation.mockResolvedValue(undefined);
+
+        const result = await reconnectRepo({ bootcampId: 'bc1', pat: 'new-secret' });
+
+        expect(result).toEqual({ success: true });
+        const callArgs = fetchMutation.mock.calls[0][1];
+        expect(callArgs.sourcePatEncrypted).toBe('encrypted(new-secret)');
+        expect(callArgs.pat).toBeUndefined();
+    });
+
+    it('revalidates the manage path on success', async () => {
+        convexAuthNextjsToken.mockResolvedValue('token');
+        fetchQuery.mockResolvedValue({ role: 'docente' });
+        fetchMutation.mockResolvedValue(undefined);
+
+        await reconnectRepo({ bootcampId: 'bc1', pat: 'new-secret' });
+
+        expect(revalidatePath).toHaveBeenCalledWith('/cms/bootcamp/bc1/manage');
     });
 });

@@ -22,7 +22,7 @@ import {
 import { BootcampFeedbackTab } from '@/components/bootcamp-feedback-tab';
 import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson, reorderLessons, reorderModules } from '@/app/actions/module';
 import { updateBootcamp } from '@/app/actions/bootcamp';
-import { planResync, applyResync } from '@/app/actions/courseImport';
+import { planResync, applyResync, reconnectRepo } from '@/app/actions/courseImport';
 import type { PlanImportResult } from '@/app/actions/courseImport';
 import { createClient } from '@/utils/supabase/client';
 import { uploadToAzure } from '@/lib/azure-upload';
@@ -162,6 +162,29 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 return;
             }
             setSyncPlan(null);
+            router.refresh();
+        });
+    };
+
+    const [isReconnecting, setIsReconnecting] = useState(false);
+    const [reconnectPat, setReconnectPat] = useState('');
+    const [reconnectError, setReconnectError] = useState<string | null>(null);
+    const [reconnectSuccess, setReconnectSuccess] = useState(false);
+    const [isSavingReconnect, startReconnectTransition] = useTransition();
+
+    const handleReconnect = () => {
+        if (!reconnectPat.trim()) return;
+        setReconnectError(null);
+        setReconnectSuccess(false);
+        startReconnectTransition(async () => {
+            const result = await reconnectRepo({ bootcampId: String(bootcamp.id), pat: reconnectPat });
+            if ('error' in result) {
+                setReconnectError(result.error);
+                return;
+            }
+            setReconnectPat('');
+            setIsReconnecting(false);
+            setReconnectSuccess(true);
             router.refresh();
         });
     };
@@ -2038,6 +2061,49 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                 className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-70"
                                             >
                                                 Confirmar
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {reconnectSuccess && !isReconnecting && (
+                                    <p className="mt-3 text-xs text-emerald-500">Token actualizado correctamente.</p>
+                                )}
+
+                                {!isReconnecting ? (
+                                    <button
+                                        onClick={() => { setIsReconnecting(true); setReconnectSuccess(false); }}
+                                        className="mt-3 text-xs text-muted hover:text-foreground underline"
+                                    >
+                                        Actualizar token de acceso
+                                    </button>
+                                ) : (
+                                    <div className="mt-3 space-y-2">
+                                        {reconnectError && (
+                                            <p className="rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-500">
+                                                {reconnectError}
+                                            </p>
+                                        )}
+                                        <input
+                                            type="password"
+                                            value={reconnectPat}
+                                            onChange={(e) => setReconnectPat(e.target.value)}
+                                            placeholder="Nuevo token de acceso (PAT)"
+                                            className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => { setIsReconnecting(false); setReconnectPat(''); setReconnectError(null); }}
+                                                className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-hover-bg"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                onClick={handleReconnect}
+                                                disabled={isSavingReconnect || !reconnectPat.trim()}
+                                                className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-70"
+                                            >
+                                                Guardar
                                             </button>
                                         </div>
                                     </div>

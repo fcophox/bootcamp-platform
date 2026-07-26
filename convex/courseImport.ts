@@ -246,3 +246,24 @@ export const recordSyncFailure = mutation({
     });
   },
 });
+
+// Updates only the stored PAT for an already-connected bootcamp (the
+// "Reconnect" recovery path for an expired PAT or a rotated
+// PAT_ENCRYPTION_KEY). Clears any stale failure status -- a fresh token
+// might well fix the underlying problem, and leaving a stale "última
+// sincronización falló" message after a successful reconnect would be
+// confusing.
+export const updatePatConnection = mutation({
+  args: { bootcampId: v.id("bootcamps"), sourcePatEncrypted: v.string() },
+  handler: async (ctx, args) => {
+    const bootcamp = await ctx.db.get(args.bootcampId);
+    if (!bootcamp || !bootcamp.sourceRepo) {
+      throw new Error("Este bootcamp no está conectado a un repositorio");
+    }
+    await ctx.db.patch(args.bootcampId, {
+      sourcePatEncrypted: args.sourcePatEncrypted,
+      lastSyncStatus: undefined,
+      lastSyncError: undefined,
+    });
+  },
+});

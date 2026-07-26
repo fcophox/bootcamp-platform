@@ -287,6 +287,52 @@ describe('applyImport', () => {
     });
 });
 
+describe('updatePatConnection', () => {
+    it('updates the stored PAT and clears stale failure status', async () => {
+        const t = newTestContext();
+        const { bootcampId } = await t.mutation(api.courseImport.applyImport, {
+            course: COURSE,
+            connection: CONNECTION,
+            modulesToCreate: [],
+            modulesToUpdate: [],
+            modulesToDelete: [],
+            lessonsToCreate: [],
+            lessonsToUpdate: [],
+            lessonsToDelete: [],
+        });
+
+        await t.mutation(api.courseImport.recordSyncFailure, {
+            bootcampId,
+            error: 'GitHub respondió 401',
+        });
+
+        await t.mutation(api.courseImport.updatePatConnection, {
+            bootcampId,
+            sourcePatEncrypted: 'new.iv.tag.ciphertext',
+        });
+
+        const bootcamp = await t.query(api.bootcamps.getById, { id: bootcampId });
+        expect(bootcamp?.sourcePatEncrypted).toBe('new.iv.tag.ciphertext');
+        expect(bootcamp?.lastSyncStatus).toBeUndefined();
+        expect(bootcamp?.lastSyncError).toBeUndefined();
+    });
+
+    it('throws when the bootcamp is not connected to a repository', async () => {
+        const t = newTestContext();
+        const bootcampId = await t.mutation(api.bootcamps.create, {
+            title: 'Manual Bootcamp',
+            slug: 'manual-bootcamp',
+        });
+
+        await expect(
+            t.mutation(api.courseImport.updatePatConnection, {
+                bootcampId,
+                sourcePatEncrypted: 'new.iv.tag.ciphertext',
+            })
+        ).rejects.toThrow('no está conectado');
+    });
+});
+
 describe('getBootcampSyncMeta', () => {
     it('throws when the caller is not authenticated', async () => {
         const t = newTestContext();
