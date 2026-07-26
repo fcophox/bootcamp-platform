@@ -17,7 +17,8 @@ interface RawCourseYaml {
 	description?: string;
 	duration?: string;
 	level?: string;
-	startDate?: string;
+	// js-yaml auto-converts an unquoted `startDate: 2026-09-01` to a Date.
+	startDate?: string | Date;
 	icon?: string;
 	color?: string;
 	enableChecklist?: boolean;
@@ -89,6 +90,15 @@ export function parseCourseTree(files: RepoFile[], basePath: string): ParsedCour
 		}
 	}
 
+	// js-yaml auto-converts an unquoted `startDate: 2026-09-01` into a JS
+	// Date, not a string. Coerce it back to a YYYY-MM-DD string here so it
+	// doesn't fail unhelpfully at the Convex v.string() validator boundary
+	// far from the actual cause.
+	const startDate: string =
+		course.startDate instanceof Date
+			? course.startDate.toISOString().split('T')[0]
+			: (course.startDate as string);
+
 	const moduleFiles = scoped.filter((f) => f.relPath.startsWith('modules/'));
 	const moduleFolders = new Map<string, typeof scoped>();
 	for (const file of moduleFiles) {
@@ -109,7 +119,7 @@ export function parseCourseTree(files: RepoFile[], basePath: string): ParsedCour
 		description: course.description as string,
 		duration: course.duration as string,
 		level: course.level as string,
-		startDate: course.startDate as string,
+		startDate,
 		icon: course.icon ?? 'code',
 		color: course.color ?? 'green',
 		enableChecklist: course.enableChecklist !== false,

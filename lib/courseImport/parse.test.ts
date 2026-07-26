@@ -125,6 +125,27 @@ questions:
 		).toThrow('no reconocido');
 	});
 
+	it('coerces an unquoted startDate (parsed by js-yaml as a Date) to a YYYY-MM-DD string', () => {
+		const result = parseCourseTree(
+			files({
+				'course.yaml': `
+title: "Bootcamp de Prueba"
+description: "Un curso de prueba"
+duration: "4 semanas"
+level: "Intermedio"
+startDate: 2026-09-01
+icon: "database"
+color: "blue"
+`,
+				'modules/01-intro/01-a.md': '---\ntitle: A\ntype: text\n---\n\nX',
+			}),
+			''
+		);
+
+		expect(typeof result.startDate).toBe('string');
+		expect(result.startDate).toBe('2026-09-01');
+	});
+
 	it('throws when course.yaml is missing', () => {
 		expect(() => parseCourseTree(files({}), '')).toThrow('course.yaml');
 	});
