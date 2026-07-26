@@ -17,14 +17,21 @@ export interface PlanImportResult {
     summary: ImportPlanSummary;
 }
 
+// Distinguishes an authorization rejection from any other failure so the
+// resync catch blocks below can skip tryRecordFailure for it -- an
+// unauthorized caller should never be able to write lastSyncStatus/
+// lastSyncError onto a bootcamp it wasn't allowed to touch in the first
+// place.
+class AuthorizationError extends Error {}
+
 async function requireDocenteOrSuperadmin(): Promise<{ token: string }> {
     const token = await convexAuthNextjsToken();
     if (!token) {
-        throw new Error('No autorizado');
+        throw new AuthorizationError('No autorizado');
     }
     const currentUser = await fetchQuery(api.users.getCurrentUserWithRole, {}, { token });
     if (!currentUser || (currentUser.role !== 'superadmin' && currentUser.role !== 'docente')) {
-        throw new Error('No tienes permisos para importar cursos');
+        throw new AuthorizationError('No tienes permisos para importar cursos');
     }
     return { token };
 }
@@ -98,7 +105,11 @@ export async function planResync(bootcampId: string): Promise<{ error: string } 
         return { course, plan, summary: summarizePlan(plan) };
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Error al sincronizar el curso';
-        await tryRecordFailure(bootcampId, message);
+        // Don't record a sync failure for an authorization rejection itself
+        // -- the caller was never authorized to touch this bootcamp.
+        if (!(err instanceof AuthorizationError)) {
+            await tryRecordFailure(bootcampId, message);
+        }
         return { error: message };
     }
 }
@@ -123,7 +134,11 @@ export async function applyResync(input: {
         return { bootcampId: result.bootcampId };
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Error al importar el curso';
-        await tryRecordFailure(input.bootcampId, message);
+        // Don't record a sync failure for an authorization rejection itself
+        // -- the caller was never authorized to touch this bootcamp.
+        if (!(err instanceof AuthorizationError)) {
+            await tryRecordFailure(input.bootcampId, message);
+        }
         return { error: message };
     }
 }
