@@ -63,6 +63,7 @@ function normalizeAuthHost(request: NextRequest): NextRequest {
   const originHost = new URL(origin).host;
   if (forwardedHost === originHost) {
     const modified = new NextRequest(request.url, {
+      method: request.method,
       headers: new Headers(request.headers),
     });
     modified.headers.set("host", originHost);
