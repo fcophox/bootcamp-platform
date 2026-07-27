@@ -71,6 +71,7 @@ interface Student {
 interface ManageBootcampClientProps {
     bootcamp: {
         id: number | string;
+        _id?: string;
         title: string;
         description?: string;
         icon?: string;
@@ -202,7 +203,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         async function loadMasterclass() {
             try {
                 setIsMasterclassLoading(true);
-                const data = await getMasterclass(bootcamp.id);
+                const bootcampId = bootcamp._id || bootcamp.id;
+                const data = await getMasterclass(bootcampId);
                 if (data) {
                     setMasterclassId(data.id);
                     setVideoUrl(data.videoUrl || '');
@@ -565,7 +567,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const handleCreateModule = async () => {
         if (!newModuleTitle.trim()) return;
         try {
-            await createModule(bootcamp.id, newModuleTitle);
+            // Prefer Convex _id over legacy id for database operations
+            const bootcampId = bootcamp._id || bootcamp.id;
+            await createModule(bootcampId, newModuleTitle);
             setNewModuleTitle('');
             setIsCreatingModule(false);
             router.refresh();
@@ -620,18 +624,20 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         try {
             if (editingLessonId) {
                 // Update existing lesson
+                const bootcampId = bootcamp._id || bootcamp.id;
                 await updateLesson(
                     editingLessonId,
-                    bootcamp.id,
+                    bootcampId,
                     contentTitle,
                     contentType,
                     finalContent
                 );
             } else {
                 // Create new lesson
+                const bootcampId = bootcamp._id || bootcamp.id;
                 await createLesson(
                     activeModuleForContent,
-                    bootcamp.id,
+                    bootcampId,
                     contentTitle,
                     contentType,
                     finalContent
@@ -733,7 +739,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const handleToggleStatus = async (studentId: number | string, newStatus: 'invited' | 'active' | 'completed' | 'frozen') => {
         setIsActionLoading(true);
         try {
-            await updateStudentStatus(studentId, bootcamp.id, newStatus);
+            const bootcampId = bootcamp._id || bootcamp.id;
+            await updateStudentStatus(studentId, bootcampId, newStatus);
         } catch (error: unknown) {
             const e = error as Error;
             alert(e.message);
@@ -746,7 +753,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         setIsActionLoading(true);
         try {
             const nextStatus = !(bootcamp.enableRanking ?? true);
-            await updateBootcamp(bootcamp.id, { enableRanking: nextStatus });
+            const bootcampId = bootcamp._id || bootcamp.id;
+            await updateBootcamp(bootcampId, { enableRanking: nextStatus });
             router.refresh();
         } catch (error) {
             console.error(error);
@@ -759,7 +767,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
     const handleGenerateUniqueLink = async () => {
         setIsActionLoading(true);
-        const result = await createInvitation(bootcamp.id);
+        const bootcampId = bootcamp._id || bootcamp.id;
+        const result = await createInvitation(bootcampId);
         setIsActionLoading(false);
 
         if ('error' in result) {
@@ -802,7 +811,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         if (!editingModuleTitle.trim()) return;
         setIsActionLoading(true);
         try {
-            await updateModule(moduleId, bootcamp.id, editingModuleTitle);
+            const bootcampId = bootcamp._id || bootcamp.id;
+            await updateModule(moduleId, bootcampId, editingModuleTitle);
             setEditingModuleId(null);
             setEditingModuleTitle('');
             router.refresh();
@@ -834,7 +844,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
         setIsActionLoading(true);
         try {
-            await updateBootcamp(bootcamp.id, { 
+            const bootcampId = bootcamp._id || bootcamp.id;
+            await updateBootcamp(bootcampId, { 
                 title: tempBootcampTitle,
                 description: tempDescription,
                 duration: tempDuration,
@@ -856,7 +867,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const handleUpdateBootcampIcon = async () => {
         setIsActionLoading(true);
         try {
-            await updateBootcamp(bootcamp.id, { icon: tempIcon, color: tempColor });
+            const bootcampId = bootcamp._id || bootcamp.id;
+            await updateBootcamp(bootcampId, { icon: tempIcon, color: tempColor });
             setIsEditingIcon(false);
             router.refresh();
         } catch (error) {
@@ -937,8 +949,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
         // Save to server
         try {
+            const bootcampId = bootcamp._id || bootcamp.id;
             const lessonOrders = remainingLessons.map((l, index) => ({ id: l.id, order: index }));
-            await reorderLessons(bootcamp.id, lessonOrders);
+            await reorderLessons(bootcampId, lessonOrders);
             showToast('¡Orden de lecciones y separadores actualizado con éxito!');
         } catch (error) {
             console.error('Error reordering lessons:', error);
@@ -981,8 +994,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
         // Save to server
         try {
+            const bootcampId = bootcamp._id || bootcamp.id;
             const moduleOrders = newModules.map((m, index) => ({ id: m.id, order: index }));
-            await reorderModules(bootcamp.id, moduleOrders);
+            await reorderModules(bootcampId, moduleOrders);
             showToast('¡Orden de módulos actualizado con éxito!');
         } catch (error) {
             console.error('Error reordering modules:', error);
@@ -2286,10 +2300,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
                                                                             setOpenModuleMenuId(null);
+                                                                            const bootcampId = bootcamp._id || bootcamp.id;
                                                                             openConfirmModal(
                                                                                 'Eliminar Módulo',
                                                                                 '¿Estás seguro de eliminar este módulo? Se borrarán todas las lecciones contenidas.',
-                                                                                () => deleteModule(module.id, bootcamp.id)
+                                                                                () => deleteModule(module.id, bootcampId)
                                                                             );
                                                                         }}
                                                                     >
@@ -2358,10 +2373,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                                             <button
                                                                                                 className="p-1.5 hover:bg-red-500/10 rounded text-primary/70 hover:text-red-500"
                                                                                                 onClick={() => {
+                                                                                                    const bootcampId = bootcamp._id || bootcamp.id;
                                                                                                     openConfirmModal(
                                                                                                         'Eliminar Separador',
                                                                                                         '¿Estás seguro de eliminar este separador? Las lecciones contenidas no se borrarán, sino que pasarán a estar sin agrupación.',
-                                                                                                        () => deleteLesson(group.subtitle!.id, bootcamp.id)
+                                                                                                        () => deleteLesson(group.subtitle!.id, bootcampId)
                                                                                                     );
                                                                                                 }}
                                                                                             >
@@ -2440,10 +2456,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                                             <button
                                                                                                 className="p-1.5 hover:bg-red-500/10 rounded text-muted hover:text-red-500"
                                                                                                 onClick={() => {
+                                                                                                    const bootcampId = bootcamp._id || bootcamp.id;
                                                                                                     openConfirmModal(
                                                                                                         'Eliminar Lección',
                                                                                                         '¿Estás seguro de eliminar esta lección?',
-                                                                                                        () => deleteLesson(lesson.id, bootcamp.id)
+                                                                                                        () => deleteLesson(lesson.id, bootcampId)
                                                                                                     );
                                                                                                 }}
                                                                                             >
@@ -2608,10 +2625,11 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                      onClick={() => {
                                                          setOpenMenuId(null);
                                                          setMenuPosition(null);
+                                                         const bootcampId = bootcamp._id || bootcamp.id;
                                                          openConfirmModal(
                                                              'Eliminar Registro',
                                                              '¿Estás seguro de eliminar este registro? El alumno ya no podrá ingresar.',
-                                                             () => removeStudent(student.id, bootcamp.id)
+                                                             () => removeStudent(student.id, bootcampId)
                                                          );
                                                      }}
                                                      className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-red-500 hover:bg-red-500/10 transition-colors font-medium"
@@ -3107,7 +3125,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                             if (!file) return;
                                                             try {
                                                                 setUploadingFile(file.name);
-                                                                const path = `bootcamps/${bootcamp.id}/masterclass/video-${Date.now()}-${file.name}`;
+                                                                const bootcampId = bootcamp._id || bootcamp.id;
+                                                                const path = `bootcamps/${bootcampId}/masterclass/video-${Date.now()}-${file.name}`;
                                                                 const url = await uploadToAzure(file, path);
                                                                 setVideoUrl(url);
                                                                 setToast({ show: true, message: "Video subido con éxito a Azure" });
@@ -3212,7 +3231,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                         onClick={async () => {
                                                             try {
                                                                 setIsSavingMasterclass(true);
-                                                                await saveMasterclass(bootcamp.id, {
+                                                                const bootcampId = bootcamp._id || bootcamp.id;
+                                                                await saveMasterclass(bootcampId, {
                                                                     videoUrl,
                                                                     description,
                                                                     materials
@@ -3253,11 +3273,12 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                             if (!files || files.length === 0) return;
                                                             
                                                             const newUploadedMaterials = [];
+                                                            const bootcampId = bootcamp._id || bootcamp.id;
                                                             try {
                                                                 for (let idx = 0; idx < files.length; idx++) {
                                                                     const file = files[idx];
                                                                     setUploadingFile(file.name);
-                                                                    const path = `bootcamps/${bootcamp.id}/masterclass/materials/${Date.now()}-${file.name}`;
+                                                                    const path = `bootcamps/${bootcampId}/masterclass/materials/${Date.now()}-${file.name}`;
                                                                     const url = await uploadToAzure(file, path);
                                                                     newUploadedMaterials.push({ name: file.name, url });
                                                                 }
@@ -3266,7 +3287,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                 setMaterials(updated);
                                                                 
                                                                 // Auto save database state
-                                                                await saveMasterclass(bootcamp.id, {
+                                                                await saveMasterclass(bootcampId, {
                                                                     videoUrl,
                                                                     description,
                                                                     materials: updated
@@ -3332,7 +3353,8 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                                     
                                                                                     // Auto save updated list
                                                                                     try {
-                                                                                        await saveMasterclass(bootcamp.id, {
+                                                                                        const bootcampId = bootcamp._id || bootcamp.id;
+                                                                                        await saveMasterclass(bootcampId, {
                                                                                             videoUrl,
                                                                                             description,
                                                                                             materials: updated
