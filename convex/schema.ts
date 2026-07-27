@@ -51,6 +51,15 @@ export default defineSchema({
     legacyId: v.optional(v.any()),
     createdAt: v.optional(v.any()),
     updatedAt: v.optional(v.any()),
+    // Git-import connection (see docs/superpowers/specs/2026-07-25-course-git-import-design.md).
+    // sourcePatEncrypted is ciphertext only -- see utils/crypto.ts.
+    sourceRepo: v.optional(v.string()),
+    sourcePath: v.optional(v.string()),
+    sourceRef: v.optional(v.string()),
+    sourcePatEncrypted: v.optional(v.string()),
+    lastSyncedAt: v.optional(v.number()),
+    lastSyncStatus: v.optional(v.string()),
+    lastSyncError: v.optional(v.string()),
   }).index("by_slug", ["slug"]),
 
   modules: defineTable({
@@ -61,6 +70,8 @@ export default defineSchema({
     legacyBootcampId: v.optional(v.any()),
     createdAt: v.optional(v.any()),
     updatedAt: v.optional(v.any()),
+    // Repo-relative path -- the upsert key git-import re-syncs match against.
+    sourcePath: v.optional(v.string()),
   }).index("by_bootcamp", ["bootcampId"]),
 
   lessons: defineTable({
@@ -76,6 +87,10 @@ export default defineSchema({
     legacyModuleId: v.optional(v.any()),
     createdAt: v.optional(v.any()),
     updatedAt: v.optional(v.any()),
+    // Repo-relative path/content-hash pair git-import re-syncs match and
+    // skip-if-unchanged against.
+    sourcePath: v.optional(v.string()),
+    sourceHash: v.optional(v.string()),
   }).index("by_module", ["moduleId"]),
 
   exams: defineTable({

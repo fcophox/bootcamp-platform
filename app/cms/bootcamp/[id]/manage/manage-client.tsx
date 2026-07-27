@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -15,12 +15,15 @@ import {
     Headphones, FileUp, Users, Trophy, Check, CheckSquare, X, Clock, Loader2,
     Code, Terminal, Globe, Cpu, Database, Palette, Zap, Briefcase,
     MoreHorizontal, BarChart3, Radio, BookOpen, Calendar, Snowflake,
-    Upload, Menu, Video, FileArchive, Image, File, ExternalLink, Save
+    Upload, Menu, Video, FileArchive, Image, File, ExternalLink, Save,
+    GitBranch, RefreshCw
 } from 'lucide-react';
 
 import { BootcampFeedbackTab } from '@/components/bootcamp-feedback-tab';
 import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson, reorderLessons, reorderModules } from '@/app/actions/module';
 import { updateBootcamp } from '@/app/actions/bootcamp';
+import { planResync, applyResync, reconnectRepo } from '@/app/actions/courseImport';
+import type { PlanImportResult } from '@/app/actions/courseImport';
 import { createClient } from '@/utils/supabase/client';
 import { uploadToAzure } from '@/lib/azure-upload';
 import { getMasterclass, saveMasterclass } from '@/app/actions/masterclass';
@@ -78,6 +81,12 @@ interface ManageBootcampClientProps {
         enableChecklist?: boolean;
         enableRanking?: boolean;
         imageUrl?: string;
+        sourceRepo?: string;
+        sourcePath?: string;
+        sourceRef?: string;
+        lastSyncedAt?: number;
+        lastSyncStatus?: string;
+        lastSyncError?: string;
     };
 
     modules: Module[];
@@ -119,6 +128,66 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const moduleMenuRef = useRef<HTMLDivElement>(null);
 
     const { onlineUsers } = useOnlineUsers();
+
+    // Git sync state (connected-repo bootcamps only)
+    const [syncPlan, setSyncPlan] = useState<PlanImportResult | null>(null);
+    const [isSyncing, startSyncTransition] = useTransition();
+    const [syncError, setSyncError] = useState<string | null>(null);
+
+    const isGitManaged = Boolean(bootcamp.sourceRepo);
+
+    const handlePlanSync = () => {
+        setSyncError(null);
+        startSyncTransition(async () => {
+            const result = await planResync(String(bootcamp.id));
+            if ('error' in result) {
+                setSyncError(result.error);
+                return;
+            }
+            setSyncPlan(result);
+        });
+    };
+
+    const handleApplySync = () => {
+        if (!syncPlan) return;
+        setSyncError(null);
+        startSyncTransition(async () => {
+            const result = await applyResync({
+                bootcampId: String(bootcamp.id),
+                course: syncPlan.course,
+                plan: syncPlan.plan,
+            });
+            if ('error' in result) {
+                setSyncError(result.error);
+                return;
+            }
+            setSyncPlan(null);
+            router.refresh();
+        });
+    };
+
+    const [isReconnecting, setIsReconnecting] = useState(false);
+    const [reconnectPat, setReconnectPat] = useState('');
+    const [reconnectError, setReconnectError] = useState<string | null>(null);
+    const [reconnectSuccess, setReconnectSuccess] = useState(false);
+    const [isSavingReconnect, startReconnectTransition] = useTransition();
+
+    const handleReconnect = () => {
+        if (!reconnectPat.trim()) return;
+        setReconnectError(null);
+        setReconnectSuccess(false);
+        startReconnectTransition(async () => {
+            const result = await reconnectRepo({ bootcampId: String(bootcamp.id), pat: reconnectPat });
+            if ('error' in result) {
+                setReconnectError(result.error);
+                return;
+            }
+            setReconnectPat('');
+            setIsReconnecting(false);
+            setReconnectSuccess(true);
+            router.refresh();
+        });
+    };
 
     // Masterclass State
     const [masterclassId, setMasterclassId] = useState<number | string | null>(null);
@@ -1938,6 +2007,114 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                             </div>
                         </div>
 
+                        {/* Connected-repo Sync Panel */}
+                        {isGitManaged && (
+                            <div className="mb-6 rounded-xl border border-border bg-card-bg p-4">
+                                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+                                    <GitBranch size={16} />
+                                    Conectado a: {bootcamp.sourceRepo} @ {bootcamp.sourcePath || '/'} (rama: {bootcamp.sourceRef})
+                                </div>
+                                <p className="mb-3 text-xs text-muted">
+                                    {bootcamp.lastSyncStatus === 'error'
+                                        ? `Última sincronización falló: ${bootcamp.lastSyncError}`
+                                        : bootcamp.lastSyncedAt
+                                            ? `Última sincronización: ${new Date(bootcamp.lastSyncedAt).toLocaleString('es-ES')}`
+                                            : 'Aún no sincronizado'}
+                                </p>
+
+                                {syncError && (
+                                    <p className="mb-3 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-500">
+                                        {syncError}
+                                    </p>
+                                )}
+
+                                {!syncPlan ? (
+                                    <button
+                                        onClick={handlePlanSync}
+                                        disabled={isSyncing}
+                                        className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-hover-bg disabled:opacity-70"
+                                    >
+                                        {isSyncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                                        Sincronizar ahora
+                                    </button>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <ul className="space-y-1 text-xs text-muted">
+                                            <li>{syncPlan.summary.modulesToCreate} módulos nuevos, {syncPlan.summary.lessonsToCreate} lecciones nuevas</li>
+                                            <li>{syncPlan.summary.modulesToUpdate} módulos actualizados, {syncPlan.summary.lessonsToUpdate} lecciones actualizadas</li>
+                                            {syncPlan.summary.lessonsToDelete > 0 && (
+                                                <li className="font-medium text-red-500">
+                                                    {syncPlan.summary.lessonsToDelete} lecciones y {syncPlan.summary.modulesToDelete} módulos serán eliminados
+                                                </li>
+                                            )}
+                                        </ul>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setSyncPlan(null)}
+                                                className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-hover-bg"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                onClick={handleApplySync}
+                                                disabled={isSyncing}
+                                                className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-70"
+                                            >
+                                                Confirmar
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {reconnectSuccess && !isReconnecting && (
+                                    <p className="mt-3 text-xs text-emerald-500">Token actualizado correctamente.</p>
+                                )}
+
+                                {!isReconnecting ? (
+                                    <button
+                                        onClick={() => { setIsReconnecting(true); setReconnectSuccess(false); }}
+                                        className="mt-3 text-xs text-muted hover:text-foreground underline"
+                                    >
+                                        Actualizar token de acceso
+                                    </button>
+                                ) : (
+                                    <div className="mt-3 space-y-2">
+                                        {reconnectError && (
+                                            <p className="rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-500">
+                                                {reconnectError}
+                                            </p>
+                                        )}
+                                        <input
+                                            type="password"
+                                            value={reconnectPat}
+                                            onChange={(e) => setReconnectPat(e.target.value)}
+                                            placeholder="Nuevo token de acceso (PAT)"
+                                            className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => { setIsReconnecting(false); setReconnectPat(''); setReconnectError(null); }}
+                                                className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-hover-bg"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                onClick={handleReconnect}
+                                                disabled={isSavingReconnect || !reconnectPat.trim()}
+                                                className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-70"
+                                            >
+                                                Guardar
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <p className="mt-3 text-xs text-muted/70">
+                                    Este bootcamp está gestionado desde el repositorio conectado. Los cambios manuales de módulos y lecciones están deshabilitados.
+                                </p>
+                            </div>
+                        )}
+
                         {/* CONTENT TAB */}
                         {activeTab === 'content' && (
                             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -1977,13 +2154,15 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                     {modules.length === 0 && !isCreatingModule && (
                                         <div className="text-center p-12 border border-dashed border-border rounded-xl bg-card-bg/50 flex flex-col items-center justify-center gap-4">
                                             <p className="text-muted">No hay módulos creados aún.</p>
-                                            <button
-                                                onClick={() => setIsCreatingModule(true)}
-                                                className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
-                                            >
-                                                <Plus size={20} />
-                                                <span>Nuevo módulo</span>
-                                            </button>
+                                            {!isGitManaged && (
+                                                <button
+                                                    onClick={() => setIsCreatingModule(true)}
+                                                    className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+                                                >
+                                                    <Plus size={20} />
+                                                    <span>Nuevo módulo</span>
+                                                </button>
+                                            )}
                                         </div>
                                     )}
 
@@ -2289,22 +2468,24 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                         activeModuleForContent === module.id ? (
                                                             renderContentForm()
                                                         ) : (
-                                                            <div className="flex gap-2 w-full mt-2">
-                                                                <button
-                                                                    onClick={() => { setActiveModuleForContent(module.id); setContentType('text'); }}
-                                                                    className="flex-1 py-3 border border-dashed border-border rounded-lg text-sm text-muted hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
-                                                                >
-                                                                    <Plus size={16} />
-                                                                    Agregar Contenido
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => { setActiveModuleForContent(module.id); setContentType('subtitle'); }}
-                                                                    className="flex-1 py-3 border border-dashed border-border rounded-lg text-sm text-muted hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
-                                                                >
-                                                                    <Plus size={16} />
-                                                                    Agregar Separación
-                                                                </button>
-                                                            </div>
+                                                            !isGitManaged && (
+                                                                <div className="flex gap-2 w-full mt-2">
+                                                                    <button
+                                                                        onClick={() => { setActiveModuleForContent(module.id); setContentType('text'); }}
+                                                                        className="flex-1 py-3 border border-dashed border-border rounded-lg text-sm text-muted hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
+                                                                    >
+                                                                        <Plus size={16} />
+                                                                        Agregar Contenido
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => { setActiveModuleForContent(module.id); setContentType('subtitle'); }}
+                                                                        className="flex-1 py-3 border border-dashed border-border rounded-lg text-sm text-muted hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
+                                                                    >
+                                                                        <Plus size={16} />
+                                                                        Agregar Separación
+                                                                    </button>
+                                                                </div>
+                                                            )
                                                         )
                                                     )}
                                                 </div>
@@ -2315,7 +2496,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                             })}
 
                                     {/* Nuevo Módulo button at the end of modules list */}
-                                    {localModules.length > 0 && !isCreatingModule && (
+                                    {!isGitManaged && localModules.length > 0 && !isCreatingModule && (
                                         <div className="flex justify-center pt-4 pb-8">
                                             <button
                                                 onClick={() => setIsCreatingModule(true)}

@@ -105,6 +105,12 @@ export const getWithModulesAndLessons = query({
       startDate: bootcamp.startDate,
       duration: bootcamp.duration,
       level: bootcamp.level,
+      sourceRepo: bootcamp.sourceRepo,
+      sourcePath: bootcamp.sourcePath,
+      sourceRef: bootcamp.sourceRef,
+      lastSyncedAt: bootcamp.lastSyncedAt,
+      lastSyncStatus: bootcamp.lastSyncStatus,
+      lastSyncError: bootcamp.lastSyncError,
       modules: modulesWithLessons.sort((a, b) => a.order - b.order),
     };
   },

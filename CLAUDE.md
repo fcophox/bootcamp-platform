@@ -63,4 +63,4 @@ Data changes go through server actions in `app/actions/*.ts` (`'use server'`), o
 - Certificates: generated client-side as PDFs (`jspdf` + `html2canvas`).
 
 ## Environment
-Required env (`.env.local`): `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL` (Convex backend — see `### Data & backend` above), `AZURE_STORAGE_ACCOUNT` / `AZURE_STORAGE_KEY` / `AZURE_STORAGE_CONTAINER` / `AZURE_STORAGE_CONNECTION_STRING` (media uploads), plus email creds (`RESEND_API_KEY` or `SMTP_*`). No `SUPABASE_*` vars are used or needed.
+Required env (`.env.local`): `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL` (Convex backend — see `### Data & backend` above), `AZURE_STORAGE_ACCOUNT` / `AZURE_STORAGE_KEY` / `AZURE_STORAGE_CONTAINER` / `AZURE_STORAGE_CONNECTION_STRING` (media uploads), `PAT_ENCRYPTION_KEY` (server-only, never `NEXT_PUBLIC_*` — encrypts GitHub PATs for the course git-import feature), plus email creds (`RESEND_API_KEY` or `SMTP_*`). No `SUPABASE_*` vars are used or needed.

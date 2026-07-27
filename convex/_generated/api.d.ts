@@ -11,6 +11,7 @@
 import type * as auth from "../auth.js";
 import type * as bootcamps from "../bootcamps.js";
 import type * as certificates from "../certificates.js";
+import type * as courseImport from "../courseImport.js";
 import type * as dashboard from "../dashboard.js";
 import type * as db from "../db.js";
 import type * as exams from "../exams.js";
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   bootcamps: typeof bootcamps;
   certificates: typeof certificates;
+  courseImport: typeof courseImport;
   dashboard: typeof dashboard;
   db: typeof db;
   exams: typeof exams;
