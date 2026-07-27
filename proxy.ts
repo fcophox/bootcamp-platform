@@ -60,13 +60,20 @@ function normalizeAuthHost(request: NextRequest): NextRequest {
     return request;
   }
 
-  const originHost = new URL(origin).host;
-  if (forwardedHost === originHost) {
-    const modified = new NextRequest(request.url, {
+  const originURL = new URL(origin);
+  if (forwardedHost === originURL.host) {
+    // Reconstruct the URL with the external protocol+host so that
+    // @convex-dev/auth's isCorsRequest check (which compares Origin
+    // protocol against request.url protocol) passes.  Behind Traefik
+    // the internal URL is http:// while the external is https://.
+    const internal = new URL(request.url);
+    const normalized = `${originURL.protocol}//${originURL.host}${internal.pathname}${internal.search}`;
+
+    const modified = new NextRequest(normalized, {
       method: request.method,
       headers: new Headers(request.headers),
     });
-    modified.headers.set("host", originHost);
+    modified.headers.set("host", originURL.host);
     return modified;
   }
 
