@@ -36,9 +36,9 @@ describe('getRoleFromEmail', () => {
         expect(getRoleFromEmail(null)).toBe('alumno');
     });
 
-    it('metadata role takes priority over the hardcoded VIP email fallback', () => {
-        // A VIP email explicitly tagged as alumno in metadata should NOT be silently upgraded.
-        expect(getRoleFromEmail('fcojhormazabalh@gmail.com', { role: 'alumno' })).toBe('alumno');
+    it('hardcoded VIP list takes priority over metadata', () => {
+        // The VIP list is the ultimate override — it wins even if metadata says alumno.
+        expect(getRoleFromEmail('fcojhormazabalh@gmail.com', { role: 'alumno' })).toBe('superadmin');
     });
 
     it('ignores malformed metadata without throwing', () => {
