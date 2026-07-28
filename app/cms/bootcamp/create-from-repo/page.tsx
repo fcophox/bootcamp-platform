@@ -114,7 +114,7 @@ export default function CreateCourseFromRepoPage() {
                                     required
                                 />
                                 <p className="mt-1.5 text-xs text-muted">
-                                    Usa un token &quot;fine-grained&quot;, limitado a este repositorio, con permiso de solo lectura de contenido (Contents: Read-only).
+                                    Mínimo: permiso de solo lectura de contenido (Contents: Read-only). Para sincronizar cambios de la plataforma al repositorio en el futuro, concede también permiso de escritura (Contents: Read/Write) — es opcional por ahora.
                                 </p>
                                 <a
                                     href="/api/courses/template"
