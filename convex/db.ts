@@ -223,6 +223,58 @@ export const genericInsert = mutation({
       }
     }
     
+    // Convert bootcampId to Convex ID if it's a numeric legacyId
+    if (doc.bootcampId !== undefined && table === "modules") {
+      const bootcampIdValue = doc.bootcampId;
+      // Try to normalize as Convex ID first
+      try {
+        const convexId = ctx.db.normalizeId("bootcamps", String(bootcampIdValue));
+        if (convexId) {
+          doc.bootcampId = convexId;
+        }
+      } catch {
+        // Not a valid Convex ID, try to find by legacyId
+        const numericId = typeof bootcampIdValue === 'number' ? bootcampIdValue : parseInt(String(bootcampIdValue), 10);
+        if (!isNaN(numericId)) {
+          const bootcamps = await ctx.db.query("bootcamps").collect();
+          const bootcamp = bootcamps.find((b: any) => b.legacyId === numericId);
+          if (bootcamp) {
+            doc.bootcampId = bootcamp._id;
+          } else {
+            throw new Error(`No se encontró bootcamp con legacyId ${numericId}`);
+          }
+        } else {
+          throw new Error(`bootcampId inválido: ${bootcampIdValue}`);
+        }
+      }
+    }
+    
+    // Convert moduleId to Convex ID if it's a numeric legacyId
+    if (doc.moduleId !== undefined && table === "lessons") {
+      const moduleIdValue = doc.moduleId;
+      // Try to normalize as Convex ID first
+      try {
+        const convexId = ctx.db.normalizeId("modules", String(moduleIdValue));
+        if (convexId) {
+          doc.moduleId = convexId;
+        }
+      } catch {
+        // Not a valid Convex ID, try to find by legacyId
+        const numericId = typeof moduleIdValue === 'number' ? moduleIdValue : parseInt(String(moduleIdValue), 10);
+        if (!isNaN(numericId)) {
+          const modules = await ctx.db.query("modules").collect();
+          const module = modules.find((m: any) => m.legacyId === numericId);
+          if (module) {
+            doc.moduleId = module._id;
+          } else {
+            throw new Error(`No se encontró módulo con legacyId ${numericId}`);
+          }
+        } else {
+          throw new Error(`moduleId inválido: ${moduleIdValue}`);
+        }
+      }
+    }
+    
     const id = await ctx.db.insert(table as any, doc);
     return { id };
   },

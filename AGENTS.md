@@ -77,6 +77,13 @@ domain, calling the compatibility shim then `revalidatePath`/`redirect`. See
 - Edit `Design.MD`, never the generated token blocks in `app/globals.css`
   directly (`scripts/sync-design.js` regenerates them; `next.config.ts`
   auto-watches in dev).
+- **Bump `package.json` version before pushing.** The CI pipeline tags the
+  Docker image with `NEXT_PUBLIC_APP_VERSION` (read from `package.json`).
+  Flux GitOps compares the image tag to decide whether to roll the pods.
+  If the version doesn't change, containers are never replaced — your code
+  ships to `develop` or `main` but the running pods keep serving the old
+  image. Every PR that changes application code **must** include a version
+  bump (patch for fixes, minor for features, major for breaking changes).
 
 ## Branch strategy
 

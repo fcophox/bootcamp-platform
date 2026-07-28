@@ -13,6 +13,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint` — ESLint (`eslint-config-next`). No test runner is configured.
 - `npm run sync-design` — compile `Design.MD` tokens into `app/globals.css` once; `npm run watch-design` for watch mode.
 
+**⚠️ Version bump is mandatory before pushing.** CI tags the Docker image with
+`NEXT_PUBLIC_APP_VERSION` from `package.json`. Flux GitOps compares the tag to
+decide whether to roll pods. If the version doesn't change, containers are
+never replaced — your code merges but the running pods keep serving the old
+image. Every PR changing application code must include a version bump (patch
+for fixes, minor for features, major for breaking changes).
+
 UI text, error messages, and many code comments are in **Spanish**. Match that when editing user-facing strings.
 
 ## Architecture
