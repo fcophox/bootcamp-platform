@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, Component, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
@@ -8,6 +8,38 @@ import { MobileMenuButton } from '@/components/mobile-menu-button';
 import { Loader2, GitBranch, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { planImportFromRepo, applyImportPlan } from '@/app/actions/courseImport';
 import type { PlanImportResult } from '@/lib/courseImport/types';
+
+class ErrorBoundary extends Component<
+  { children: ReactNode; fallback?: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  state = { hasError: false, error: null };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  render() {
+    const err: unknown = this.state.error;
+    if (this.state.hasError) {
+      return (
+        <div className="flex min-h-screen items-center justify-center p-8">
+          <div className="max-w-md rounded-xl border border-red-500/20 bg-red-500/10 p-6">
+            <h2 className="text-lg font-semibold text-red-500 mb-2">Error al cargar la página</h2>
+            <pre className="text-sm text-red-400 whitespace-pre-wrap font-mono">
+              {(err instanceof Error ? err.message : String(err)) ?? 'Error desconocido'}
+            </pre>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 rounded-md bg-red-500 px-4 py-2 text-sm font-medium text-white"
+            >
+              Recargar
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function CreateCourseFromRepoPage() {
     const router = useRouter();
@@ -50,6 +82,7 @@ export default function CreateCourseFromRepoPage() {
     };
 
     return (
+        <ErrorBoundary>
         <div className="flex min-h-screen bg-background">
             <Sidebar />
             <main className={`flex-1 transition-all ${isCollapsed ? 'md:ml-16' : 'md:ml-64'} p-6 md:p-10`}>
@@ -171,5 +204,6 @@ export default function CreateCourseFromRepoPage() {
                 </div>
             </main>
         </div>
+        </ErrorBoundary>
     );
 }
