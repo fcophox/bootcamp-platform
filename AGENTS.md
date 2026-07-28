@@ -97,14 +97,13 @@ main ─────────────────────────
 
 | Branch | Purpose | Protected | Auto-deploy |
 |---|---|---|---|
-| `main` | Production | Yes — PR + passing CI required, no direct push | No — prod promotion is a manual, deliberate step (bump the image tag in `orbital-k3s-gitops`'s prod overlay) |
+| `main` | Production | Yes — PR + passing CI required, no direct push | Yes — every push builds `:prod-<sha>` and CI auto-commits it to the gitops repo |
 | `develop` | Integration / dev staging | No (not yet enabled) | Yes — every push builds `:develop-<sha>` and CI auto-commits it to the gitops repo |
 | `feature/*`, `fix/*` | New work | No | No |
 
 Day to day: branch off `develop`, PR into `develop`, verify on
 `bootcamp-dev.nodrize.dev`, then PR `develop` → `main` when ready to ship.
-After merging to `main`, promote to prod manually (see
-`architecture-roadmap/kubernetes-deployment-runbook.md` §7).
+After merging to `main`, CI auto-promotes to prod.
 
 ## Deployment
 

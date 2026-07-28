@@ -119,8 +119,6 @@ jobs:
       # GITOPS_PAT: a fine-grained PAT scoped to CleveritDemo/orbital-k3s-gitops
       # only, "Contents: Read and write" permission. See
       # architecture-roadmap/kubernetes-deployment-runbook.md for setup.
-      # Prod promotion is deliberately NOT automated here -- matches the
-      # "main is manual only" convention this pipeline follows.
       - name: Check GITOPS_PAT is configured
         id: check
         run: |
@@ -156,5 +154,49 @@ jobs:
             echo "Already up to date at ${NEW_TAG}"
           else
             git commit -m "chore(bootcamp-platform): promote dev to ${NEW_TAG}"
+            git push origin main
+          fi
+
+  promote-prod:
+    name: Promote to bootcamp-platform-prod (GitOps)
+    needs: image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check GITOPS_PAT is configured
+        id: check
+        run: |
+          if [ -n "${{ secrets.GITOPS_PAT }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::GITOPS_PAT secret not set -- skipping auto-promotion to bootcamp-platform-prod. See architecture-roadmap/kubernetes-deployment-runbook.md."
+          fi
+
+      - name: Checkout orbital-k3s-gitops
+        if: steps.check.outputs.configured == 'true'
+        uses: actions/checkout@v5
+        with:
+          repository: CleveritDemo/orbital-k3s-gitops
+          token: ${{ secrets.GITOPS_PAT }}
+          path: gitops
+
+      - name: Bump prod image tag and push
+        if: steps.check.outputs.configured == 'true'
+        working-directory: gitops
+        run: |
+          set -euo pipefail
+          FILE=apps/bootcamp-platform/workloads/overlays/prod/kustomization.yaml
+          NEW_TAG="${{ needs.image.outputs.pinned_tag }}"
+          sed -i "s#newTag: prod.*#newTag: ${NEW_TAG}#" "$FILE"
+          grep -q "newTag: ${NEW_TAG}\$" "$FILE" || { echo "::error::failed to update $FILE"; exit 1; }
+
+          git config user.name "bootcamp-platform-ci"
+          git config user.email "actions@github.com"
+          git add "$FILE"
+          if git diff --cached --quiet; then
+            echo "Already up to date at ${NEW_TAG}"
+          else
+            git commit -m "chore(bootcamp-platform): promote prod to ${NEW_TAG}"
             git push origin main
           fi
