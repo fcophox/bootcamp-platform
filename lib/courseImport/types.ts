@@ -78,3 +78,9 @@ export function summarizePlan(plan: ImportPlan): ImportPlanSummary {
 		lessonsToDelete: plan.lessonsToDelete.length,
 	};
 }
+
+export interface PlanImportResult {
+	course: ParsedCourse;
+	plan: ImportPlan;
+	summary: ImportPlanSummary;
+}

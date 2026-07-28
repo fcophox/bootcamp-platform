@@ -23,7 +23,7 @@ import { BootcampFeedbackTab } from '@/components/bootcamp-feedback-tab';
 import { createModule, createLesson, updateLesson, updateModule, deleteModule, deleteLesson, reorderLessons, reorderModules } from '@/app/actions/module';
 import { updateBootcamp } from '@/app/actions/bootcamp';
 import { planResync, applyResync, reconnectRepo } from '@/app/actions/courseImport';
-import type { PlanImportResult } from '@/app/actions/courseImport';
+import type { PlanImportResult } from '@/lib/courseImport/types';
 import { createClient } from '@/utils/supabase/client';
 import { uploadToAzure } from '@/lib/azure-upload';
 import { getMasterclass, saveMasterclass } from '@/app/actions/masterclass';
