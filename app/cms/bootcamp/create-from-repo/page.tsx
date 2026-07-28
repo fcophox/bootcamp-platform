@@ -7,7 +7,7 @@ import { useSidebar } from '@/components/sidebar-context';
 import { MobileMenuButton } from '@/components/mobile-menu-button';
 import { Loader2, GitBranch, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { planImportFromRepo, applyImportPlan } from '@/app/actions/courseImport';
-import type { PlanImportResult } from '@/app/actions/courseImport';
+import type { PlanImportResult } from '@/lib/courseImport/types';
 
 export default function CreateCourseFromRepoPage() {
     const router = useRouter();

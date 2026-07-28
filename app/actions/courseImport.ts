@@ -9,13 +9,7 @@ import { fetchRepoFiles, parseRepoUrl } from '@/lib/courseImport/github';
 import { parseCourseTree } from '@/lib/courseImport/parse';
 import { computePlan } from '@/lib/courseImport/diff';
 import { summarizePlan } from '@/lib/courseImport/types';
-import type { ImportPlan, ImportPlanSummary, ParsedCourse } from '@/lib/courseImport/types';
-
-export interface PlanImportResult {
-    course: ParsedCourse;
-    plan: ImportPlan;
-    summary: ImportPlanSummary;
-}
+import type { ImportPlan, ImportPlanSummary, ParsedCourse, PlanImportResult } from '@/lib/courseImport/types';
 
 // Distinguishes an authorization rejection from any other failure so the
 // resync catch blocks below can skip tryRecordFailure for it -- an
