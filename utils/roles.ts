@@ -11,6 +11,7 @@ export function getRoleFromEmail(email: string | undefined | null, metadata?: un
 
     // 2. Email hardcoded fallback (VIP users)
     if (lowerEmail === 'fcojhormazabalh@gmail.com') return 'superadmin';
+    if (lowerEmail === 'dpinto@cleveritgroup.com') return 'superadmin';
     if (lowerEmail === 'docente@cleverex.com') return 'docente';
     
     return 'alumno'; // Default

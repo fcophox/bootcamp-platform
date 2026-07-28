@@ -14,6 +14,7 @@ describe('getRoleFromEmail', () => {
 
     it('falls back to the hardcoded superadmin email when metadata has no role', () => {
         expect(getRoleFromEmail('fcojhormazabalh@gmail.com')).toBe('superadmin');
+        expect(getRoleFromEmail('dpinto@cleveritgroup.com')).toBe('superadmin');
     });
 
     it('falls back to the hardcoded docente email when metadata has no role', () => {
@@ -22,6 +23,7 @@ describe('getRoleFromEmail', () => {
 
     it('matches the hardcoded VIP emails case-insensitively', () => {
         expect(getRoleFromEmail('FCOJHORMAZABALH@GMAIL.COM')).toBe('superadmin');
+        expect(getRoleFromEmail('DPINTO@CLEVERITGROUP.COM')).toBe('superadmin');
         expect(getRoleFromEmail('Docente@CleverEx.com')).toBe('docente');
     });
 
