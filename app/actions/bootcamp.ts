@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 
 
 
-export async function createBootcamp(formData: FormData) {
+export async function createBootcamp(formData: FormData): Promise<{ error: string } | never> {
     const title = formData.get('title') as string;
     const description = formData.get('description') as string;
     const duration = formData.get('duration') as string;
@@ -14,45 +14,51 @@ export async function createBootcamp(formData: FormData) {
     const startDate = formData.get('startDate') as string;
     const icon = formData.get('icon') as string || 'code';
     const color = formData.get('color') as string || 'green';
-    const enableChecklist = formData.get('enableChecklist') !== 'false'; // Defaults to true unless explicitly 'false'
-    const enableRanking = formData.get('enableRanking') !== 'false'; // Defaults to true unless explicitly 'false'
+    const enableChecklist = formData.get('enableChecklist') !== 'false';
+    const enableRanking = formData.get('enableRanking') !== 'false';
     const imageUrl = formData.get('imageUrl') as string || null;
 
     if (!title || !description || !duration || !level || !startDate) {
-        throw new Error('Todos los campos son obligatorios');
+        return { error: 'Todos los campos son obligatorios' };
     }
 
-    const supabase = await createClient();
+    let bootcampId: string;
 
-    // Check for existing slug and append suffix if needed could be added here, 
-    // but for now relying on database unique constraint to throw error or just basic slug.
+    try {
+        const supabase = await createClient();
 
-    const { data: bootcamp, error } = await supabase
-        .from('Bootcamp')
-        .insert({
-            title,
-            description,
-            duration,
-            level,
-            startDate,
-            students: 0,
-            icon,
-            color,
-            enableChecklist,
-            enableRanking,
-            imageUrl,
-            updatedAt: new Date().toISOString(),
-        })
-        .select()
-        .single();
+        const { data: bootcamp, error } = await supabase
+            .from('Bootcamp')
+            .insert({
+                title,
+                description,
+                duration,
+                level,
+                startDate,
+                students: 0,
+                icon,
+                color,
+                enableChecklist,
+                enableRanking,
+                imageUrl,
+                updatedAt: new Date().toISOString(),
+            })
+            .select()
+            .single();
 
-    if (error || !bootcamp) {
-        console.error('Error creating bootcamp:', error);
-        throw new Error('Error al crear el bootcamp');
+        if (error || !bootcamp) {
+            console.error('Error creating bootcamp:', error);
+            return { error: 'Error al crear el bootcamp' };
+        }
+
+        bootcampId = bootcamp.id;
+    } catch (err) {
+        console.error('Unexpected error creating bootcamp:', err);
+        return { error: err instanceof Error ? err.message : 'Error inesperado al crear el bootcamp' };
     }
 
     revalidatePath('/dashboard');
-    redirect(`/cms/bootcamp/${bootcamp.id}/manage`);
+    redirect(`/cms/bootcamp/${bootcampId}/manage`);
 }
 
 export async function deleteBootcamp(id: number) {

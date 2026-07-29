@@ -1,5 +1,6 @@
 'use client';
 
+import { Component, type ReactNode } from 'react';
 import { useState } from 'react';
 import { BootcampCard } from '@/components/bootcamp-card';
 import { Sidebar } from '@/components/sidebar';
@@ -10,6 +11,42 @@ import { createBootcamp } from '@/app/actions/bootcamp';
 import Link from 'next/link';
 import { uploadToAzure } from '@/lib/azure-upload';
 import { formatDateString } from '@/utils/date';
+
+class CreateBootcampErrorBoundary extends Component<
+    { children: ReactNode },
+    { hasError: boolean; error: Error | null }
+> {
+    state = { hasError: false, error: null as Error | null };
+    static getDerivedStateFromError(error: Error) {
+        return { hasError: true, error };
+    }
+    componentDidCatch(error: Error) {
+        if (process.env.NODE_ENV === 'development') {
+            console.error('[BootcampCreate]', error.message, error.stack);
+        }
+    }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="flex min-h-screen items-center justify-center bg-background p-8">
+                    <div className="max-w-md rounded-xl border border-red-500/20 bg-red-500/10 p-6">
+                        <h2 className="text-lg font-semibold text-red-500 mb-2">Error al cargar</h2>
+                        <pre className="text-sm text-red-400 whitespace-pre-wrap font-mono mb-4">
+                            {(this.state.error as Error)?.message || 'Error desconocido'}
+                        </pre>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="rounded-md bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 transition-colors"
+                        >
+                            Recargar
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
 
 // Map of icon names to components
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,7 +79,7 @@ const COLORS = [
     { name: 'pink', class: 'bg-pink-500', text: 'text-pink-500' }
 ];
 
-export default function CreateBootcampPage() {
+function CreateBootcampPageInner() {
     const { isCollapsed, setIsMobileOpen } = useSidebar();
 
     // State for the form
@@ -103,9 +140,9 @@ export default function CreateBootcampPage() {
         <div className="min-h-screen bg-background text-foreground">
             <Sidebar />
 
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 md:${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ml-0 ${isCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
                 {/* Header */}
-                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background border-b border-border transition-all duration-300 left-0 md:${isCollapsed ? 'left-16' : 'left-64'} flex items-center px-6 gap-3`}>
+                <header className={`fixed top-0 right-0 z-10 h-[60px] bg-background border-b border-border transition-all duration-300 left-0 ${isCollapsed ? 'md:left-16' : 'md:left-64'} flex items-center px-6 gap-3`}>
                     <button
                         onClick={() => setIsMobileOpen(true)}
                         className="p-1.5 rounded-lg border border-border bg-hover-bg md:hidden hover:bg-background text-foreground"
@@ -130,7 +167,12 @@ export default function CreateBootcampPage() {
                                     <p className="text-muted">Completa la información del curso para publicarlo.</p>
                                 </div>
 
-                                <form action={createBootcamp} className="space-y-6">
+                                <form action={async (formData: FormData) => {
+                                    const result = await createBootcamp(formData);
+                                    if ('error' in result) {
+                                        alert(result.error);
+                                    }
+                                }} className="space-y-6">
                                     <input type="hidden" name="icon" value={formData.icon} />
                                     <input type="hidden" name="color" value={formData.color} />
                                     <input type="hidden" name="imageUrl" value={imageUrl} />
@@ -372,5 +414,13 @@ export default function CreateBootcampPage() {
                 </main>
             </div>
         </div>
+    );
+}
+
+export default function CreateBootcampPage() {
+    return (
+        <CreateBootcampErrorBoundary>
+            <CreateBootcampPageInner />
+        </CreateBootcampErrorBoundary>
     );
 }
