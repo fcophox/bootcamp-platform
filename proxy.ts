@@ -37,7 +37,7 @@ const innerMiddleware = convexAuthNextjsMiddleware(
  * check runs. The check itself is defense-in-depth — the real abuse barrier
  * is at the ingress level (Traefik host matching).
  */
-export async function proxy(
+export default async function proxy(
   request: NextRequest,
   event: Parameters<typeof innerMiddleware>[1],
 ): Promise<ReturnType<typeof innerMiddleware>> {
@@ -62,15 +62,9 @@ async function normalizeAuthHost(request: NextRequest): Promise<NextRequest> {
 
   const originURL = new URL(origin);
   if (forwardedHost === originURL.host) {
-    // Reconstruct the URL with the external protocol+host so that
-    // @convex-dev/auth's isCorsRequest check (which compares Origin
-    // protocol against request.url protocol) passes.  Behind Traefik
-    // the internal URL is http:// while the external is https://.
     const internal = new URL(request.url);
     const normalized = `${originURL.protocol}//${originURL.host}${internal.pathname}${internal.search}`;
 
-    // Read the body before cloning — NextRequest drops the body when
-    // constructed from a URL string, so we must re-attach it.
     const body = await request.text();
 
     const modified = new NextRequest(normalized, {
