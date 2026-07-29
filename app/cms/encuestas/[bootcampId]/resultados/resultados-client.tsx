@@ -372,16 +372,28 @@ export function ResultadosEncuestaClient({ bootcamp, resultados }: Props) {
                 y += 6;
             } else {
                 for (const resp of respuestasAlumno) {
-                    if (y > 270) { doc.addPage(); y = 20; }
+                    const valorStr = formatValorPlano(tipo, resp.valor);
+                    const maxValorW = pageW - margin - (margin + 4 + 95);
+                    
+                    doc.setFontSize(9);
+                    doc.setFont('helvetica', 'bold');
+                    const valorLines = doc.splitTextToSize(valorStr, maxValorW);
+                    
+                    const itemHeight = Math.max(5.5, (valorLines.length * 5) + 0.5);
+                    
+                    if (y + itemHeight > 280) { doc.addPage(); y = 20; }
+                    
                     doc.setFontSize(9);
                     doc.setFont('helvetica', 'normal');
                     doc.setTextColor(80);
                     const emailTrunc = resp.email.length > 40 ? resp.email.slice(0, 40) + '…' : resp.email;
                     doc.text(emailTrunc, margin + 4, y);
+                    
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(30);
-                    doc.text(formatValorPlano(tipo, resp.valor), margin + 4 + 95, y);
-                    y += 5.5;
+                    doc.text(valorLines, margin + 4 + 95, y);
+                    
+                    y += itemHeight;
                 }
             }
 
