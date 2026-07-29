@@ -7,22 +7,24 @@ import { redirect } from 'next/navigation';
 
 
 export async function createBootcamp(formData: FormData): Promise<{ error: string } | never> {
+    const title = formData.get('title') as string;
+    const description = formData.get('description') as string;
+    const duration = formData.get('duration') as string;
+    const level = formData.get('level') as string;
+    const startDate = formData.get('startDate') as string;
+    const icon = formData.get('icon') as string || 'code';
+    const color = formData.get('color') as string || 'green';
+    const enableChecklist = formData.get('enableChecklist') !== 'false';
+    const enableRanking = formData.get('enableRanking') !== 'false';
+    const imageUrl = formData.get('imageUrl') as string || null;
+
+    if (!title || !description || !duration || !level || !startDate) {
+        return { error: 'Todos los campos son obligatorios' };
+    }
+
+    let bootcampId: string;
+
     try {
-        const title = formData.get('title') as string;
-        const description = formData.get('description') as string;
-        const duration = formData.get('duration') as string;
-        const level = formData.get('level') as string;
-        const startDate = formData.get('startDate') as string;
-        const icon = formData.get('icon') as string || 'code';
-        const color = formData.get('color') as string || 'green';
-        const enableChecklist = formData.get('enableChecklist') !== 'false';
-        const enableRanking = formData.get('enableRanking') !== 'false';
-        const imageUrl = formData.get('imageUrl') as string || null;
-
-        if (!title || !description || !duration || !level || !startDate) {
-            return { error: 'Todos los campos son obligatorios' };
-        }
-
         const supabase = await createClient();
 
         const { data: bootcamp, error } = await supabase
@@ -49,12 +51,14 @@ export async function createBootcamp(formData: FormData): Promise<{ error: strin
             return { error: 'Error al crear el bootcamp' };
         }
 
-        revalidatePath('/dashboard');
-        redirect(`/cms/bootcamp/${bootcamp.id}/manage`);
+        bootcampId = bootcamp.id;
     } catch (err) {
         console.error('Unexpected error creating bootcamp:', err);
         return { error: err instanceof Error ? err.message : 'Error inesperado al crear el bootcamp' };
     }
+
+    revalidatePath('/dashboard');
+    redirect(`/cms/bootcamp/${bootcampId}/manage`);
 }
 
 export async function deleteBootcamp(id: number) {
