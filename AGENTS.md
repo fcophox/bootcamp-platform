@@ -104,11 +104,27 @@ domain, calling the compatibility shim then `revalidatePath`/`redirect`. See
 
 `convex/` (functions + schema) does **not** travel in the Docker image — the
 image only carries `NEXT_PUBLIC_CONVEX_URL` pointing at the backend. CI deploys
-them in the `Deploy Convex functions` job, gated on the `CONVEX_DEPLOY_KEY`
-secret; the `image` job depends on it, so app code can't ship ahead of the
-backend it calls.
+them in the `Deploy Convex functions` job; the `image` job depends on it, so app
+code can't ship ahead of the backend it calls.
 
-**If `CONVEX_DEPLOY_KEY` is not set, the job logs a warning and skips**, and
+Each branch has its own secret, because they target different deployments:
+
+| Branch | Secret | Key type | Command CI runs |
+|---|---|---|---|
+| `develop` | `CONVEX_DEPLOY_KEY_DEV` | `dev:…` | `npx convex dev --once` |
+| `main` | `CONVEX_DEPLOY_KEY_PROD` | `prod:…` | `npx convex deploy --yes` |
+
+`npx convex deploy` always targets **production** — it is not the way to push to
+a dev deployment, and using it with a `dev:` key is wrong. CI picks the command
+from the key's prefix.
+
+Mint a key from the dashboard (project → deployment → Deploy Keys) or the CLI:
+
+```bash
+npx convex deployment token create ci-develop --deployment dev
+```
+
+**If the branch's secret is not set, the job logs a warning and skips**, and
 Convex changes silently never reach the backend. That is how `courseImport:*`
 ended up missing while the UI calling it was live, surfacing as
 `Could not find public function for 'courseImport:applyImport'`.
