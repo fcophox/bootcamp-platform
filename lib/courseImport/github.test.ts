@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fetchRepoFiles, parseRepoUrl } from './github';
+import { describeGithubError, fetchRepoFiles, parseRepoUrl } from './github';
 
 const originalFetch = global.fetch;
 
@@ -121,5 +121,47 @@ describe('parseRepoUrl', () => {
 
     it('throws on an unrecognized format', () => {
         expect(() => parseRepoUrl('not a url at all')).toThrow('No se pudo interpretar');
+    });
+});
+
+describe('describeGithubError', () => {
+    const PATH = '/repos/CleveritDemo/ai-engineer-cleverit-course-101/git/trees/main?recursive=1';
+
+    it('explains 409 as an empty repository, not a token problem', () => {
+        const message = describeGithubError(409, PATH);
+
+        // Regression: a 409 on an empty repo used to be reported as
+        // "Verifica el token", sending people to audit PAT scopes for nothing.
+        expect(message).toContain('vacío');
+        expect(message).toContain('sin commits');
+        expect(message).toContain('No es un problema del token');
+        expect(message).not.toMatch(/Verifica el token \(permisos, expiración\)/);
+    });
+
+    it('explains that 404 can also mean the token cannot see a private repo', () => {
+        const message = describeGithubError(404, PATH);
+
+        expect(message).toContain('No se encontró el repositorio o la rama');
+        expect(message).toContain('privado');
+    });
+
+    it('distinguishes an invalid/expired token (401) from an under-scoped one (403)', () => {
+        expect(describeGithubError(401, PATH)).toContain('expiró');
+        expect(describeGithubError(403, PATH)).toContain('permiso suficiente');
+        expect(describeGithubError(403, PATH)).toContain('SSO');
+    });
+
+    it('flags rate limiting and transient GitHub outages as retryable', () => {
+        expect(describeGithubError(429, PATH)).toContain('límite de peticiones');
+        expect(describeGithubError(502, PATH)).toContain('temporal');
+    });
+
+    it('always names the status and path, and never leaks a token', () => {
+        for (const status of [401, 403, 404, 409, 429, 500, 418]) {
+            const message = describeGithubError(status, PATH);
+            expect(message).toContain(String(status));
+            expect(message).toContain(PATH);
+            expect(message).not.toMatch(/ghp_|github_pat_|Bearer/);
+        }
     });
 });

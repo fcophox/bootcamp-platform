@@ -28,11 +28,38 @@ async function githubFetch(path: string, pat: string): Promise<Response> {
     if (!response.ok) {
         // Deliberately never include the Authorization header or the PAT
         // itself in this message -- it can end up in lastSyncError.
-        throw new Error(
-            `GitHub respondió ${response.status} para ${path}. Verifica el token (permisos, expiración) y que el repositorio/rama existan.`
-        );
+        throw new Error(describeGithubError(response.status, path));
     }
     return response;
+}
+
+/**
+ * Map a GitHub status to something actionable.
+ *
+ * Previously every failure was reported as "check the token", which sent people
+ * auditing PAT scopes over a 409 -- a status GitHub uses on the git-data
+ * endpoints to mean the repository has no commits yet, nothing to do with auth.
+ */
+export function describeGithubError(status: number, path: string): string {
+    const prefix = `GitHub respondió ${status} para ${path}.`;
+
+    switch (status) {
+        case 409:
+            return `${prefix} El repositorio existe pero está vacío (sin commits), así que la rama indicada todavía no existe. Haz un primer push del contenido del curso antes de importar. No es un problema del token.`;
+        case 404:
+            return `${prefix} No se encontró el repositorio o la rama. Revisa el owner, el nombre del repositorio y la rama; si el repositorio es privado, comprueba también que el token tenga acceso a ese repositorio (GitHub responde 404, no 403, cuando el token no lo ve).`;
+        case 401:
+            return `${prefix} El token no es válido o expiró. Genera uno nuevo y vuelve a guardarlo.`;
+        case 403:
+            return `${prefix} El token es válido pero no tiene permiso suficiente (falta el permiso de lectura de contenido, o la organización requiere autorización SSO para el token).`;
+        case 429:
+            return `${prefix} Se alcanzó el límite de peticiones de la API de GitHub. Espera unos minutos y vuelve a intentarlo.`;
+        default:
+            if (status >= 500) {
+                return `${prefix} Error temporal de GitHub. Vuelve a intentarlo en unos minutos.`;
+            }
+            return `${prefix} Verifica el token (permisos, expiración) y que el repositorio/rama existan.`;
+    }
 }
 
 export async function fetchRepoFiles(
