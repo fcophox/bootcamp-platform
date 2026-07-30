@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { randomBytes } from 'crypto';
+import { getVipRole } from '@/lib/vipEmails';
 
 function generateRandomToken(length: number = 24): string {
     return randomBytes(length).toString('hex').slice(0, length);
@@ -26,9 +27,9 @@ export async function createInvitation(bootcampId: number | string): Promise<{ t
         .maybeSingle();
 
     if (!roleData) {
-        const fallbackRole = (user.email === 'fcojhormazabalh@gmail.com' || user.email === 'docente@cleverex.com') 
-            ? (user.email === 'fcojhormazabalh@gmail.com' ? 'superadmin' : 'docente') 
-            : 'alumno';
+        // Shared VIP overrides -- see lib/vipEmails.ts. This was a fourth
+        // copy of the same literal list and had drifted like the others.
+        const fallbackRole = getVipRole(user.email) ?? 'alumno';
         
         if (fallbackRole !== 'alumno') {
             await supabase.from('UserRole').upsert({ id: user.id, email: user.email, role: fallbackRole });

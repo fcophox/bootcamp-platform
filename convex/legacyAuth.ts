@@ -2,6 +2,7 @@ import { action, internalQuery, internalMutation, query } from "./_generated/ser
 import { v } from "convex/values";
 import bcrypt from "bcryptjs";
 import { internal } from "./_generated/api";
+import { getVipRole } from "../lib/vipEmails";
 
 export const getLegacyUserInternal = internalQuery({
   args: { email: v.string() },
@@ -96,9 +97,11 @@ export const getRoleByEmail = query({
   handler: async (ctx, args) => {
     const term = args.email.toLowerCase().trim();
     
-    // 0. VIP hardcoded emails (fallback for superadmins)
-    if (term === 'fcojhormazabalh@gmail.com') return 'superadmin';
-    if (term === 'docente@cleverex.com') return 'docente';
+    // 0. VIP hardcoded emails (fallback for superadmins). Shared with
+    //    utils/roles.ts and convex/users.ts via lib/vipEmails.ts -- this was a
+    //    third separate literal list and had drifted out of sync with them.
+    const vipRole = getVipRole(term);
+    if (vipRole) return vipRole;
     
     // 1. Try legacyAuth by email, supabaseUserId, or _id
     const legacyUsers = await ctx.db.query("legacyAuth").collect();
