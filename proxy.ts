@@ -45,17 +45,42 @@ export default async function proxy(
   // TEMPORARY diagnostic — see app/api/_debug/proxy/route.ts. Stamps the
   // pre-normalization state so we can measure what Traefik actually sends
   // instead of assuming. Remove together with that route.
-  if (request.nextUrl.pathname === "/api/_debug/proxy") {
+  if (request.nextUrl.pathname === "/api/diag/proxy") {
+    const xfh = request.headers.get("x-forwarded-host");
+    const xfp = request.headers.get("x-forwarded-proto");
     request.headers.set("x-dbg-orig-url", request.url);
     request.headers.set("x-dbg-orig-url-proto", new URL(request.url).protocol);
     request.headers.set("x-dbg-orig-host", request.headers.get("host") ?? "(none)");
-    request.headers.set("x-dbg-xfh", request.headers.get("x-forwarded-host") ?? "(none)");
-    request.headers.set("x-dbg-xfp", request.headers.get("x-forwarded-proto") ?? "(none)");
+    request.headers.set("x-dbg-xfh", xfh ?? "(none)");
+    request.headers.set("x-dbg-xfp", xfp ?? "(none)");
     request.headers.set("x-dbg-origin", request.headers.get("origin") ?? "(none)");
-    request.headers.set(
-      "x-dbg-branch",
-      request.headers.get("x-forwarded-host") ? "normalized" : "early-return",
-    );
+    request.headers.set("x-dbg-branch", xfh ? "normalized" : "early-return");
+
+    // Reproduce exactly what the /api/auth branch builds, so we can see whether
+    // Headers.set("host") actually sticks on a rebuilt NextRequest in THIS
+    // runtime — the one thing we cannot observe from a route handler, because
+    // /api/auth is consumed by the middleware and never reaches one.
+    if (xfh) {
+      try {
+        const u = new URL(request.url);
+        const simulated = new NextRequest(
+          `${xfp ?? "https"}://${xfh}${u.pathname}${u.search}`,
+          { method: "GET", headers: new Headers(request.headers) },
+        );
+        request.headers.set(
+          "x-dbg-auth-host-before",
+          simulated.headers.get("host") ?? "(none)",
+        );
+        simulated.headers.set("host", xfh);
+        request.headers.set(
+          "x-dbg-auth-host-after",
+          simulated.headers.get("host") ?? "(none)",
+        );
+        request.headers.set("x-dbg-auth-url", simulated.url);
+      } catch (e) {
+        request.headers.set("x-dbg-auth-error", String(e));
+      }
+    }
   }
 
   const normalized = await normalizeExternalHost(request);

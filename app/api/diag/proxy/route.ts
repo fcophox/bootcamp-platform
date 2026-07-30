@@ -36,6 +36,13 @@ export async function GET() {
             origin: h.get('x-dbg-origin') ?? '(proxy did not stamp)',
             branch: h.get('x-dbg-branch') ?? '(proxy did not stamp)',
         },
+        // Simulation of the /api/auth branch, run inside the middleware runtime.
+        authBranchSimulation: {
+            hostBeforeSet: h.get('x-dbg-auth-host-before') ?? '(not run)',
+            hostAfterSet: h.get('x-dbg-auth-host-after') ?? '(not run)',
+            rebuiltUrl: h.get('x-dbg-auth-url') ?? '(not run)',
+            error: h.get('x-dbg-auth-error') ?? null,
+        },
         // What the route handler sees, i.e. after middleware normalization.
         afterProxy: {
             host: h.get('host') ?? '(none)',
