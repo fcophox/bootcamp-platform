@@ -36,15 +36,22 @@ jobs:
           NEXT_PUBLIC_CONVEX_URL: ${{ vars.NEXT_PUBLIC_CONVEX_URL || 'https://placeholder.convex.cloud' }}
 
   # Convex functions and schema live in convex/ and are deployed to the Convex
-  # backend, NOT baked into the Docker image -- the image only carries the
-  # NEXT_PUBLIC_CONVEX_URL pointing at it. Without this job they only ever ship
-  # when someone remembers to run `npx convex dev --once` from their laptop,
-  # which is how courseImport:* ended up missing in the backend while the app
-  # code that calls it was live (the UI then fails with
-  # "Could not find public function for 'courseImport:applyImport'").
+  # backend, NOT baked into the Docker image -- the image only carries
+  # NEXT_PUBLIC_CONVEX_URL pointing at it. Without this job they only ship when
+  # someone remembers to push from their laptop, which is how the whole
+  # courseImport module ended up missing from the backend while the UI calling
+  # it was live ("Could not find public function for 'courseImport:applyImport'").
   #
-  # Gated on the secret so a fork or an unconfigured repo skips cleanly rather
-  # than failing the pipeline -- same pattern as the GitOps promote jobs below.
+  # The two environments use different Convex backends:
+  #
+  #   develop -> SELF-HOSTED, in-cluster (apps/bootcamp-platform/convex-selfhosted
+  #              in orbital-k3s-gitops): convex-dev.nodrize.dev, authenticated
+  #              with the admin key from the `convex-selfhosted` secret.
+  #   main    -> CLOUD production deployment, authenticated with a deploy key.
+  #
+  # Self-hosted mode is selected by CONVEX_SELF_HOSTED_URL/_ADMIN_KEY, and the
+  # cloud variables must be absent or the CLI prefers them -- same `env -u`
+  # pattern as the convex-prod-to-dev-sync CronJob in the GitOps repo.
   convex:
     name: Deploy Convex functions
     needs: test
@@ -60,50 +67,37 @@ jobs:
 
       - run: npm ci
 
-      # develop and main target different Convex deployments, so each has its
-      # own secret. The key type also decides the command -- `convex deploy`
-      # targets production and is NOT correct for a dev deployment; a `dev:` key
-      # is used with `convex dev --once` (docs.convex.dev/cli/deploy-key-types).
-      #
-      # Both keys are read as env vars and never pass through step outputs, so
-      # neither is written anywhere a later step could echo.
       - name: Deploy functions and schema to Convex
         env:
-          CONVEX_DEPLOY_KEY_DEV: ${{ secrets.CONVEX_DEPLOY_KEY_DEV }}
+          # develop: self-hosted backend in the bootcamp-platform-dev namespace
+          CONVEX_SELF_HOSTED_URL: ${{ vars.CONVEX_SELF_HOSTED_URL || 'https://convex-dev.nodrize.dev' }}
+          CONVEX_SELF_HOSTED_ADMIN_KEY: ${{ secrets.CONVEX_SELF_HOSTED_ADMIN_KEY }}
+          # main: cloud production deployment
           CONVEX_DEPLOY_KEY_PROD: ${{ secrets.CONVEX_DEPLOY_KEY_PROD }}
         run: |
           set -euo pipefail
 
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            KEY="${CONVEX_DEPLOY_KEY_PROD:-}"
-            WHICH="CONVEX_DEPLOY_KEY_PROD"
+            if [ -z "${CONVEX_DEPLOY_KEY_PROD:-}" ]; then
+              echo "::warning::CONVEX_DEPLOY_KEY_PROD is not set -- skipping. Convex functions will NOT reach the production backend."
+              exit 0
+            fi
+            echo "Deploying to the cloud production deployment."
+            CONVEX_DEPLOY_KEY="$CONVEX_DEPLOY_KEY_PROD" npx convex deploy --yes
           else
-            KEY="${CONVEX_DEPLOY_KEY_DEV:-}"
-            WHICH="CONVEX_DEPLOY_KEY_DEV"
-          fi
-
-          if [ -z "$KEY" ]; then
-            echo "::warning::$WHICH is not set -- skipping Convex deploy. Functions in convex/ will NOT reach the backend, and the app may call functions that do not exist there."
-            exit 0
-          fi
-
-          export CONVEX_DEPLOY_KEY="$KEY"
-          case "${KEY%%:*}" in
-            prod)
-              echo "Deploying to the production deployment."
+            if [ -z "${CONVEX_SELF_HOSTED_ADMIN_KEY:-}" ]; then
+              echo "::warning::CONVEX_SELF_HOSTED_ADMIN_KEY is not set -- skipping. Convex functions will NOT reach the self-hosted dev backend, and the app will fail with \"Could not find public function\"."
+              echo "::warning::Get it with: kubectl -n bootcamp-platform-dev get secret convex-selfhosted -o jsonpath='{.data.ADMIN_KEY}' | base64 -d"
+              exit 0
+            fi
+            echo "Deploying to the self-hosted dev backend at $CONVEX_SELF_HOSTED_URL"
+            # Cloud credentials must not be in scope or the CLI uses them
+            # instead of the self-hosted target.
+            env -u CONVEX_DEPLOY_KEY -u CONVEX_DEPLOYMENT \
+              CONVEX_SELF_HOSTED_URL="$CONVEX_SELF_HOSTED_URL" \
+              CONVEX_SELF_HOSTED_ADMIN_KEY="$CONVEX_SELF_HOSTED_ADMIN_KEY" \
               npx convex deploy --yes
-              ;;
-            dev)
-              # `convex deploy` would target production; a dev deployment is
-              # pushed to with `convex dev --once`.
-              echo "Pushing to the development deployment."
-              npx convex dev --once
-              ;;
-            *)
-              echo "::error::$WHICH is not a recognised Convex deploy key (expected it to start with 'prod:' or 'dev:')."
-              exit 1
-              ;;
-          esac
+          fi
 
   image:
     name: Build & push image

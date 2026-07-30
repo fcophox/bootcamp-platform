@@ -80,33 +80,40 @@ image only carries `NEXT_PUBLIC_CONVEX_URL` pointing at the backend. CI deploys
 them in the `Deploy Convex functions` job; the `image` job depends on it, so app
 code can't ship ahead of the backend it calls.
 
-Each branch has its own secret, because they target different deployments:
+**The two environments use different Convex backends:**
 
-| Branch | Secret | Key type | Command CI runs |
+| Branch | Backend | Auth | Secret |
 |---|---|---|---|
-| `develop` | `CONVEX_DEPLOY_KEY_DEV` | `dev:…` | `npx convex dev --once` |
-| `main` | `CONVEX_DEPLOY_KEY_PROD` | `prod:…` | `npx convex deploy --yes` |
+| `develop` | **self-hosted, in-cluster** — `convex-dev.nodrize.dev` | admin key | `CONVEX_SELF_HOSTED_ADMIN_KEY` |
+| `main` | **cloud** production deployment | deploy key | `CONVEX_DEPLOY_KEY_PROD` |
 
-`npx convex deploy` always targets **production** — it is not the way to push to
-a dev deployment, and using it with a `dev:` key is wrong. CI picks the command
-from the key's prefix.
+The self-hosted backend is defined in `orbital-k3s-gitops` under
+`apps/bootcamp-platform/convex-selfhosted/` (StatefulSet + Service on ports
+3210/3211, ingress, and a weekly CronJob that exports cloud-prod and
+`--replace-all` imports it into dev — **dev data is overwritten every Monday**).
 
-Mint a key from the dashboard (project → deployment → Deploy Keys) or the CLI:
+Self-hosted mode is selected by `CONVEX_SELF_HOSTED_URL` / `_ADMIN_KEY`, and the
+cloud variables must be *absent* or the CLI prefers them — hence the `env -u
+CONVEX_DEPLOY_KEY -u CONVEX_DEPLOYMENT` in both CI and the sync CronJob.
+
+The admin key lives in Vault and is synced to the `convex-selfhosted` secret:
 
 ```bash
-npx convex deployment token create ci-develop --deployment dev
+kubectl -n bootcamp-platform-dev get secret convex-selfhosted \
+  -o jsonpath='{.data.ADMIN_KEY}' | base64 -d
 ```
 
 **If the branch's secret is not set, the job logs a warning and skips**, and
-Convex changes silently never reach the backend. That is how `courseImport:*`
-ended up missing while the UI calling it was live, surfacing as
-`Could not find public function for 'courseImport:applyImport'`.
+Convex changes silently never reach the backend.
 
-To push functions by hand (e.g. to the dev deployment in `.env`,
-`CONVEX_DEPLOYMENT=dev:...`):
+To push functions by hand to the self-hosted dev backend:
 
 ```bash
-npx convex dev --once     # dev deployment — NOT `convex deploy`, which targets prod
+env -u CONVEX_DEPLOY_KEY -u CONVEX_DEPLOYMENT \
+  CONVEX_SELF_HOSTED_URL=https://convex-dev.nodrize.dev \
+  CONVEX_SELF_HOSTED_ADMIN_KEY="$(kubectl -n bootcamp-platform-dev get secret \
+    convex-selfhosted -o jsonpath='{.data.ADMIN_KEY}' | base64 -d)" \
+  npx convex deploy --yes
 ```
 
 To check what is actually live on a deployment:
