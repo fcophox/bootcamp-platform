@@ -52,22 +52,19 @@ async function normalizeExternalHost(request: NextRequest): Promise<NextRequest>
   }
 
   const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
-  const externalHost = `${forwardedProto}://${forwardedHost}`;
   const internalURL = new URL(request.url);
 
-  if (internalURL.pathname.startsWith("/api/auth")) {
-    const body = await request.text();
-    const normalized = `${externalHost}${internalURL.pathname}${internalURL.search}`;
-    const modified = new NextRequest(normalized, {
-      method: request.method,
-      headers: new Headers(request.headers),
-      body,
-    });
-    modified.headers.set("host", forwardedHost);
-    return modified;
-  }
+  const externalURL = `${forwardedProto}://${forwardedHost}${internalURL.pathname}${internalURL.search}`;
 
-  const modified = new NextRequest(request);
+  const body = request.method === "GET" || request.method === "HEAD"
+    ? undefined
+    : await request.text();
+
+  const modified = new NextRequest(externalURL, {
+    method: request.method,
+    headers: new Headers(request.headers),
+    body,
+  });
   modified.headers.set("host", forwardedHost);
   return modified;
 }
