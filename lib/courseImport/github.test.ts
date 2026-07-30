@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { describeGithubError, fetchRepoFiles, parseRepoUrl } from './github';
+import { CourseImportEmptyError, commitFiles, describeGithubError, fetchRepoFiles, parseRepoUrl } from './github';
 
 const originalFetch = global.fetch;
 
@@ -163,5 +163,142 @@ describe('describeGithubError', () => {
             expect(message).toContain(PATH);
             expect(message).not.toMatch(/ghp_|github_pat_|Bearer/);
         }
+    });
+});
+
+describe('empty-repo / empty-path detection', () => {
+    it('throws CourseImportEmptyError(kind=repo) on a 409 from the tree call', async () => {
+        const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+        mockFetch.mockResolvedValue({ ok: false, status: 409, json: async () => ({}) } as Response);
+
+        const err = await fetchRepoFiles('o', 'r', 'main', '', 'pat').catch((e) => e);
+
+        expect(err).toBeInstanceOf(CourseImportEmptyError);
+        expect(err.kind).toBe('repo');
+        expect(err.message).toContain('vacío');
+    });
+
+    it('throws CourseImportEmptyError(kind=path) when the path holds no files', async () => {
+        const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+        mockFetch.mockResolvedValue(
+            jsonResponse({ truncated: false, tree: [{ path: 'otro/a.md', type: 'blob', sha: 's' }] })
+        );
+
+        const err = await fetchRepoFiles('o', 'r', 'main', 'cursos/x', 'pat').catch((e) => e);
+
+        expect(err).toBeInstanceOf(CourseImportEmptyError);
+        expect(err.kind).toBe('path');
+    });
+
+    it('does NOT report empty when files exist under the path', async () => {
+        // Guard against clobbering: content that exists but parses badly must
+        // never surface as "empty", or we would offer to overwrite real work.
+        const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+        mockFetch.mockImplementation(async (url: string) => {
+            if (url.includes('/git/trees/')) {
+                return jsonResponse({
+                    truncated: false,
+                    tree: [{ path: 'cursos/x/garbage.yaml', type: 'blob', sha: 'sha1' }],
+                });
+            }
+            return jsonResponse({ content: Buffer.from(': not valid yaml').toString('base64'), encoding: 'base64' });
+        });
+
+        const files = await fetchRepoFiles('o', 'r', 'main', 'cursos/x', 'pat');
+
+        expect(files).toHaveLength(1);
+    });
+
+    it('still raises a plain error (not empty) for auth failures', async () => {
+        const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+        mockFetch.mockResolvedValue({ ok: false, status: 401, json: async () => ({}) } as Response);
+
+        const err = await fetchRepoFiles('o', 'r', 'main', '', 'pat').catch((e) => e);
+
+        expect(err).not.toBeInstanceOf(CourseImportEmptyError);
+        expect(err.message).toContain('expiró');
+    });
+});
+
+describe('commitFiles', () => {
+    const FILES = [
+        { path: 'course.yaml', content: 'title: X' },
+        { path: 'README.md', content: '# X' },
+    ];
+
+    function mockGit({ refExists }: { refExists: boolean }) {
+        const calls: { method: string; url: string; body: Record<string, unknown> | null }[] = [];
+        (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+            async (url: string, init?: RequestInit) => {
+                const method = init?.method ?? 'GET';
+                const body = init?.body ? JSON.parse(init.body as string) : null;
+                calls.push({ method, url, body });
+
+                if (url.includes('/git/ref/heads/')) {
+                    return refExists
+                        ? jsonResponse({ object: { sha: 'HEADSHA' } })
+                        : ({ ok: false, status: 409, json: async () => ({}) } as Response);
+                }
+                if (url.includes('/git/commits/HEADSHA')) return jsonResponse({ sha: 'HEADSHA', tree: { sha: 'BASETREE' } });
+                if (url.includes('/git/blobs')) return jsonResponse({ sha: `blob${calls.length}` });
+                if (url.includes('/git/trees')) return jsonResponse({ sha: 'NEWTREE' });
+                if (url.includes('/git/commits')) return jsonResponse({ sha: 'NEWCOMMIT' });
+                return jsonResponse({});
+            }
+        );
+        return calls;
+    }
+
+    it('creates one commit with no parents and creates the ref on an empty repo', async () => {
+        const calls = mockGit({ refExists: false });
+
+        const result = await commitFiles('o', 'r', 'main', FILES, 'msg', 'pat');
+
+        expect(result.commitSha).toBe('NEWCOMMIT');
+        const tree = calls.find((c) => c.url.endsWith('/git/trees'))!;
+        expect(tree.body).not.toHaveProperty('base_tree');
+        const commit = calls.find((c) => c.url.endsWith('/git/commits'))!;
+        expect(commit.body!.parents).toEqual([]);
+        // Ref is CREATED, not patched.
+        const ref = calls.find((c) => c.url.endsWith('/git/refs'))!;
+        expect(ref.method).toBe('POST');
+        expect(ref.body!.ref).toBe('refs/heads/main');
+        expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
+    });
+
+    it('stacks on the current head and patches the ref when the branch exists', async () => {
+        const calls = mockGit({ refExists: true });
+
+        await commitFiles('o', 'r', 'main', FILES, 'msg', 'pat');
+
+        const tree = calls.find((c) => c.url.endsWith('/git/trees'))!;
+        expect(tree.body!.base_tree).toBe('BASETREE');
+        const commit = calls.find((c) => c.url.endsWith('/git/commits'))!;
+        expect(commit.body!.parents).toEqual(['HEADSHA']);
+        const patch = calls.find((c) => c.method === 'PATCH')!;
+        expect(patch.url).toContain('/git/refs/heads/main');
+        expect(patch.body!.sha).toBe('NEWCOMMIT');
+    });
+
+    it('uploads one base64 blob per file', async () => {
+        const calls = mockGit({ refExists: false });
+
+        await commitFiles('o', 'r', 'main', FILES, 'msg', 'pat');
+
+        const blobs = calls.filter((c) => c.url.endsWith('/git/blobs'));
+        expect(blobs).toHaveLength(2);
+        expect(Buffer.from(blobs[0].body!.content as string, 'base64').toString('utf8')).toBe('title: X');
+    });
+
+    it('explains a 403 as a missing write permission, not a bad token', async () => {
+        (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (url: string) => {
+            if (url.includes('/git/ref/heads/')) return { ok: false, status: 409, json: async () => ({}) } as Response;
+            return { ok: false, status: 403, json: async () => ({}) } as Response;
+        });
+
+        const err = await commitFiles('o', 'r', 'main', FILES, 'msg', 'pat').catch((e) => e);
+
+        expect(err.message).toContain('Read and Write access to code');
+        expect(err.message).not.toMatch(/ghp_|github_pat_|Bearer/);
     });
 });

@@ -5,11 +5,12 @@ import { fetchQuery, fetchMutation } from 'convex/nextjs';
 import { api } from '@/convex/_generated/api';
 import { revalidatePath } from 'next/cache';
 import { encryptPat, decryptPat } from '@/utils/crypto';
-import { fetchRepoFiles, parseRepoUrl } from '@/lib/courseImport/github';
+import { CourseImportEmptyError, commitFiles, fetchRepoFiles, parseRepoUrl } from '@/lib/courseImport/github';
+import { TEMPLATE_COMMIT_MESSAGE, TEMPLATE_FILES, normalizeBasePath, readTemplateFilesAt } from '@/lib/courseImport/template';
 import { parseCourseTree } from '@/lib/courseImport/parse';
 import { computePlan } from '@/lib/courseImport/diff';
 import { summarizePlan } from '@/lib/courseImport/types';
-import type { ImportPlan, ImportPlanSummary, ParsedCourse, PlanImportResult } from '@/lib/courseImport/types';
+import type { ImportPlan, ParsedCourse, PlanImportResult } from '@/lib/courseImport/types';
 
 // Distinguishes an authorization rejection from any other failure so the
 // resync catch blocks below can skip tryRecordFailure for it -- an
@@ -30,12 +31,23 @@ async function requireDocenteOrSuperadmin(): Promise<{ token: string }> {
     return { token };
 }
 
+export interface EmptySourceResult {
+    empty: {
+        kind: 'repo' | 'path';
+        message: string;
+        templateFiles: string[];
+        commitMessage: string;
+        ref: string;
+        path: string;
+    };
+}
+
 export async function planImportFromRepo(input: {
     repoUrl: string;
     path: string;
     ref: string;
     pat: string;
-}): Promise<{ error: string } | PlanImportResult> {
+}): Promise<{ error: string } | EmptySourceResult | PlanImportResult> {
     try {
         await requireDocenteOrSuperadmin();
         const { owner, repo } = parseRepoUrl(input.repoUrl);
@@ -45,7 +57,51 @@ export async function planImportFromRepo(input: {
         const plan = computePlan(course, [], []);
         return { course, plan, summary: summarizePlan(plan) };
     } catch (err) {
+        // There is genuinely nothing to import: offer to seed the template
+        // rather than dead-ending the user. Parse failures are NOT this.
+        if (err instanceof CourseImportEmptyError) {
+            const normalized = normalizeBasePath(input.path);
+            return {
+                empty: {
+                    kind: err.kind,
+                    message: err.message,
+                    templateFiles: TEMPLATE_FILES.map((f) => (normalized ? `${normalized}/${f}` : f)),
+                    commitMessage: TEMPLATE_COMMIT_MESSAGE,
+                    ref: input.ref || 'main',
+                    path: normalized,
+                },
+            };
+        }
         return { error: err instanceof Error ? err.message : 'Error al analizar el repositorio' };
+    }
+}
+
+/**
+ * Commit the starter template into an empty repository/path so the import can
+ * proceed. Only ever called after the user confirms in the UI -- an import
+ * attempt must never write to someone's repo on its own.
+ */
+export async function createTemplateInRepo(input: {
+    repoUrl: string;
+    path: string;
+    ref: string;
+    pat: string;
+}): Promise<{ error: string } | { ok: true; commitSha: string }> {
+    try {
+        await requireDocenteOrSuperadmin();
+        const { owner, repo } = parseRepoUrl(input.repoUrl);
+        const files = await readTemplateFilesAt(input.path);
+        const { commitSha } = await commitFiles(
+            owner,
+            repo,
+            input.ref || 'main',
+            files,
+            TEMPLATE_COMMIT_MESSAGE,
+            input.pat
+        );
+        return { ok: true, commitSha };
+    } catch (err) {
+        return { error: err instanceof Error ? err.message : 'No se pudo crear la plantilla en el repositorio' };
     }
 }
 

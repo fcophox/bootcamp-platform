@@ -35,10 +35,19 @@ vi.mock('@/utils/crypto', () => ({
 
 const fetchRepoFiles = vi.fn();
 const parseRepoUrl = vi.fn();
-vi.mock('@/lib/courseImport/github', () => ({
-    fetchRepoFiles: (...args: unknown[]) => fetchRepoFiles(...args),
-    parseRepoUrl: (...args: unknown[]) => parseRepoUrl(...args),
-}));
+const commitFiles = vi.fn();
+
+vi.mock('@/lib/courseImport/github', async (importOriginal) => {
+    // Partial mock: CourseImportEmptyError is a real class the action does an
+    // `instanceof` check against, so it must be the genuine one.
+    const actual = await importOriginal<typeof import('@/lib/courseImport/github')>();
+    return {
+        ...actual,
+        fetchRepoFiles: (...args: unknown[]) => fetchRepoFiles(...args),
+        parseRepoUrl: (...args: unknown[]) => parseRepoUrl(...args),
+        commitFiles: (...args: unknown[]) => commitFiles(...args),
+    };
+});
 
 const COURSE = {
     title: 'T', description: 'D', duration: '1', level: 'Intermedio', startDate: '2026-01-01',
@@ -46,7 +55,8 @@ const COURSE = {
     modules: [{ sourcePath: 'modules/01-a', title: 'A', order: 1, lessons: [] }],
 };
 
-const { planImportFromRepo, applyImportPlan, planResync, reconnectRepo } = await import('./courseImport');
+const { planImportFromRepo, applyImportPlan, planResync, reconnectRepo, createTemplateInRepo } = await import('./courseImport');
+const { CourseImportEmptyError } = await import('@/lib/courseImport/github');
 
 beforeEach(() => {
     fetchQuery.mockReset();
@@ -55,6 +65,7 @@ beforeEach(() => {
     revalidatePath.mockReset();
     fetchRepoFiles.mockReset();
     parseRepoUrl.mockReset();
+    commitFiles.mockReset();
 });
 
 describe('planImportFromRepo', () => {
@@ -186,5 +197,85 @@ describe('reconnectRepo', () => {
         await reconnectRepo({ bootcampId: 'bc1', pat: 'new-secret' });
 
         expect(revalidatePath).toHaveBeenCalledWith('/cms/bootcamp/bc1/manage');
+    });
+});
+
+describe('planImportFromRepo — empty source', () => {
+    beforeEach(() => {
+        convexAuthNextjsToken.mockResolvedValue('token');
+        fetchQuery.mockResolvedValue({ role: 'docente' });
+        parseRepoUrl.mockReturnValue({ owner: 'o', repo: 'r' });
+    });
+
+    it('reports an empty repo with the template it would create', async () => {
+        fetchRepoFiles.mockRejectedValue(new CourseImportEmptyError('repo', 'vacío'));
+
+        const result = await planImportFromRepo({ repoUrl: 'o/r', path: '', ref: 'main', pat: 'x' });
+
+        expect('empty' in result).toBe(true);
+        if (!('empty' in result)) throw new Error('unreachable');
+        expect(result.empty.kind).toBe('repo');
+        expect(result.empty.templateFiles).toContain('course.yaml');
+        expect(result.empty.commitMessage).toMatch(/^chore: /);
+    });
+
+    it('rebases the listed template files under the configured path', async () => {
+        fetchRepoFiles.mockRejectedValue(new CourseImportEmptyError('path', 'sin archivos'));
+
+        const result = await planImportFromRepo({ repoUrl: 'o/r', path: '/cursos/x/', ref: 'main', pat: 'x' });
+
+        if (!('empty' in result)) throw new Error('expected empty result');
+        expect(result.empty.kind).toBe('path');
+        expect(result.empty.templateFiles).toContain('cursos/x/course.yaml');
+        expect(result.empty.path).toBe('cursos/x');
+    });
+
+    it('returns a plain error (never an empty offer) for other failures', async () => {
+        // Critical: a parse or auth failure must not offer to write the
+        // template, or we would overwrite content that already exists.
+        fetchRepoFiles.mockRejectedValue(new Error('token expiró'));
+
+        const result = await planImportFromRepo({ repoUrl: 'o/r', path: '', ref: 'main', pat: 'x' });
+
+        expect('empty' in result).toBe(false);
+        expect('error' in result && result.error).toContain('expiró');
+    });
+});
+
+describe('createTemplateInRepo', () => {
+    it('rejects an alumno without touching the repository', async () => {
+        convexAuthNextjsToken.mockResolvedValue('token');
+        fetchQuery.mockResolvedValue({ role: 'alumno' });
+
+        const result = await createTemplateInRepo({ repoUrl: 'o/r', path: '', ref: 'main', pat: 'x' });
+
+        expect('error' in result && result.error).toContain('permisos');
+        expect(commitFiles).not.toHaveBeenCalled();
+    });
+
+    it('commits the template at the configured path and branch', async () => {
+        convexAuthNextjsToken.mockResolvedValue('token');
+        fetchQuery.mockResolvedValue({ role: 'docente' });
+        parseRepoUrl.mockReturnValue({ owner: 'o', repo: 'r' });
+        commitFiles.mockResolvedValue({ commitSha: 'abc123' });
+
+        const result = await createTemplateInRepo({ repoUrl: 'o/r', path: 'cursos/x', ref: 'dev', pat: 'secret' });
+
+        expect(result).toEqual({ ok: true, commitSha: 'abc123' });
+        const [owner, repo, ref, files, message] = commitFiles.mock.calls[0];
+        expect([owner, repo, ref]).toEqual(['o', 'r', 'dev']);
+        expect(message).toMatch(/^chore: /);
+        expect(files.map((f: { path: string }) => f.path)).toContain('cursos/x/course.yaml');
+    });
+
+    it('surfaces a write failure instead of throwing', async () => {
+        convexAuthNextjsToken.mockResolvedValue('token');
+        fetchQuery.mockResolvedValue({ role: 'docente' });
+        parseRepoUrl.mockReturnValue({ owner: 'o', repo: 'r' });
+        commitFiles.mockRejectedValue(new Error('necesita el permiso "Read and Write access to code"'));
+
+        const result = await createTemplateInRepo({ repoUrl: 'o/r', path: '', ref: 'main', pat: 'x' });
+
+        expect('error' in result && result.error).toContain('Read and Write access to code');
     });
 });
