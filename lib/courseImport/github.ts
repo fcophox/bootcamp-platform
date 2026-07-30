@@ -189,14 +189,34 @@ export function describeGithubWriteError(status: number, path: string): string {
     return describeGithubError(status, path);
 }
 
+async function githubPut<T>(path: string, pat: string, body: unknown): Promise<T> {
+    const response = await fetch(`https://api.github.com${path}`, {
+        method: 'PUT',
+        headers: { ...githubHeaders(pat), 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+        throw new Error(describeGithubWriteError(response.status, path));
+    }
+    return (await response.json()) as T;
+}
+
 /**
- * Commit `files` to `ref` as a SINGLE commit, using the Git Data API.
+ * Commit `files` to `ref` as a single commit.
  *
- * Handles both an empty repository (no commits: the commit gets no parents and
- * the ref is created) and one with history (the new commit is stacked on the
- * current head and the ref is updated). The Contents API was rejected for this:
- * it writes one commit per file and leaves the repo half-populated if it fails
- * partway through.
+ * The Git Data API (blobs/trees) answers 409 "Git Repository is empty." until a
+ * repository has at least one commit -- verified against the live API, not
+ * assumed. So a repo with no commits is bootstrapped through the Contents API
+ * (the only write endpoint that works there), which creates the branch, and the
+ * resulting commit is then REPLACED by a parentless commit holding exactly the
+ * requested files. History ends up as one clean commit and the bootstrap is
+ * left unreferenced.
+ *
+ * A repo that already has history takes the plain path: stack a commit on the
+ * current head and fast-forward the ref.
+ *
+ * The bootstrap writes the first requested file rather than a placeholder, so
+ * even a failure partway through leaves a legitimate file instead of junk.
  */
 export async function commitFiles(
     owner: string,
@@ -206,9 +226,12 @@ export async function commitFiles(
     message: string,
     pat: string
 ): Promise<{ commitSha: string }> {
+    if (files.length === 0) {
+        throw new Error('No hay archivos que enviar al repositorio.');
+    }
+
     const base = `/repos/${owner}/${repo}/git`;
 
-    // Does the branch already exist? 409/404 here means an empty repository.
     let headSha: string | null = null;
     let baseTreeSha: string | null = null;
     const refResponse = await fetch(`https://api.github.com${base}/ref/heads/${encodeURIComponent(ref)}`, {
@@ -224,6 +247,16 @@ export async function commitFiles(
         }
     } else if (refResponse.status !== 404 && refResponse.status !== 409) {
         throw new Error(describeGithubError(refResponse.status, `${base}/ref/heads/${ref}`));
+    }
+
+    // Empty repository: unlock the Git Data endpoints.
+    const bootstrapped = headSha === null;
+    if (bootstrapped) {
+        await githubPut(`/repos/${owner}/${repo}/contents/${files[0].path}`, pat, {
+            message,
+            content: Buffer.from(files[0].content, 'utf8').toString('base64'),
+            branch: ref,
+        });
     }
 
     const blobs = await Promise.all(
@@ -249,23 +282,24 @@ export async function commitFiles(
     const commit = await githubPost<{ sha: string }>(`${base}/commits`, pat, {
         message,
         tree: tree.sha,
+        // Parentless on a freshly bootstrapped repo so the bootstrap commit is
+        // replaced rather than stacked on.
         parents: headSha ? [headSha] : [],
     });
 
-    if (headSha) {
+    if (headSha || bootstrapped) {
         const update = await fetch(`https://api.github.com${base}/refs/heads/${encodeURIComponent(ref)}`, {
             method: 'PATCH',
             headers: { ...githubHeaders(pat), 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sha: commit.sha }),
+            // force only when discarding the bootstrap commit we just made
+            // ourselves seconds ago -- never over a user's existing history.
+            body: JSON.stringify({ sha: commit.sha, ...(bootstrapped ? { force: true } : {}) }),
         });
         if (!update.ok) {
             throw new Error(describeGithubWriteError(update.status, `${base}/refs/heads/${ref}`));
         }
     } else {
-        await githubPost(`${base}/refs`, pat, {
-            ref: `refs/heads/${ref}`,
-            sha: commit.sha,
-        });
+        await githubPost(`${base}/refs`, pat, { ref: `refs/heads/${ref}`, sha: commit.sha });
     }
 
     return { commitSha: commit.sha };

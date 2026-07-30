@@ -239,6 +239,7 @@ describe('commitFiles', () => {
                         ? jsonResponse({ object: { sha: 'HEADSHA' } })
                         : ({ ok: false, status: 409, json: async () => ({}) } as Response);
                 }
+                if (url.includes('/contents/')) return jsonResponse({ content: { sha: 'BOOTSTRAP' } });
                 if (url.includes('/git/commits/HEADSHA')) return jsonResponse({ sha: 'HEADSHA', tree: { sha: 'BASETREE' } });
                 if (url.includes('/git/blobs')) return jsonResponse({ sha: `blob${calls.length}` });
                 if (url.includes('/git/trees')) return jsonResponse({ sha: 'NEWTREE' });
@@ -249,7 +250,26 @@ describe('commitFiles', () => {
         return calls;
     }
 
-    it('creates one commit with no parents and creates the ref on an empty repo', async () => {
+    it('bootstraps an empty repo via the Contents API before using Git Data', async () => {
+        // Verified against the live API: /git/blobs and /git/trees both answer
+        // 409 "Git Repository is empty." until a first commit exists, so the
+        // Contents API is the only way in.
+        const calls = mockGit({ refExists: false });
+
+        await commitFiles('o', 'r', 'main', FILES, 'msg', 'pat');
+
+        const bootstrap = calls.find((c) => c.url.includes('/contents/'))!;
+        expect(bootstrap.method).toBe('PUT');
+        expect(bootstrap.url).toContain(FILES[0].path);
+        expect(bootstrap.body!.branch).toBe('main');
+        // A real template file, not a placeholder, so a partial failure still
+        // leaves something legitimate behind.
+        expect(Buffer.from(bootstrap.body!.content as string, 'base64').toString('utf8')).toBe(FILES[0].content);
+        // ...and it happens before any Git Data call.
+        expect(calls.indexOf(bootstrap)).toBeLessThan(calls.findIndex((c) => c.url.endsWith('/git/blobs')));
+    });
+
+    it('replaces the bootstrap so an empty repo ends with exactly one commit', async () => {
         const calls = mockGit({ refExists: false });
 
         const result = await commitFiles('o', 'r', 'main', FILES, 'msg', 'pat');
@@ -258,12 +278,11 @@ describe('commitFiles', () => {
         const tree = calls.find((c) => c.url.endsWith('/git/trees'))!;
         expect(tree.body).not.toHaveProperty('base_tree');
         const commit = calls.find((c) => c.url.endsWith('/git/commits'))!;
+        // Parentless: the bootstrap commit is discarded, not built upon.
         expect(commit.body!.parents).toEqual([]);
-        // Ref is CREATED, not patched.
-        const ref = calls.find((c) => c.url.endsWith('/git/refs'))!;
-        expect(ref.method).toBe('POST');
-        expect(ref.body!.ref).toBe('refs/heads/main');
-        expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
+        const patch = calls.find((c) => c.method === 'PATCH')!;
+        expect(patch.url).toContain('/git/refs/heads/main');
+        expect(patch.body!.force).toBe(true);
     });
 
     it('stacks on the current head and patches the ref when the branch exists', async () => {
@@ -278,6 +297,9 @@ describe('commitFiles', () => {
         const patch = calls.find((c) => c.method === 'PATCH')!;
         expect(patch.url).toContain('/git/refs/heads/main');
         expect(patch.body!.sha).toBe('NEWCOMMIT');
+        // Never force over history we did not create.
+        expect(patch.body!.force).toBeUndefined();
+        expect(calls.some((c) => c.url.includes('/contents/'))).toBe(false);
     });
 
     it('uploads one base64 blob per file', async () => {

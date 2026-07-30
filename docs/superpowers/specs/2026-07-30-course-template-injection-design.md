@@ -34,8 +34,17 @@ committing the template by hand.
    at all, or zero files under the configured path. Files that exist but fail to
    parse keep their parse error and get no template offer. Never write over
    content somebody already put there.
-4. **One atomic commit via the Git Data API.** The Contents API would produce one
-   commit per file (six) and leave the repo half-populated if it failed midway.
+4. **One commit.** The Contents API alone would produce one commit per file
+   (six), so the Git Data API does the real write.
+
+   Corrected after live validation: the Git Data endpoints (`/git/blobs` AND
+   `/git/trees`, even with inline content) answer **409 "Git Repository is
+   empty."** until a repository has a first commit. An empty repo is therefore
+   bootstrapped through the Contents API — the only write endpoint available
+   there — writing the first requested file, and that commit is then replaced by
+   a **parentless** commit holding all the files, force-updating the ref. History
+   ends as a single clean commit. The force only ever discards the bootstrap
+   commit we created seconds earlier, never a user's history.
 
 ## Design
 
@@ -70,9 +79,10 @@ Blobs → tree → commit → ref, one commit, both cases in one code path:
 
 | | empty repo | existing repo |
 |---|---|---|
+| bootstrap | `PUT /contents/<first file>` (creates the branch) | — |
 | `base_tree` | omitted | head commit's tree |
-| `parents` | `[]` | `[headSha]` |
-| ref write | `POST /git/refs` (`refs/heads/<ref>`) | `PATCH /git/refs/heads/<ref>` |
+| `parents` | `[]` (discards the bootstrap) | `[headSha]` |
+| ref write | `PATCH /git/refs/heads/<ref>` with `force: true` | `PATCH`, no force |
 
 Files are written under the configured `path`.
 
