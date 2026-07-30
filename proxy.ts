@@ -25,58 +25,51 @@ const innerMiddleware = convexAuthNextjsMiddleware(
 );
 
 /**
- * Normalize the Host header for auth requests behind a reverse proxy.
+ * Normalize the Host header behind a reverse proxy (Traefik / Cloudflare Tunnel).
+ *
+ * Problem: Traefik sets the internal Host header (e.g. "bootcamp-platform-dev:3000")
+ * while the browser sends Origin: "https://bootcamp-dev.nodrize.dev".
  *
  * @convex-dev/auth's {@link proxyAuthActionToConvex} rejects POST /api/auth
- * with 403 "Invalid origin" when the Origin header's host does not match the
- * internal Host header (common behind Traefik / Cloudflare Tunnel, where the
- * internal Host is the service name like "bootcamp-platform-prod:3000").
+ * with 403 "Invalid origin" when the Host does not match the Origin — and its
+ * internal {@link validateCors} clears the auth cookies on every request where
+ * Origin !== Host.
  *
- * This wrapper restores the real external host from X-Forwarded-Host (which
- * Traefik sets to the original Host header sent by the browser) before the
- * check runs. The check itself is defense-in-depth — the real abuse barrier
- * is at the ingress level (Traefik host matching).
+ * This wrapper restores the real external host from X-Forwarded-Host for every
+ * request, so the Convex auth middleware never sees a mismatched Host/Origin pair.
  */
 export default async function proxy(
   request: NextRequest,
   event: Parameters<typeof innerMiddleware>[1],
 ): Promise<ReturnType<typeof innerMiddleware>> {
-  return innerMiddleware(await normalizeAuthHost(request), event);
+  return innerMiddleware(await normalizeExternalHost(request), event);
 }
 
-async function normalizeAuthHost(request: NextRequest): Promise<NextRequest> {
-  const pathname = request.nextUrl.pathname;
-  if (!pathname.startsWith("/api/auth")) {
-    return request;
-  }
-
+async function normalizeExternalHost(request: NextRequest): Promise<NextRequest> {
   const forwardedHost = request.headers.get("x-forwarded-host");
   if (!forwardedHost) {
     return request;
   }
 
-  const origin = request.headers.get("origin");
-  if (!origin) {
-    return request;
-  }
+  const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
+  const externalHost = `${forwardedProto}://${forwardedHost}`;
+  const internalURL = new URL(request.url);
 
-  const originURL = new URL(origin);
-  if (forwardedHost === originURL.host) {
-    const internal = new URL(request.url);
-    const normalized = `${originURL.protocol}//${originURL.host}${internal.pathname}${internal.search}`;
-
+  if (internalURL.pathname.startsWith("/api/auth")) {
     const body = await request.text();
-
+    const normalized = `${externalHost}${internalURL.pathname}${internalURL.search}`;
     const modified = new NextRequest(normalized, {
       method: request.method,
       headers: new Headers(request.headers),
       body,
     });
-    modified.headers.set("host", originURL.host);
+    modified.headers.set("host", forwardedHost);
     return modified;
   }
 
-  return request;
+  const modified = new NextRequest(request);
+  modified.headers.set("host", forwardedHost);
+  return modified;
 }
 
 export const config = {
