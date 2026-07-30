@@ -12,6 +12,14 @@ Last reviewed: 2026-07-30.
 
 **Merging `develop` into `main` is not safe until this is resolved.**
 
+**In progress:** `orbital-k3s-gitops` PR #10 adds a self-hosted Convex backend
+to the `bootcamp-platform-prod` namespace, mirroring dev, so production stops
+depending on a cloud dev-tier deployment. Follow
+`apps/bootcamp-platform/convex-selfhosted-prod/RUNBOOK.md`. It is blocked on two
+credentials: **Vault write access** to create
+`bootcamp-platform/convex-selfhosted-prod`, and **membership of the
+`francisco-designer` Convex team** to export `tame-finch-608`.
+
 Measured on 2026-07-30:
 
 | | Backend |
