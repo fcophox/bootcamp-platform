@@ -35,38 +35,48 @@ const innerMiddleware = convexAuthNextjsMiddleware(
  * internal {@link validateCors} clears the auth cookies on every request where
  * Origin !== Host.
  *
- * This wrapper restores the real external host from X-Forwarded-Host for every
- * request, so the Convex auth middleware never sees a mismatched Host/Origin pair.
+ * This wrapper restores the real external host from X-Forwarded-Host, so the
+ * Convex auth middleware never sees a mismatched Host/Origin pair.
  */
 export default async function proxy(
   request: NextRequest,
   event: Parameters<typeof innerMiddleware>[1],
 ): Promise<ReturnType<typeof innerMiddleware>> {
-  return innerMiddleware(await normalizeExternalHost(request), event);
+  const normalized = await normalizeExternalHost(request);
+  return innerMiddleware(normalized, event);
 }
 
-async function normalizeExternalHost(request: NextRequest): Promise<NextRequest> {
+async function normalizeExternalHost(
+  request: NextRequest,
+): Promise<NextRequest> {
   const forwardedHost = request.headers.get("x-forwarded-host");
   if (!forwardedHost) {
     return request;
   }
 
-  const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
   const internalURL = new URL(request.url);
 
-  const externalURL = `${forwardedProto}://${forwardedHost}${internalURL.pathname}${internalURL.search}`;
+  // For /api/auth routes, also fix URL protocol so Convex's proxy
+  // doesn't reject with "Invalid origin" (it checks origin vs request URL).
+  if (internalURL.pathname.startsWith("/api/auth")) {
+    const forwardedProto =
+      request.headers.get("x-forwarded-proto") ?? "https";
+    const externalURL = `${forwardedProto}://${forwardedHost}${internalURL.pathname}${internalURL.search}`;
 
-  const body = request.method === "GET" || request.method === "HEAD"
-    ? undefined
-    : await request.text();
+    const body = await request.text();
+    const modified = new NextRequest(externalURL, {
+      method: request.method,
+      headers: new Headers(request.headers),
+      body,
+    });
+    return modified;
+  }
 
-  const modified = new NextRequest(externalURL, {
-    method: request.method,
-    headers: new Headers(request.headers),
-    body,
-  });
-  modified.headers.set("host", forwardedHost);
-  return modified;
+  // For all other routes, just fix the Host header so validateCors doesn't
+  // clear auth cookies due to Host/Origin mismatch. Next.js already sets
+  // request.url to the external URL (with HTTPS), so the protocol is fine.
+  request.headers.set("host", forwardedHost);
+  return request;
 }
 
 export const config = {
