@@ -8,6 +8,45 @@ Last reviewed: 2026-07-30.
 
 ---
 
+## 0. Production points at a *dev* Convex deployment — blocks releasing to `main`
+
+**Merging `develop` into `main` is not safe until this is resolved.**
+
+Measured on 2026-07-30:
+
+| | Backend |
+| --- | --- |
+| Prod app (`bootcamp.nodrize.dev`, v0.1.12) | `tame-finch-608` — a personal **cloud dev** deployment (team `francisco-designer`) |
+| `CONVEX_DEPLOY_KEY_PROD` | `prod:industrious-eagle-67` |
+| `industrious-eagle-67` | **0 documents** |
+| `tame-finch-608` | 5 bootcamps, all real accounts |
+
+Two problems follow:
+
+1. Building `main` with `NEXT_PUBLIC_CONVEX_URL_PROD` set to
+   `industrious-eagle-67` would point production at an empty database: all data
+   gone from the UI, every user logged out. The variable is currently set to
+   `tame-finch-608` to match reality, so a merge preserves today's behaviour —
+   but that is a guard, not a fix.
+2. The Convex deploy on `main` targets `industrious-eagle-67`, which nothing
+   reads, while `tame-finch-608` never receives new functions. Shipping app
+   code that calls a new Convex function would fail in production with
+   `Could not find public function` — the same class of bug that broke the
+   course import on dev.
+
+**To close**, pick one:
+
+- **Migrate:** get access to `tame-finch-608`, `convex export` it, import into
+  `industrious-eagle-67`, then set `NEXT_PUBLIC_CONVEX_URL_PROD` to the cloud
+  prod deployment. Prod then matches its deploy key and the sync CronJob's
+  source becomes real.
+- **Adopt:** treat `tame-finch-608` as the production backend, obtain a deploy
+  key for it, and replace `CONVEX_DEPLOY_KEY_PROD`. Cheaper, but leaves
+  production on a personal dev deployment owned by another team.
+
+Until then, releases to `main` ship Next.js changes only and must not depend on
+any new or changed Convex function.
+
 ## 1. Production Convex is empty
 
 `industrious-eagle-67` (cloud, backs `main`) holds **0 documents**. Every real
