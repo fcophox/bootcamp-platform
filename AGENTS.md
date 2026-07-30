@@ -100,6 +100,35 @@ domain, calling the compatibility shim then `revalidatePath`/`redirect`. See
   is actually live. Bump it to keep that footer and the release history
   meaningful, not because deployment depends on it.
 
+### Convex functions are deployed separately from the app
+
+`convex/` (functions + schema) does **not** travel in the Docker image — the
+image only carries `NEXT_PUBLIC_CONVEX_URL` pointing at the backend. CI deploys
+them in the `Deploy Convex functions` job, gated on the `CONVEX_DEPLOY_KEY`
+secret; the `image` job depends on it, so app code can't ship ahead of the
+backend it calls.
+
+**If `CONVEX_DEPLOY_KEY` is not set, the job logs a warning and skips**, and
+Convex changes silently never reach the backend. That is how `courseImport:*`
+ended up missing while the UI calling it was live, surfacing as
+`Could not find public function for 'courseImport:applyImport'`.
+
+To push functions by hand (e.g. to the dev deployment in `.env`,
+`CONVEX_DEPLOYMENT=dev:...`):
+
+```bash
+npx convex dev --once     # dev deployment — NOT `convex deploy`, which targets prod
+```
+
+To check what is actually live on a deployment:
+
+```bash
+curl -s -X POST "$NEXT_PUBLIC_CONVEX_URL/api/query" -H 'Content-Type: application/json' \
+  -d '{"path":"courseImport:applyImport","args":{},"format":"json"}'
+# "Could not find public function" = not deployed
+# ArgumentValidationError                = deployed, just needs args
+```
+
 ## Branch strategy
 
 Modeled on `soporte-ti-knowledgebase-wikijs`'s conventions:

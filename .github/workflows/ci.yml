@@ -35,9 +35,55 @@ jobs:
         env:
           NEXT_PUBLIC_CONVEX_URL: ${{ vars.NEXT_PUBLIC_CONVEX_URL || 'https://placeholder.convex.cloud' }}
 
+  # Convex functions and schema live in convex/ and are deployed to the Convex
+  # backend, NOT baked into the Docker image -- the image only carries the
+  # NEXT_PUBLIC_CONVEX_URL pointing at it. Without this job they only ever ship
+  # when someone remembers to run `npx convex dev --once` from their laptop,
+  # which is how courseImport:* ended up missing in the backend while the app
+  # code that calls it was live (the UI then fails with
+  # "Could not find public function for 'courseImport:applyImport'").
+  #
+  # Gated on the secret so a fork or an unconfigured repo skips cleanly rather
+  # than failing the pipeline -- same pattern as the GitOps promote jobs below.
+  convex:
+    name: Deploy Convex functions
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check deploy key is configured
+        id: check
+        env:
+          DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::warning::CONVEX_DEPLOY_KEY is not set -- skipping Convex deploy. Functions in convex/ will NOT reach the backend."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The deploy key itself determines which deployment is targeted, so the
+      # same command is correct for develop and main -- point each branch's key
+      # at the matching Convex deployment.
+      - name: Deploy functions and schema to Convex
+        if: steps.check.outputs.configured == 'true'
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex deploy --yes
+
   image:
     name: Build & push image
-    needs: test
+    needs: [test, convex]
     # Only push on an actual commit to develop or main, never for pull requests.
     if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest

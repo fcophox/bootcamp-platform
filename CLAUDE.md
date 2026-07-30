@@ -73,6 +73,35 @@ the server". The Host header is *not* the problem; Traefik forwards it intact.
 The browser's `Origin` is the authoritative source for the external scheme —
 `X-Forwarded-Proto` is not.
 
+### Convex functions are deployed separately from the app
+
+`convex/` (functions + schema) does **not** travel in the Docker image — the
+image only carries `NEXT_PUBLIC_CONVEX_URL` pointing at the backend. CI deploys
+them in the `Deploy Convex functions` job, gated on the `CONVEX_DEPLOY_KEY`
+secret; the `image` job depends on it, so app code can't ship ahead of the
+backend it calls.
+
+**If `CONVEX_DEPLOY_KEY` is not set, the job logs a warning and skips**, and
+Convex changes silently never reach the backend. That is how `courseImport:*`
+ended up missing while the UI calling it was live, surfacing as
+`Could not find public function for 'courseImport:applyImport'`.
+
+To push functions by hand (e.g. to the dev deployment in `.env`,
+`CONVEX_DEPLOYMENT=dev:...`):
+
+```bash
+npx convex dev --once     # dev deployment — NOT `convex deploy`, which targets prod
+```
+
+To check what is actually live on a deployment:
+
+```bash
+curl -s -X POST "$NEXT_PUBLIC_CONVEX_URL/api/query" -H 'Content-Type: application/json' \
+  -d '{"path":"courseImport:applyImport","args":{},"format":"json"}'
+# "Could not find public function" = not deployed
+# ArgumentValidationError                = deployed, just needs args
+```
+
 ### Mutations
 Data changes go through server actions in `app/actions/*.ts` (`'use server'`), one file per domain (`bootcamp`, `module`, `exam`, `student`, `invitation`, `certificate`, `feedback`, `profile`). They use the server-side compatibility shim (`utils/supabase/server.ts`, Convex under the hood — see `### Data & backend` above) and call `revalidatePath` / `redirect`. Some flows are self-healing (e.g. invitation acceptance upserts a missing `UserRole`).
 
