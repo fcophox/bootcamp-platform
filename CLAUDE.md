@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+> **Open items:** see [`docs/KNOWN-GAPS.md`](./docs/KNOWN-GAPS.md) for known
+> gaps and follow-ups (empty production Convex, dev accounts, template i18n,
+> lint debt).
+
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 > **Full stack/architecture/status reference:** see `AGENTS.md` — kept there
@@ -82,10 +87,14 @@ code can't ship ahead of the backend it calls.
 
 **The two environments use different Convex backends:**
 
-| Branch | Backend | Auth | Secret |
-|---|---|---|---|
-| `develop` | **self-hosted, in-cluster** — `convex-dev.nodrize.dev` | admin key | `CONVEX_SELF_HOSTED_ADMIN_KEY` |
-| `main` | **cloud** production deployment | deploy key | `CONVEX_DEPLOY_KEY_PROD` |
+| Branch | Backend | Auth | CI secret | Image URL variable |
+|---|---|---|---|---|
+| `develop` | **self-hosted, in-cluster** — `convex-dev.nodrize.dev` | admin key | `CONVEX_SELF_HOSTED_ADMIN_KEY` | `NEXT_PUBLIC_CONVEX_URL_DEV` |
+| `main` | **cloud** production deployment | deploy key | `CONVEX_DEPLOY_KEY_PROD` | `NEXT_PUBLIC_CONVEX_URL_PROD` |
+
+`NEXT_PUBLIC_CONVEX_URL` is **baked into the image at build time**, so it must
+match the branch's backend. CI selects the variable from the branch; a single
+shared variable would ship a production image pointing at the dev backend.
 
 The self-hosted backend is defined in `orbital-k3s-gitops` under
 `apps/bootcamp-platform/convex-selfhosted/` (StatefulSet + Service on ports
