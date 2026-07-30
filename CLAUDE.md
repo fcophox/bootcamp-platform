@@ -141,3 +141,17 @@ Data changes go through server actions in `app/actions/*.ts` (`'use server'`), o
 
 ## Environment
 Required env (`.env.local`): `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL` (Convex backend — see `### Data & backend` above), `AZURE_STORAGE_ACCOUNT` / `AZURE_STORAGE_KEY` / `AZURE_STORAGE_CONTAINER` / `AZURE_STORAGE_CONNECTION_STRING` (media uploads), `PAT_ENCRYPTION_KEY` (server-only, never `NEXT_PUBLIC_*` — encrypts GitHub PATs for the course git-import feature), plus email creds (`RESEND_API_KEY` or `SMTP_*`). No `SUPABASE_*` vars are used or needed.
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read
+`convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running
+`npx convex ai-files install`.
+
+<!-- convex-ai-end -->

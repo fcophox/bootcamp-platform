@@ -206,3 +206,17 @@ See `architecture-roadmap/ROADMAP.md` for full detail. Highlights:
   CI runs this and it gates the build.
 - `npm run sync-design` / `npm run watch-design` — compile `Design.MD` tokens
   into `app/globals.css` once / in watch mode.
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read
+`convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running
+`npx convex ai-files install`.
+
+<!-- convex-ai-end -->
