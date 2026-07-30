@@ -10,15 +10,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `npm run dev` — start dev server (Next.js, http://localhost:3000). Also auto-spawns the Design.MD watcher (see Design tokens below).
 - `npm run build` / `npm start` — production build / serve.
-- `npm run lint` — ESLint (`eslint-config-next`). No test runner is configured.
+- `npm run lint` — ESLint (`eslint-config-next`). Note: the repo currently has ~430 pre-existing lint problems, so a non-zero exit is not necessarily your change.
+- `npm run test` — Vitest (`vitest run`); `npm run test:watch` for watch mode. CI runs this and it gates the build.
 - `npm run sync-design` — compile `Design.MD` tokens into `app/globals.css` once; `npm run watch-design` for watch mode.
 
-**⚠️ Version bump is mandatory before pushing.** CI tags the Docker image with
-`NEXT_PUBLIC_APP_VERSION` from `package.json`. Flux GitOps compares the tag to
-decide whether to roll pods. If the version doesn't change, containers are
-never replaced — your code merges but the running pods keep serving the old
-image. Every PR changing application code must include a version bump (patch
-for fixes, minor for features, major for breaking changes).
+**Bump `package.json` version before pushing** (patch for fixes, minor for
+features, major for breaking changes).
+
+Note on *why*: the image tag is the **git SHA**, not the version — CI builds
+`ghcr.io/…:develop-<short-sha>` and the GitOps job pins the dev overlay to it,
+so pods roll on every commit whether or not you bump. The version is a build arg
+surfaced in the UI footer (`v0.1.17 (dev · 7d3d439)` — the fastest way to see
+what is actually live). Bump it to keep that footer and the release history
+meaningful, not because deployment depends on it.
 
 UI text, error messages, and many code comments are in **Spanish**. Match that when editing user-facing strings.
 
@@ -54,6 +58,20 @@ Middleware lives in **`proxy.ts`** (Next.js 16's renamed middleware) and only do
 
 See `architecture-roadmap/adr/0004-convex-auth-and-role-model.md` for the
 full rationale (Convex Auth, the VIP-email fallback, legacy account bridging).
+
+`proxy.ts` also reconciles the request origin before handing off to
+`convexAuthNextjsMiddleware` — **read `proxy.ts`'s header comment and
+`proxy.test.ts` before changing it.** Deployed behind Cloudflare Tunnel +
+Traefik, the pod receives `X-Forwarded-Proto: http` (that hop really is plain
+HTTP) while the browser sends `Origin: https://…`, and `request.url` is the raw
+internal socket (`http://0.0.0.0:3000/…`). `@convex-dev/auth`'s `isCorsRequest`
+compares Origin's protocol against `request.url`'s, so it misfires: `POST
+/api/auth` 403s with "Invalid origin", and `validateCors` silently strips the
+auth cookies off every other request — surfacing as a `POST /api/presence` 401
+flood and server actions failing with "An unexpected response was received from
+the server". The Host header is *not* the problem; Traefik forwards it intact.
+The browser's `Origin` is the authoritative source for the external scheme —
+`X-Forwarded-Proto` is not.
 
 ### Mutations
 Data changes go through server actions in `app/actions/*.ts` (`'use server'`), one file per domain (`bootcamp`, `module`, `exam`, `student`, `invitation`, `certificate`, `feedback`, `profile`). They use the server-side compatibility shim (`utils/supabase/server.ts`, Convex under the hood — see `### Data & backend` above) and call `revalidatePath` / `redirect`. Some flows are self-healing (e.g. invitation acceptance upserts a missing `UserRole`).

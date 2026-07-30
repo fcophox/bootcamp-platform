@@ -44,6 +44,17 @@ and `CMS_SETUP.md` are stale SQLite-era artifacts — ignore both.
 Both are gated only for *authentication* by `proxy.ts`; *role*-based
 authorization is re-checked inside each page/action via `utils/roles*.ts`.
 
+`proxy.ts` additionally reconciles the request origin before delegating to
+`convexAuthNextjsMiddleware`. Behind Cloudflare Tunnel + Traefik the pod sees
+`X-Forwarded-Proto: http` while the browser sends `Origin: https://…`, and
+`request.url` is the raw internal socket (`http://0.0.0.0:3000/…`).
+`@convex-dev/auth`'s `isCorsRequest` compares those protocols, so it misfires:
+`POST /api/auth` 403s "Invalid origin" and `validateCors` strips the auth
+cookies off every other request (`POST /api/presence` 401 flood; server actions
+failing with "An unexpected response was received from the server"). The Host
+header is fine — Traefik forwards it intact. Read `proxy.ts`'s header comment
+and `proxy.test.ts` before touching this.
+
 ## Data model
 
 Tables live in Convex (`convex/schema.ts`), addressed by camelCase names
@@ -77,13 +88,17 @@ domain, calling the compatibility shim then `revalidatePath`/`redirect`. See
 - Edit `Design.MD`, never the generated token blocks in `app/globals.css`
   directly (`scripts/sync-design.js` regenerates them; `next.config.ts`
   auto-watches in dev).
-- **Bump `package.json` version before pushing.** The CI pipeline tags the
-  Docker image with `NEXT_PUBLIC_APP_VERSION` (read from `package.json`).
-  Flux GitOps compares the image tag to decide whether to roll the pods.
-  If the version doesn't change, containers are never replaced — your code
-  ships to `develop` or `main` but the running pods keep serving the old
-  image. Every PR that changes application code **must** include a version
-  bump (patch for fixes, minor for features, major for breaking changes).
+- **Bump `package.json` version before pushing** (patch for fixes, minor for
+  features, major for breaking changes).
+
+  Note on *why*: the image tag is the **git SHA**, not the version. CI builds
+  `ghcr.io/cleveritdemo/bootcamp-platform:develop-<short-sha>` (plus the moving
+  `:develop`), and the `promote-dev` job pins the dev overlay in
+  `orbital-k3s-gitops` to that SHA tag — so pods roll on **every** commit,
+  bumped or not. `NEXT_PUBLIC_APP_VERSION` is a build arg surfaced in the UI
+  footer (`v0.1.17 (dev · 7d3d439)`), which is the fastest way to confirm what
+  is actually live. Bump it to keep that footer and the release history
+  meaningful, not because deployment depends on it.
 
 ## Branch strategy
 
@@ -133,6 +148,9 @@ See `architecture-roadmap/ROADMAP.md` for full detail. Highlights:
 
 - `npm run dev` — start dev server (also auto-spawns the Design.MD watcher).
 - `npm run build` / `npm start` — production build / serve.
-- `npm run lint` — ESLint. No test runner is configured.
+- `npm run lint` — ESLint. ~430 pre-existing problems, so a non-zero exit is
+  not necessarily your change.
+- `npm run test` — Vitest (`vitest run`); `npm run test:watch` for watch mode.
+  CI runs this and it gates the build.
 - `npm run sync-design` / `npm run watch-design` — compile `Design.MD` tokens
   into `app/globals.css` once / in watch mode.
