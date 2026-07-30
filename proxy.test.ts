@@ -2,133 +2,183 @@ import { describe, expect, it } from 'vitest';
 import { NextRequest } from 'next/server';
 import { isCorsRequest } from '@convex-dev/auth/dist/nextjs/server/utils.js';
 
-import { normalizeExternalHost } from './proxy';
+import { EXTERNAL_ORIGIN_HEADER, normalizeExternalOrigin } from './proxy';
 
 /**
- * Regression tests for the reverse-proxy Host/protocol normalization.
+ * Regression tests for the reverse-proxy origin reconciliation in proxy.ts.
  *
- * Behind Traefik the pod sees an internal Host ("bootcamp-platform-dev:3000")
- * and (potentially) an http:// request URL, while the browser sends
- * Origin: https://bootcamp-dev.nodrize.dev.
+ * The fixture below mirrors headers MEASURED on bootcamp-dev.nodrize.dev, not
+ * assumed ones — an earlier version of these tests passed against an invented
+ * "Traefik rewrites Host to the service name" scenario that does not happen,
+ * and the fix it validated did nothing in production. Ground truth:
  *
- * @convex-dev/auth's `isCorsRequest` returns true when EITHER
- *   - Origin.host !== Host header, OR
- *   - Origin.protocol !== new URL(request.url).protocol
+ *   Host:              bootcamp-dev.nodrize.dev   (already correct)
+ *   X-Forwarded-Host:  bootcamp-dev.nodrize.dev
+ *   X-Forwarded-Proto: http                       (Cloudflare -> Traefik hop)
+ *   Origin:            https://bootcamp-dev.nodrize.dev
+ *   request.url:       http://0.0.0.0:3000/...    (raw internal socket)
  *
- * When it returns true, `proxyAuthActionToConvex` answers 403 "Invalid origin"
- * on /api/auth, and `validateCors` silently strips the auth cookies off every
- * other request. Both symptoms shipped to dev before these tests existed.
+ * Only the protocol mismatches, and that alone makes @convex-dev/auth's
+ * `isCorsRequest` return true — which 403s /api/auth and makes validateCors
+ * strip the auth cookies off everything else.
  */
 
 const EXTERNAL_HOST = 'bootcamp-dev.nodrize.dev';
-const ORIGIN = `https://${EXTERNAL_HOST}`;
-const INTERNAL_HOST = 'bootcamp-platform-dev:3000';
+const EXTERNAL_ORIGIN = `https://${EXTERNAL_HOST}`;
+const INTERNAL_URL_BASE = 'http://0.0.0.0:3000';
 
-function behindTraefik(
+function behindCloudflareAndTraefik(
     path: string,
-    { method = 'POST', body, origin = ORIGIN, internalProtocol = 'http' } = {} as {
+    {
+        method = 'POST',
+        body,
+        origin = EXTERNAL_ORIGIN,
+        hostHeader = EXTERNAL_HOST,
+        internalBase = INTERNAL_URL_BASE,
+    }: {
         method?: string;
         body?: string;
         origin?: string | null;
-        internalProtocol?: string;
-    },
+        hostHeader?: string;
+        internalBase?: string;
+    } = {},
 ) {
     const headers = new Headers({
-        host: INTERNAL_HOST,
+        host: hostHeader,
         'x-forwarded-host': EXTERNAL_HOST,
-        'x-forwarded-proto': 'https',
+        'x-forwarded-proto': 'http',
+        'x-forwarded-port': '80',
+        'cf-visitor': '{"scheme":"https"}',
     });
     if (origin) headers.set('origin', origin);
 
-    return new NextRequest(`${internalProtocol}://${INTERNAL_HOST}${path}`, {
+    return new NextRequest(`${internalBase}${path}`, {
         method,
         headers,
         ...(body === undefined ? {} : { body }),
     });
 }
 
-describe('normalizeExternalHost', () => {
-    describe('/api/auth (proxied to Convex, must pass isCorsRequest)', () => {
-        it('rewrites the Host header to the external host', async () => {
-            const normalized = await normalizeExternalHost(
-                behindTraefik('/api/auth', { body: '{"action":"auth:signIn"}' }),
-            );
-
-            expect(normalized.headers.get('host')).toBe(EXTERNAL_HOST);
-        });
-
-        it('rewrites the request URL to the external origin', async () => {
-            const normalized = await normalizeExternalHost(
-                behindTraefik('/api/auth', { body: '{"action":"auth:signIn"}' }),
-            );
-
-            const url = new URL(normalized.url);
-            expect(url.protocol).toBe('https:');
-            expect(url.host).toBe(EXTERNAL_HOST);
-        });
-
-        // The actual contract: the real library predicate must not flag it.
+describe('normalizeExternalOrigin', () => {
+    describe('/api/auth — consumed by the middleware, must pass isCorsRequest', () => {
         it('is not treated as a CORS request by @convex-dev/auth', async () => {
-            const normalized = await normalizeExternalHost(
-                behindTraefik('/api/auth', { body: '{"action":"auth:signIn"}' }),
+            const normalized = await normalizeExternalOrigin(
+                behindCloudflareAndTraefik('/api/auth', { body: '{"action":"auth:signIn"}' }),
             );
 
             expect(isCorsRequest(normalized)).toBe(false);
         });
 
+        it("rebuilds the URL on the browser's protocol, not x-forwarded-proto", async () => {
+            const normalized = await normalizeExternalOrigin(
+                behindCloudflareAndTraefik('/api/auth', { body: '{}' }),
+            );
+
+            // x-forwarded-proto is "http" here; using it is what caused the
+            // 403 "Invalid origin" login regression.
+            const url = new URL(normalized.url);
+            expect(url.protocol).toBe('https:');
+            expect(url.host).toBe(EXTERNAL_HOST);
+        });
+
+        it('keeps the Host header on the external host', async () => {
+            const normalized = await normalizeExternalOrigin(
+                behindCloudflareAndTraefik('/api/auth', {
+                    body: '{}',
+                    // Defensive: some proxies really do pass an internal Host.
+                    hostHeader: 'bootcamp-platform-dev:3000',
+                }),
+            );
+
+            expect(normalized.headers.get('host')).toBe(EXTERNAL_HOST);
+            expect(isCorsRequest(normalized)).toBe(false);
+        });
+
         it('preserves the request body for proxyAuthActionToConvex', async () => {
             const body = '{"action":"auth:signIn","args":{"provider":"password"}}';
-            const normalized = await normalizeExternalHost(
-                behindTraefik('/api/auth', { body }),
+            const normalized = await normalizeExternalOrigin(
+                behindCloudflareAndTraefik('/api/auth', { body }),
             );
 
             await expect(normalized.text()).resolves.toBe(body);
         });
 
-        it('preserves the query string', async () => {
-            const normalized = await normalizeExternalHost(
-                behindTraefik('/api/auth?code=abc123', { body: '{}' }),
+        it('preserves the query string (OAuth / magic-link code exchange)', async () => {
+            const normalized = await normalizeExternalOrigin(
+                behindCloudflareAndTraefik('/api/auth?code=abc123', { body: '{}' }),
             );
 
             expect(new URL(normalized.url).search).toBe('?code=abc123');
         });
     });
 
-    describe('other routes (must keep auth cookies through validateCors)', () => {
-        it('rewrites the Host header on /api/presence', async () => {
-            const normalized = await normalizeExternalHost(behindTraefik('/api/presence'));
-
-            expect(normalized.headers.get('host')).toBe(EXTERNAL_HOST);
-        });
-
-        it('is not treated as a CORS request by @convex-dev/auth', async () => {
-            const normalized = await normalizeExternalHost(behindTraefik('/api/presence'));
-
-            expect(isCorsRequest(normalized)).toBe(false);
-        });
-
-        it('is not treated as a CORS request for a server action POST', async () => {
-            const normalized = await normalizeExternalHost(
-                behindTraefik('/cms/bootcamp/create', { body: 'server-action-payload' }),
+    describe('other routes — must keep auth cookies through validateCors', () => {
+        it('is not treated as a CORS request on POST /api/presence', async () => {
+            const normalized = await normalizeExternalOrigin(
+                behindCloudflareAndTraefik('/api/presence'),
             );
 
             expect(isCorsRequest(normalized)).toBe(false);
+        });
+
+        it('is not treated as a CORS request on a server-action POST', async () => {
+            const normalized = await normalizeExternalOrigin(
+                behindCloudflareAndTraefik('/cms/bootcamp/create', {
+                    body: 'server-action-payload',
+                }),
+            );
+
+            expect(isCorsRequest(normalized)).toBe(false);
+        });
+
+        it('does not consume the body (server actions still read it downstream)', async () => {
+            const body = 'server-action-payload';
+            const normalized = await normalizeExternalOrigin(
+                behindCloudflareAndTraefik('/cms/bootcamp/create', { body }),
+            );
+
+            expect(normalized.bodyUsed).toBe(false);
+            await expect(normalized.text()).resolves.toBe(body);
+        });
+
+        it("preserves the browser's real origin for outbound links", async () => {
+            const normalized = await normalizeExternalOrigin(
+                behindCloudflareAndTraefik('/cms/estudiantes'),
+            );
+
+            // Invitation emails must not inherit the stepped-down http scheme.
+            expect(normalized.headers.get(EXTERNAL_ORIGIN_HEADER)).toBe(EXTERNAL_ORIGIN);
+            expect(normalized.headers.get('origin')).toBe(`http://${EXTERNAL_HOST}`);
+        });
+
+        it('leaves Next’s server-action CSRF check satisfiable (origin host unchanged)', async () => {
+            const normalized = await normalizeExternalOrigin(
+                behindCloudflareAndTraefik('/cms/bootcamp/create', { body: 'x' }),
+            );
+
+            // Next compares Origin's *host* against x-forwarded-host.
+            expect(new URL(normalized.headers.get('origin')!).host).toBe(
+                normalized.headers.get('x-forwarded-host'),
+            );
         });
     });
 
     describe('cross-origin requests are still rejected', () => {
-        it('leaves a foreign Origin untouched so isCorsRequest still flags it', async () => {
-            const normalized = await normalizeExternalHost(
-                behindTraefik('/api/presence', { origin: 'https://evil.example.com' }),
+        it('leaves a foreign Origin untouched on a normal route', async () => {
+            const normalized = await normalizeExternalOrigin(
+                behindCloudflareAndTraefik('/api/presence', {
+                    origin: 'https://evil.example.com',
+                }),
             );
 
             expect(normalized.headers.get('origin')).toBe('https://evil.example.com');
+            expect(normalized.headers.get(EXTERNAL_ORIGIN_HEADER)).toBeNull();
             expect(isCorsRequest(normalized)).toBe(true);
         });
 
-        it('does not rewrite a foreign Origin on /api/auth either', async () => {
-            const normalized = await normalizeExternalHost(
-                behindTraefik('/api/auth', {
+        it('leaves a foreign Origin untouched on /api/auth', async () => {
+            const normalized = await normalizeExternalOrigin(
+                behindCloudflareAndTraefik('/api/auth', {
                     body: '{}',
                     origin: 'https://evil.example.com',
                 }),
@@ -138,17 +188,38 @@ describe('normalizeExternalHost', () => {
         });
     });
 
-    describe('passthrough', () => {
-        it('returns the request untouched when there is no x-forwarded-host', async () => {
-            const request = new NextRequest('https://localhost:3000/api/presence', {
-                method: 'POST',
-                headers: new Headers({ host: 'localhost:3000', origin: 'https://localhost:3000' }),
-            });
+    describe('no-op cases', () => {
+        it('returns the request untouched when there is no Origin header', async () => {
+            const request = behindCloudflareAndTraefik('/api/presence', { origin: null });
 
-            const normalized = await normalizeExternalHost(request);
+            const normalized = await normalizeExternalOrigin(request);
 
             expect(normalized).toBe(request);
             expect(isCorsRequest(normalized)).toBe(false);
+        });
+
+        it('returns the request untouched when protocols already agree (local dev)', async () => {
+            const request = new NextRequest('http://localhost:3000/api/presence', {
+                method: 'POST',
+                headers: new Headers({
+                    host: 'localhost:3000',
+                    origin: 'http://localhost:3000',
+                }),
+            });
+
+            const normalized = await normalizeExternalOrigin(request);
+
+            expect(normalized).toBe(request);
+            expect(normalized.headers.get(EXTERNAL_ORIGIN_HEADER)).toBeNull();
+            expect(isCorsRequest(normalized)).toBe(false);
+        });
+
+        it('ignores a malformed Origin header instead of throwing', async () => {
+            const request = behindCloudflareAndTraefik('/api/presence', {
+                origin: 'not a url',
+            });
+
+            await expect(normalizeExternalOrigin(request)).resolves.toBe(request);
         });
     });
 });

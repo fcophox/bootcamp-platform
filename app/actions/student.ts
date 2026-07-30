@@ -117,7 +117,15 @@ export async function inviteStudent(bootcampId: number, email: string) {
         const bootcampTitle = bootcamp?.title || 'nuestro bootcamp';
 
         const headersList = await headers();
-        const origin = headersList.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+        // Behind Cloudflare + Traefik the proxy steps the Origin header down to
+        // the internal http scheme so @convex-dev/auth's CORS check passes (see
+        // proxy.ts); x-external-origin carries the browser's real https origin,
+        // which is what an emailed link needs.
+        const origin =
+            headersList.get('x-external-origin') ||
+            headersList.get('origin') ||
+            process.env.NEXT_PUBLIC_SITE_URL ||
+            'http://localhost:3000';
         const inviteUrl = `${origin}/login`;
 
         // Send Email using our new utility

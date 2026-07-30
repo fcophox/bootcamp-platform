@@ -25,124 +25,108 @@ const innerMiddleware = convexAuthNextjsMiddleware(
 );
 
 /**
- * Normalize the Host header behind a reverse proxy (Traefik / Cloudflare Tunnel).
+ * Reconcile the request with the real external origin behind Cloudflare Tunnel
+ * + Traefik, so @convex-dev/auth's CORS check does not misfire.
  *
- * Problem: Traefik sets the internal Host header (e.g. "bootcamp-platform-dev:3000")
- * while the browser sends Origin: "https://bootcamp-dev.nodrize.dev".
+ * `isCorsRequest` (packages/auth/nextjs/server/utils.js) returns true when
+ * EITHER the Origin header's host differs from the Host header, OR its protocol
+ * differs from `new URL(request.url).protocol`. When it does, POST /api/auth is
+ * answered 403 "Invalid origin", and `validateCors` silently strips the auth
+ * cookies off every other request — which surfaces as a POST /api/presence 401
+ * flood and as server actions failing with "An unexpected response was received
+ * from the server".
  *
- * @convex-dev/auth's {@link proxyAuthActionToConvex} rejects POST /api/auth
- * with 403 "Invalid origin" when the Host does not match the Origin — and its
- * internal {@link validateCors} clears the auth cookies on every request where
- * Origin !== Host.
+ * What this deployment actually sends (measured on bootcamp-dev, not assumed):
  *
- * This wrapper restores the real external host from X-Forwarded-Host, so the
- * Convex auth middleware never sees a mismatched Host/Origin pair.
+ *   Host:              bootcamp-dev.nodrize.dev     <- already correct
+ *   X-Forwarded-Host:  bootcamp-dev.nodrize.dev
+ *   X-Forwarded-Proto: http                         <- NOT https
+ *   X-Forwarded-Port:  80
+ *   CF-Visitor:        {"scheme":"https"}
+ *   Origin:            https://bootcamp-dev.nodrize.dev
+ *   request.url:       http://0.0.0.0:3000/...      <- raw internal socket
+ *
+ * So the Host was never mangled — Traefik preserves it. Only the *protocol*
+ * mismatches, because Cloudflare terminates TLS and reaches Traefik over plain
+ * HTTP. That means X-Forwarded-Proto is the wrong signal here (it describes the
+ * Cloudflare->Traefik hop, not the browser's); the browser's own Origin is the
+ * authoritative source for the external scheme.
+ *
+ * Next.js gives no supported way to rewrite `request.url` in place, so the two
+ * route classes are reconciled from opposite ends:
+ *
+ *   /api/auth  is consumed by the middleware itself, so the request is rebuilt
+ *              on the external https URL (and the body re-attached, since a
+ *              NextRequest built from a URL string starts empty).
+ *   everything else only has to survive validateCors, and rebuilding it would
+ *              mean buffering every server-action body — so the Origin header
+ *              is stepped down to the internal protocol instead. The browser's
+ *              real origin is preserved in X-External-Origin for code that
+ *              builds outbound links (see app/actions/student.ts).
  */
 export default async function proxy(
   request: NextRequest,
   event: Parameters<typeof innerMiddleware>[1],
 ): Promise<ReturnType<typeof innerMiddleware>> {
-  // TEMPORARY diagnostic — see app/api/_debug/proxy/route.ts. Stamps the
-  // pre-normalization state so we can measure what Traefik actually sends
-  // instead of assuming. Remove together with that route.
-  if (request.nextUrl.pathname === "/api/diag/proxy") {
-    const xfh = request.headers.get("x-forwarded-host");
-    const xfp = request.headers.get("x-forwarded-proto");
-    request.headers.set("x-dbg-orig-url", request.url);
-    request.headers.set("x-dbg-orig-url-proto", new URL(request.url).protocol);
-    request.headers.set("x-dbg-orig-host", request.headers.get("host") ?? "(none)");
-    request.headers.set("x-dbg-xfh", xfh ?? "(none)");
-    request.headers.set("x-dbg-xfp", xfp ?? "(none)");
-    request.headers.set("x-dbg-origin", request.headers.get("origin") ?? "(none)");
-    request.headers.set("x-dbg-branch", xfh ? "normalized" : "early-return");
-
-    // Reproduce exactly what the /api/auth branch builds, so we can see whether
-    // Headers.set("host") actually sticks on a rebuilt NextRequest in THIS
-    // runtime — the one thing we cannot observe from a route handler, because
-    // /api/auth is consumed by the middleware and never reaches one.
-    if (xfh) {
-      try {
-        const u = new URL(request.url);
-        const simulated = new NextRequest(
-          `${xfp ?? "https"}://${xfh}${u.pathname}${u.search}`,
-          { method: "GET", headers: new Headers(request.headers) },
-        );
-        request.headers.set(
-          "x-dbg-auth-host-before",
-          simulated.headers.get("host") ?? "(none)",
-        );
-        simulated.headers.set("host", xfh);
-        request.headers.set(
-          "x-dbg-auth-host-after",
-          simulated.headers.get("host") ?? "(none)",
-        );
-        request.headers.set("x-dbg-auth-url", simulated.url);
-      } catch (e) {
-        request.headers.set("x-dbg-auth-error", String(e));
-      }
-    }
-  }
-
-  const normalized = await normalizeExternalHost(request);
+  const normalized = await normalizeExternalOrigin(request);
   return innerMiddleware(normalized, event);
 }
 
-export async function normalizeExternalHost(
+/** Header carrying the browser's true external origin past the step-down below. */
+export const EXTERNAL_ORIGIN_HEADER = "x-external-origin";
+
+export async function normalizeExternalOrigin(
   request: NextRequest,
 ): Promise<NextRequest> {
-  const forwardedHost = request.headers.get("x-forwarded-host");
-  if (!forwardedHost) {
+  // No Origin means isCorsRequest() is already false; nothing to reconcile.
+  const origin = request.headers.get("origin");
+  if (!origin) {
+    return request;
+  }
+
+  const externalHost =
+    request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (!externalHost) {
+    return request;
+  }
+
+  let originURL: URL;
+  try {
+    originURL = new URL(origin);
+  } catch {
+    return request;
+  }
+
+  // A genuinely foreign Origin is left untouched so the CORS check still bites.
+  if (originURL.host !== externalHost) {
     return request;
   }
 
   const internalURL = new URL(request.url);
+  if (originURL.protocol === internalURL.protocol) {
+    return request;
+  }
 
-  // /api/auth is proxied straight to Convex by proxyAuthActionToConvex, which
-  // 403s "Invalid origin" when isCorsRequest is true. Both halves of that check
-  // must be satisfied, so rebuild the URL with the external protocol/host AND
-  // rewrite the Host header — `new Headers(request.headers)` would otherwise
-  // carry the internal Traefik host straight through. The body has to be read
-  // and re-attached because a NextRequest built from a URL string starts empty.
   if (internalURL.pathname.startsWith("/api/auth")) {
-    const forwardedProto =
-      request.headers.get("x-forwarded-proto") ?? "https";
-    const externalURL = `${forwardedProto}://${forwardedHost}${internalURL.pathname}${internalURL.search}`;
-
+    const externalURL = `${originURL.protocol}//${externalHost}${internalURL.pathname}${internalURL.search}`;
     const body = await request.text();
     const modified = new NextRequest(externalURL, {
       method: request.method,
       headers: new Headers(request.headers),
       body,
     });
-    modified.headers.set("host", forwardedHost);
+    // `new Headers(request.headers)` would otherwise carry the upstream Host
+    // through unchanged.
+    modified.headers.set("host", externalHost);
     return modified;
   }
 
-  // Every other route only needs to survive validateCors, which silently strips
-  // the auth cookies when isCorsRequest is true. Fixing the Host header covers
-  // the first half of that check.
-  request.headers.set("host", forwardedHost);
+  request.headers.set(EXTERNAL_ORIGIN_HEADER, originURL.origin);
+  request.headers.set("host", externalHost);
 
-  // The second half compares Origin's protocol against request.url's protocol,
-  // and request.url is whatever Traefik forwarded on (typically plain http
-  // inside the cluster). We can't rewrite request.url without rebuilding the
-  // request — which would mean buffering every server-action body — so align
-  // the Origin header's protocol with the internal URL instead. This is only
-  // done when the request is genuinely same-origin (Origin host already equals
-  // the external host); real cross-origin requests keep their Origin untouched
-  // and are still flagged. Next's own server-action CSRF check compares hosts
-  // only, so it is unaffected.
-  const origin = request.headers.get("origin");
-  if (origin) {
-    const originURL = new URL(origin);
-    if (
-      originURL.host === forwardedHost &&
-      originURL.protocol !== internalURL.protocol
-    ) {
-      originURL.protocol = internalURL.protocol;
-      request.headers.set("origin", originURL.origin);
-    }
-  }
+  const steppedDown = new URL(originURL.toString());
+  steppedDown.protocol = internalURL.protocol;
+  request.headers.set("origin", steppedDown.origin);
 
   return request;
 }
