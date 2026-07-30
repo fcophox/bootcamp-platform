@@ -42,6 +42,22 @@ export default async function proxy(
   request: NextRequest,
   event: Parameters<typeof innerMiddleware>[1],
 ): Promise<ReturnType<typeof innerMiddleware>> {
+  // TEMPORARY diagnostic — see app/api/_debug/proxy/route.ts. Stamps the
+  // pre-normalization state so we can measure what Traefik actually sends
+  // instead of assuming. Remove together with that route.
+  if (request.nextUrl.pathname === "/api/_debug/proxy") {
+    request.headers.set("x-dbg-orig-url", request.url);
+    request.headers.set("x-dbg-orig-url-proto", new URL(request.url).protocol);
+    request.headers.set("x-dbg-orig-host", request.headers.get("host") ?? "(none)");
+    request.headers.set("x-dbg-xfh", request.headers.get("x-forwarded-host") ?? "(none)");
+    request.headers.set("x-dbg-xfp", request.headers.get("x-forwarded-proto") ?? "(none)");
+    request.headers.set("x-dbg-origin", request.headers.get("origin") ?? "(none)");
+    request.headers.set(
+      "x-dbg-branch",
+      request.headers.get("x-forwarded-host") ? "normalized" : "early-return",
+    );
+  }
+
   const normalized = await normalizeExternalHost(request);
   return innerMiddleware(normalized, event);
 }
