@@ -55,7 +55,7 @@ jobs:
   convex:
     name: Deploy Convex functions
     needs: test
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -103,7 +103,7 @@ jobs:
     name: Build & push image
     needs: [test, convex]
     # Only push on an actual commit to develop or main, never for pull requests.
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -177,7 +177,7 @@ jobs:
   promote-dev:
     name: Promote to bootcamp-platform-dev (GitOps)
     needs: image
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
       # GITOPS_PAT: a fine-grained PAT scoped to CleveritDemo/orbital-k3s-gitops
@@ -224,7 +224,7 @@ jobs:
   promote-prod:
     name: Promote to bootcamp-platform-prod (GitOps)
     needs: image
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Check GITOPS_PAT is configured
