@@ -22,8 +22,9 @@ function jsonResponse(body: unknown, ok = true, status = 200): Response {
 describe('fetchRepoFiles', () => {
     it('fetches the tree, then each blob under the base path, and decodes base64 content', async () => {
         const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
-        mockFetch.mockImplementation(async (url: string) => {
-            if (url.includes('/git/trees/')) {
+        mockFetch.mockImplementation(async (url: string | URL) => {
+            const href = String(url);
+            if (href.includes('/git/trees/')) {
                 return jsonResponse({
                     truncated: false,
                     tree: [
@@ -35,13 +36,13 @@ describe('fetchRepoFiles', () => {
                     ],
                 });
             }
-            if (url.endsWith('/git/blobs/sha1')) {
+            if (href.endsWith('/git/blobs/sha1')) {
                 return jsonResponse({ content: Buffer.from('title: X').toString('base64'), encoding: 'base64' });
             }
-            if (url.endsWith('/git/blobs/sha2')) {
+            if (href.endsWith('/git/blobs/sha2')) {
                 return jsonResponse({ content: Buffer.from('# readme').toString('base64'), encoding: 'base64' });
             }
-            throw new Error(`unexpected url ${url}`);
+            throw new Error(`unexpected url ${href}`);
         });
 
         const files = await fetchRepoFiles('owner', 'repo', 'main', 'cursos/x', 'token123');
@@ -59,9 +60,28 @@ describe('fetchRepoFiles', () => {
             expect.anything()
         );
         expect(mockFetch).toHaveBeenCalledWith(
-            expect.stringContaining('/repos/owner/repo/git/trees/main?recursive=1'),
+            expect.objectContaining({ href: expect.stringContaining('/repos/owner/repo/git/trees/main?recursive=1') }),
             expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer token123' }) })
         );
+    });
+
+    it('builds GitHub API requests as validated api.github.com URLs', async () => {
+        const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
+        mockFetch.mockImplementation(async (url: URL) => {
+            expect(url).toBeInstanceOf(URL);
+            expect(url.origin).toBe('https://api.github.com');
+            if (url.pathname.includes('/git/trees/')) {
+                return jsonResponse({
+                    truncated: false,
+                    tree: [{ path: 'course.yaml', type: 'blob', sha: 'sha1' }],
+                });
+            }
+            return jsonResponse({ content: Buffer.from('title: X').toString('base64'), encoding: 'base64' });
+        });
+
+        await fetchRepoFiles('owner', 'repo', 'main', '', 'token123');
+
+        expect(mockFetch).toHaveBeenCalled();
     });
 
     it('throws a sanitized error on a non-ok response, never including the token', async () => {
@@ -194,8 +214,9 @@ describe('empty-repo / empty-path detection', () => {
         // Guard against clobbering: content that exists but parses badly must
         // never surface as "empty", or we would offer to overwrite real work.
         const mockFetch = global.fetch as ReturnType<typeof vi.fn>;
-        mockFetch.mockImplementation(async (url: string) => {
-            if (url.includes('/git/trees/')) {
+        mockFetch.mockImplementation(async (url: string | URL) => {
+            const href = String(url);
+            if (href.includes('/git/trees/')) {
                 return jsonResponse({
                     truncated: false,
                     tree: [{ path: 'cursos/x/garbage.yaml', type: 'blob', sha: 'sha1' }],
@@ -229,21 +250,22 @@ describe('commitFiles', () => {
     function mockGit({ refExists }: { refExists: boolean }) {
         const calls: { method: string; url: string; body: Record<string, unknown> | null }[] = [];
         (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
-            async (url: string, init?: RequestInit) => {
+            async (url: string | URL, init?: RequestInit) => {
+                const href = String(url);
                 const method = init?.method ?? 'GET';
                 const body = init?.body ? JSON.parse(init.body as string) : null;
-                calls.push({ method, url, body });
+                calls.push({ method, url: href, body });
 
-                if (url.includes('/git/ref/heads/')) {
+                if (href.includes('/git/ref/heads/')) {
                     return refExists
                         ? jsonResponse({ object: { sha: 'HEADSHA' } })
                         : ({ ok: false, status: 409, json: async () => ({}) } as Response);
                 }
-                if (url.includes('/contents/')) return jsonResponse({ content: { sha: 'BOOTSTRAP' } });
-                if (url.includes('/git/commits/HEADSHA')) return jsonResponse({ sha: 'HEADSHA', tree: { sha: 'BASETREE' } });
-                if (url.includes('/git/blobs')) return jsonResponse({ sha: `blob${calls.length}` });
-                if (url.includes('/git/trees')) return jsonResponse({ sha: 'NEWTREE' });
-                if (url.includes('/git/commits')) return jsonResponse({ sha: 'NEWCOMMIT' });
+                if (href.includes('/contents/')) return jsonResponse({ content: { sha: 'BOOTSTRAP' } });
+                if (href.includes('/git/commits/HEADSHA')) return jsonResponse({ sha: 'HEADSHA', tree: { sha: 'BASETREE' } });
+                if (href.includes('/git/blobs')) return jsonResponse({ sha: `blob${calls.length}` });
+                if (href.includes('/git/trees')) return jsonResponse({ sha: 'NEWTREE' });
+                if (href.includes('/git/commits')) return jsonResponse({ sha: 'NEWCOMMIT' });
                 return jsonResponse({});
             }
         );
@@ -313,8 +335,9 @@ describe('commitFiles', () => {
     });
 
     it('explains a 403 as a missing write permission, not a bad token', async () => {
-        (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (url: string) => {
-            if (url.includes('/git/ref/heads/')) return { ok: false, status: 409, json: async () => ({}) } as Response;
+        (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (url: string | URL) => {
+            const href = String(url);
+            if (href.includes('/git/ref/heads/')) return { ok: false, status: 409, json: async () => ({}) } as Response;
             return { ok: false, status: 403, json: async () => ({}) } as Response;
         });
 
