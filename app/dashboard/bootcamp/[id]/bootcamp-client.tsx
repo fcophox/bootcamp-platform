@@ -99,6 +99,8 @@ const getLessonDurationInfo = (lesson: any) => {
 
     try {
         const parsed = JSON.parse(lesson.content || '{}');
+        if (lesson.type === 'exam' && parsed.settings?.kind !== 'exam') return 'Indefinido';
+        if (parsed.settings?.hasTimeLimit === false) return 'Indefinido';
         if (parsed.settings?.duration) return `${parsed.settings.duration} min`;
         if (parsed.duration) return `${parsed.duration} min`;
     } catch {}
@@ -460,30 +462,54 @@ export default function BootcampDetailsClient({ bootcamp, masterclass }: Bootcam
                                                                     if (lesson.type === 'exam') {
                                                                         let duration = '15 min';
                                                                         let questionCount = 0;
+                                                                        let examKind: 'quiz' | 'exam' = 'quiz';
                                                                         try {
                                                                             const parsed = JSON.parse(lesson.content || '{}');
-                                                                            if (parsed.settings?.duration) duration = `${parsed.settings.duration} min`;
+                                                                            examKind = parsed.settings?.kind === 'exam' ? 'exam' : 'quiz';
+                                                                            if (examKind === 'quiz') duration = 'Indefinido';
+                                                                            else if (parsed.settings?.hasTimeLimit === false) duration = 'Indefinido';
+                                                                            else if (parsed.settings?.duration) duration = `${parsed.settings.duration} min`;
                                                                             if (Array.isArray(parsed.questions)) questionCount = parsed.questions.length;
                                                                             else if (Array.isArray(parsed)) questionCount = parsed.length;
                                                                         } catch { }
+                                                                        const accentClasses = examKind === 'exam'
+                                                                            ? {
+                                                                                card: 'bg-emerald-500/5 hover:bg-emerald-500/10 border-emerald-500/20',
+                                                                                badge: 'bg-emerald-500/20 text-emerald-400 shadow-emerald-500/10',
+                                                                                thumbnail: 'from-emerald-900/40 border-emerald-500/30 group-hover:border-emerald-500/50',
+                                                                                overlay: 'bg-emerald-500/10',
+                                                                                icon: 'text-emerald-300',
+                                                                                title: 'group-hover:text-emerald-300',
+                                                                                button: 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-900/20 hover:shadow-emerald-600/30',
+                                                                            }
+                                                                            : {
+                                                                                card: 'bg-violet-500/5 hover:bg-violet-500/10 border-violet-500/20',
+                                                                                badge: 'bg-violet-500/20 text-violet-400 shadow-violet-500/10',
+                                                                                thumbnail: 'from-violet-900/40 border-violet-500/30 group-hover:border-violet-500/50',
+                                                                                overlay: 'bg-violet-500/10',
+                                                                                icon: 'text-violet-300',
+                                                                                title: 'group-hover:text-violet-300',
+                                                                                button: 'bg-violet-600 hover:bg-violet-700 shadow-violet-900/20 hover:shadow-violet-600/30',
+                                                                            };
+                                                                        const actionText = examKind === 'exam' ? 'Realizar Examen' : 'Realizar Cuestionario';
 
                                                                         return (
-                                                                            <div key={lesson.id} className="flex items-start gap-6 group cursor-pointer bg-violet-500/5 hover:bg-violet-500/10 border border-violet-500/20 p-2 rounded-xl transition-all -mx-2 mt-4 mb-2">
+                                                                            <div key={lesson.id} className={`flex items-start gap-6 group cursor-pointer border p-2 rounded-xl transition-all -mx-2 mt-4 mb-2 ${accentClasses.card}`}>
                                                                                 {/* Exam Badge */}
-                                                                                <div className="h-8 w-8 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400 mt-2 flex-shrink-0 shadow-sm shadow-violet-500/10">
+                                                                                <div className={`h-8 w-8 rounded-full flex items-center justify-center mt-2 flex-shrink-0 shadow-sm ${accentClasses.badge}`}>
                                                                                     <Trophy size={14} />
                                                                                 </div>
 
                                                                                 {/* Content */}
                                                                                 <div className="flex flex-1 items-start gap-3 md:gap-6">
                                                                                     {/* Thumbnail */}
-                                                                                    <div className="hidden md:flex h-20 w-20 bg-gradient-to-br from-violet-900/40 to-background rounded-lg flex-shrink-0 border border-violet-500/30 relative overflow-hidden items-center justify-center group-hover:border-violet-500/50 transition-colors">
-                                                                                        <div className="absolute inset-0 bg-violet-500/10 mix-blend-overlay"></div>
-                                                                                        <Trophy size={24} className="text-violet-300 relative z-10" />
+                                                                                    <div className={`hidden md:flex h-20 w-20 bg-gradient-to-br to-background rounded-lg flex-shrink-0 border relative overflow-hidden items-center justify-center transition-colors ${accentClasses.thumbnail}`}>
+                                                                                        <div className={`absolute inset-0 mix-blend-overlay ${accentClasses.overlay}`}></div>
+                                                                                        <Trophy size={24} className={`relative z-10 ${accentClasses.icon}`} />
                                                                                     </div>
 
                                                                                     <div className="pt-1 flex-1 min-w-0">
-                                                                                        <h3 className="text-base font-bold text-foreground mb-1 group-hover:text-violet-300 transition-colors">
+                                                                                        <h3 className={`text-base font-bold text-foreground mb-1 transition-colors ${accentClasses.title}`}>
                                                                                             {lesson.title}
                                                                                         </h3>
                                                                                         <p className="text-xs text-muted flex items-center gap-3 mt-2">
@@ -506,8 +532,8 @@ export default function BootcampDetailsClient({ bootcamp, masterclass }: Bootcam
 
                                                                                     <div className="self-center px-4 opacity-100">
                                                                                         <Link href={`/dashboard/bootcamp/${bootcamp.id}/clase/${lesson.id}`}>
-                                                                                            <button className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg transition-all shadow-lg shadow-violet-900/20 hover:shadow-violet-600/30 transform hover:-translate-y-0.5">
-                                                                                                Realizar Cuestionario
+                                                                                            <button className={`px-5 py-2 text-white text-xs font-bold rounded-lg transition-all shadow-lg transform hover:-translate-y-0.5 ${accentClasses.button}`}>
+                                                                                                {actionText}
                                                                                             </button>
                                                                                         </Link>
                                                                                     </div>

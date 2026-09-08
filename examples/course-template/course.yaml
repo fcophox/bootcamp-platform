@@ -1,9 +1,36 @@
+# ---------------------------------------------------------------------------
+# course.yaml — metadatos del curso. Debe estar en la raíz de la ruta que
+# configuraste al conectar el repositorio.
+#
+# Los cinco primeros campos son OBLIGATORIOS: si falta alguno, la importación
+# se detiene indicando cuál.
+# ---------------------------------------------------------------------------
+
 title: "Curso de Ejemplo"
-description: "Plantilla de ejemplo para crear cursos desde un repositorio."
-duration: "1 semana"
+description: "Plantilla completa: incluye un ejemplo de cada tipo de lección."
+
+# Texto libre, se muestra tal cual en la ficha del curso.
+duration: "4 semanas"
+
+# Texto libre. Se suele usar: Principiante | Intermedio | Avanzado
 level: "Principiante"
+
+# ENTRECOMILLADO SIEMPRE. Sin comillas, YAML lo interpreta como fecha y no
+# como texto, lo que provoca errores difíciles de leer. Formato AAAA-MM-DD.
 startDate: "2026-01-01"
+
+# ---------------------------------------------------------------------------
+# Campos opcionales (se muestran aquí con su valor por defecto)
+# ---------------------------------------------------------------------------
+
+# Icono de la ficha del curso.
 icon: "code"
+
+# Color de acento de la ficha.
 color: "green"
+
+# Checklist de progreso para el alumno.
 enableChecklist: true
+
+# Ranking entre alumnos del curso.
 enableRanking: true

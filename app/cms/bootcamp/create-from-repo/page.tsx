@@ -6,7 +6,8 @@ import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
 import { MobileMenuButton } from '@/components/mobile-menu-button';
 import { Loader2, GitBranch, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { planImportFromRepo, applyImportPlan } from '@/app/actions/courseImport';
+import { planImportFromRepo, applyImportPlan, createTemplateInRepo } from '@/app/actions/courseImport';
+import type { EmptySourceResult } from '@/app/actions/courseImport';
 import type { PlanImportResult } from '@/lib/courseImport/types';
 
 class ErrorBoundary extends Component<
@@ -45,7 +46,8 @@ export default function CreateCourseFromRepoPage() {
     const router = useRouter();
     const { isCollapsed } = useSidebar();
     const [isPending, startTransition] = useTransition();
-    const [step, setStep] = useState<'form' | 'preview'>('form');
+    const [step, setStep] = useState<'form' | 'empty' | 'preview'>('form');
+    const [empty, setEmpty] = useState<EmptySourceResult['empty'] | null>(null);
     const [form, setForm] = useState({ repoUrl: '', path: '', ref: 'main', pat: '' });
     const [plan, setPlan] = useState<PlanImportResult | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -59,6 +61,36 @@ export default function CreateCourseFromRepoPage() {
                 setError(result.error);
                 return;
             }
+            if ('empty' in result) {
+                setEmpty(result.empty);
+                setStep('empty');
+                return;
+            }
+            setPlan(result);
+            setStep('preview');
+        });
+    };
+
+    const handleCreateTemplate = () => {
+        setError(null);
+        startTransition(async () => {
+            const created = await createTemplateInRepo(form);
+            if ('error' in created) {
+                setError(created.error);
+                return;
+            }
+            // Template is committed -- re-analyse so the user lands on the
+            // normal preview instead of having to start over.
+            const result = await planImportFromRepo(form);
+            if ('error' in result) {
+                setError(result.error);
+                return;
+            }
+            if ('empty' in result) {
+                setError('La plantilla se creó pero el repositorio sigue apareciendo vacío. Revisa la rama configurada.');
+                return;
+            }
+            setEmpty(null);
             setPlan(result);
             setStep('preview');
         });
@@ -165,6 +197,89 @@ export default function CreateCourseFromRepoPage() {
                                 Analizar repositorio
                             </button>
                         </form>
+                    )}
+
+                    {step === 'empty' && empty && (
+                        <div className="space-y-4">
+                            <div className="flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-500">
+                                <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
+                                <div>
+                                    <p className="font-medium">
+                                        {empty.kind === 'repo'
+                                            ? 'El repositorio está vacío (sin commits).'
+                                            : `No hay archivos de curso en "${empty.path || '/'}".`}
+                                    </p>
+                                    <p className="mt-1 text-amber-500/80">
+                                        Puedo crear la plantilla inicial del curso por ti, o puedes subirla a mano.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-border bg-card-bg p-4">
+                                <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+                                    <GitBranch size={16} />
+                                    {form.repoUrl} @ {empty.ref}
+                                </div>
+                                <p className="mb-2 text-xs text-muted">Se creará un único commit con estos archivos:</p>
+                                <ul className="mb-3 space-y-1">
+                                    {empty.templateFiles.map((file) => (
+                                        <li key={file} className="font-mono text-xs text-foreground/80">
+                                            {file}
+                                        </li>
+                                    ))}
+                                </ul>
+                                <p className="text-xs text-muted">
+                                    Mensaje del commit: <span className="font-mono">{empty.commitMessage}</span>
+                                </p>
+                                <p className="mt-3 text-xs text-muted">
+                                    Requiere que el token tenga permiso de escritura (Contents: Read and Write).
+                                </p>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handleCreateTemplate}
+                                    disabled={isPending}
+                                    className="flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                    {isPending && <Loader2 size={16} className="animate-spin" />}
+                                    Crear plantilla en el repositorio
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEmpty(null);
+                                        setError(null);
+                                        setStep('form');
+                                    }}
+                                    disabled={isPending}
+                                    className="rounded-md border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-all hover:bg-card-bg disabled:opacity-70"
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
+
+                            <details className="rounded-xl border border-border bg-card-bg p-4">
+                                <summary className="cursor-pointer text-xs font-medium text-foreground">
+                                    Prefiero subirla a mano
+                                </summary>
+                                <p className="mt-3 text-xs text-muted">
+                                    Descarga la plantilla, descomprímela{empty.path ? ` en "${empty.path}"` : ''} y súbela:
+                                </p>
+                                <a href="/api/courses/template" className="mt-2 inline-block text-xs text-primary hover:underline">
+                                    Descargar plantilla .zip
+                                </a>
+                                <pre className="mt-3 overflow-x-auto rounded-md bg-background p-3 font-mono text-[11px] leading-relaxed text-foreground/80">
+{`git clone https://github.com/${form.repoUrl.replace(/^https?:\/\/github\.com\//, '')}.git
+cd ${form.repoUrl.split('/').pop()?.replace(/\.git$/, '') ?? 'repo'}
+# copia aquí el contenido de curso-plantilla.zip${empty.path ? ` dentro de ${empty.path}/` : ''}
+git add .
+git commit -m "${empty.commitMessage}"
+git push -u origin ${empty.ref}`}
+                                </pre>
+                            </details>
+                        </div>
                     )}
 
                     {step === 'preview' && plan && (

@@ -22,27 +22,46 @@ interface Question {
 interface LessonExamPlayerProps {
     title: string;
     questions: Question[];
-    durationMinutes: number; // Duration in minutes
+    durationMinutes: number | null; // null means no time limit
     onComplete: (score: number, passed: boolean) => void;
     onNext?: () => void; // Optional callback for navigation
     passingScore?: number; // percentage, default 70
+    maxAttempts?: number | null;
+    attemptStorageKey?: string;
+    initialAttemptCount?: number;
+    variant?: 'quiz' | 'exam';
 }
 
-export function LessonExamPlayer({ title, questions, durationMinutes, onComplete, onNext, passingScore = 70 }: LessonExamPlayerProps) {
+export function LessonExamPlayer({ title, questions, durationMinutes, onComplete, onNext, passingScore = 70, maxAttempts = null, attemptStorageKey, initialAttemptCount = 0, variant = 'quiz' }: LessonExamPlayerProps) {
     // State: 'intro' | 'active' | 'review' | 'result'
     const [status, setStatus] = useState<'intro' | 'active' | 'review' | 'result'>('intro');
 
     // Quiz State
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [answers, setAnswers] = useState<Record<string, string>>({}); // questionId -> optionId
-    const [timeLeft, setTimeLeft] = useState(durationMinutes * 60);
+    const [timeLeft, setTimeLeft] = useState((durationMinutes || 0) * 60);
     const [result, setResult] = useState<{ score: number; total: number } | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [attemptCount, setAttemptCount] = useState(() => {
+        if (!attemptStorageKey || typeof window === 'undefined') return initialAttemptCount;
+        const storedAttemptCount = Number(window.localStorage.getItem(attemptStorageKey));
+        return Math.max(initialAttemptCount, Number.isFinite(storedAttemptCount) ? storedAttemptCount : 0);
+    });
+    const hasTimeLimit = durationMinutes !== null && durationMinutes > 0;
+    const attemptsRemaining = maxAttempts ? Math.max(maxAttempts - attemptCount, 0) : null;
+    const hasReachedAttemptLimit = maxAttempts !== null && attemptCount >= maxAttempts;
+    const contentLabel = variant === 'exam' ? 'examen' : 'cuestionario';
+    const contentLabelTitle = variant === 'exam' ? 'Examen' : 'Cuestionario';
+
+    function handleTimeOut() {
+        // alert('¡El tiempo se ha agotado!'); // Removing intrusive alert
+        setStatus('review'); // Force review or auto-submit
+    }
 
     // Timer Logic
     useEffect(() => {
-        if (status !== 'active') return;
+        if (status !== 'active' || !hasTimeLimit) return;
 
         const timer = setInterval(() => {
             setTimeLeft((prev) => {
@@ -56,12 +75,7 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [status]);
-
-    const handleTimeOut = () => {
-        // alert('¡El tiempo se ha agotado!'); // Removing intrusive alert
-        setStatus('review'); // Force review or auto-submit
-    };
+    }, [status, hasTimeLimit]);
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -70,8 +84,9 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
     };
 
     const handleStart = () => {
+        if (hasReachedAttemptLimit) return;
         setStatus('active');
-        setTimeLeft(durationMinutes * 60);
+        setTimeLeft((durationMinutes || 0) * 60);
         setAnswers({});
         setCurrentQuestionIndex(0);
     };
@@ -120,12 +135,18 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
         setStatus('result');
         setIsConfirmModalOpen(false);
         setIsSubmitting(false);
+        const nextAttemptCount = attemptCount + 1;
+        setAttemptCount(nextAttemptCount);
+        if (attemptStorageKey) {
+            window.localStorage.setItem(attemptStorageKey, String(nextAttemptCount));
+        }
 
         // Notify parent
         onComplete(finalScore, passed);
     };
 
     const handleRetry = () => {
+        if (hasReachedAttemptLimit) return;
         setStatus('intro');
         setResult(null);
         setAnswers({});
@@ -145,10 +166,12 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
                             Pregunta {currentQuestionIndex + 1} / {questions.length}
                         </span>
                     </div>
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full font-mono font-medium border ${timeLeft < 60 ? 'bg-red-500/10 text-red-500 border-red-500/20 animate-pulse' : 'bg-primary/5 text-primary border-primary/20'}`}>
-                        <Clock size={16} />
-                        <span>{formatTime(timeLeft)}</span>
-                    </div>
+                    {hasTimeLimit && (
+                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full font-mono font-medium border ${timeLeft < 60 ? 'bg-red-500/10 text-red-500 border-red-500/20 animate-pulse' : 'bg-primary/5 text-primary border-primary/20'}`}>
+                            <Clock size={16} />
+                            <span>{formatTime(timeLeft)}</span>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -173,8 +196,12 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
                             </div>
                             <h1 className="text-3xl font-bold mb-4">{title}</h1>
                             <p className="text-muted mb-8 text-lg leading-relaxed">
-                                Este cuestionario evaluará tus conocimientos. <br />
-                                Tienes <span className="font-semibold text-foreground">{durationMinutes} minutos</span> para responder <span className="font-semibold text-foreground">{questions.length} preguntas</span>.
+                                Este {contentLabel} evaluará tus conocimientos. <br />
+                                {hasTimeLimit ? (
+                                    <>Tienes <span className="font-semibold text-foreground">{durationMinutes} minutos</span> para responder <span className="font-semibold text-foreground">{questions.length} preguntas</span>.</>
+                                ) : (
+                                    <>Tienes <span className="font-semibold text-foreground">tiempo indefinido</span> para responder <span className="font-semibold text-foreground">{questions.length} preguntas</span>.</>
+                                )}
                             </p>
 
                             <div className="grid grid-cols-3 gap-4 mb-8 text-sm">
@@ -184,19 +211,26 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
                                 </div>
                                 <div className="p-4 rounded-lg bg-background border border-border">
                                     <span className="block text-muted mb-1">Tiempo</span>
-                                    <span className="font-semibold text-lg">{durationMinutes} min</span>
+                                    <span className="font-semibold text-lg">{hasTimeLimit ? `${durationMinutes} min` : 'Indefinido'}</span>
                                 </div>
                                 <div className="p-4 rounded-lg bg-background border border-border">
-                                    <span className="block text-muted mb-1">Aprobación</span>
-                                    <span className="font-semibold text-lg">{passingScore}%</span>
+                                    <span className="block text-muted mb-1">Intentos</span>
+                                    <span className="font-semibold text-lg">{attemptsRemaining === null ? 'Infinitos' : attemptsRemaining}</span>
                                 </div>
                             </div>
 
+                            {hasReachedAttemptLimit && (
+                                <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm font-medium">
+                                    Ya alcanzaste el límite de intentos para este {contentLabel}.
+                                </div>
+                            )}
+
                             <button
                                 onClick={handleStart}
-                                className="w-full md:w-auto px-10 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 hover:scale-105"
+                                disabled={hasReachedAttemptLimit}
+                                className="w-full md:w-auto px-10 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                             >
-                                Comenzar Cuestionario
+                                Comenzar {contentLabelTitle}
                             </button>
                         </div>
                     </div>
@@ -332,7 +366,7 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
                             {(result.score / result.total) * 100 >= passingScore ? '¡Felicitaciones!' : 'Sigue intentando'}
                         </h2>
                         <p className="text-muted mb-8">
-                            Has completado el cuestionario. Aquí está tu resultado:
+                                Has completado el {contentLabel}. Aquí está tu resultado:
                         </p>
 
                         <div className="py-8 border-y border-border mb-8">
@@ -364,12 +398,14 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
                                             Pasar a la siguiente <ArrowRight size={18} />
                                         </button>
                                     )}
-                                    <button
-                                        onClick={handleRetry}
-                                        className="w-full px-8 py-3 bg-secondary text-secondary-foreground rounded-xl font-medium hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <RefreshCw size={18} /> Volver a realizar cuestionario
-                                    </button>
+                                    {!hasReachedAttemptLimit && (
+                                        <button
+                                            onClick={handleRetry}
+                                            className="w-full px-8 py-3 bg-secondary text-secondary-foreground rounded-xl font-medium hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                                        >
+                                        <RefreshCw size={18} /> Volver a realizar {contentLabel}
+                                        </button>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -382,7 +418,7 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
                 onClose={() => setIsConfirmModalOpen(false)}
                 onConfirm={handleConfirmSubmit}
                 title="¿Estás seguro?"
-                message="¿Estás seguro de enviar tu cuestionario? No podrás cambiar tus respuestas."
+                message={`¿Estás seguro de enviar tu ${contentLabel}? No podrás cambiar tus respuestas.`}
                 isLoading={isSubmitting}
                 confirmText="Enviar"
                 cancelText="Cancelar"

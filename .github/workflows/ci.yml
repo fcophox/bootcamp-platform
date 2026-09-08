@@ -33,13 +33,91 @@ jobs:
       - name: Build Next.js app
         run: npm run build
         env:
-          NEXT_PUBLIC_CONVEX_URL: ${{ vars.NEXT_PUBLIC_CONVEX_URL || 'https://placeholder.convex.cloud' }}
+          # Any reachable value works for the build/typecheck step.
+          NEXT_PUBLIC_CONVEX_URL: ${{ vars.NEXT_PUBLIC_CONVEX_URL_DEV || vars.NEXT_PUBLIC_CONVEX_URL || 'https://placeholder.convex.cloud' }}
+
+  # Convex functions and schema live in convex/ and are deployed to the Convex
+  # backend, NOT baked into the Docker image -- the image only carries
+  # NEXT_PUBLIC_CONVEX_URL pointing at it. Without this job they only ship when
+  # someone remembers to push from their laptop, which is how the whole
+  # courseImport module ended up missing from the backend while the UI calling
+  # it was live ("Could not find public function for 'courseImport:applyImport'").
+  #
+  # The two environments use different Convex backends:
+  #
+  #   develop -> SELF-HOSTED, in-cluster (apps/bootcamp-platform/convex-selfhosted
+  #              in orbital-k3s-gitops): convex-dev.nodrize.dev, authenticated
+  #              with the admin key from the `convex-selfhosted` secret.
+  #   main    -> CLOUD production deployment, authenticated with a deploy key.
+  #
+  # Self-hosted mode is selected by CONVEX_SELF_HOSTED_URL/_ADMIN_KEY, and the
+  # cloud variables must be absent or the CLI prefers them -- same `env -u`
+  # pattern as the convex-prod-to-dev-sync CronJob in the GitOps repo.
+  convex:
+    name: Deploy Convex functions
+    needs: test
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Deploy functions and schema to Convex
+        env:
+          # develop: self-hosted backend in bootcamp-platform-dev
+          CONVEX_SELF_HOSTED_URL: ${{ vars.CONVEX_SELF_HOSTED_URL || 'https://convex-dev.nodrize.dev' }}
+          CONVEX_SELF_HOSTED_ADMIN_KEY: ${{ secrets.CONVEX_SELF_HOSTED_ADMIN_KEY }}
+          # main: self-hosted backend in bootcamp-platform-prod once it exists
+          # (orbital-k3s-gitops apps/bootcamp-platform/convex-selfhosted-prod).
+          # Falls back to the cloud deploy key until that key is configured.
+          CONVEX_SELF_HOSTED_URL_PROD: ${{ vars.CONVEX_SELF_HOSTED_URL_PROD || 'https://convex.nodrize.dev' }}
+          CONVEX_SELF_HOSTED_ADMIN_KEY_PROD: ${{ secrets.CONVEX_SELF_HOSTED_ADMIN_KEY_PROD }}
+          CONVEX_DEPLOY_KEY_PROD: ${{ secrets.CONVEX_DEPLOY_KEY_PROD }}
+        run: |
+          set -euo pipefail
+
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            # Prefer the self-hosted prod backend; the cloud key is the interim
+            # path until the migration in convex-selfhosted-prod/RUNBOOK.md runs.
+            if [ -n "${CONVEX_SELF_HOSTED_ADMIN_KEY_PROD:-}" ]; then
+              echo "Deploying to the self-hosted prod backend at $CONVEX_SELF_HOSTED_URL_PROD"
+              env -u CONVEX_DEPLOY_KEY -u CONVEX_DEPLOYMENT \
+                CONVEX_SELF_HOSTED_URL="$CONVEX_SELF_HOSTED_URL_PROD" \
+                CONVEX_SELF_HOSTED_ADMIN_KEY="$CONVEX_SELF_HOSTED_ADMIN_KEY_PROD" \
+                npx convex deploy --yes
+            elif [ -n "${CONVEX_DEPLOY_KEY_PROD:-}" ]; then
+              echo "Deploying to the cloud production deployment."
+              CONVEX_DEPLOY_KEY="$CONVEX_DEPLOY_KEY_PROD" npx convex deploy --yes
+            else
+              echo "::warning::Neither CONVEX_SELF_HOSTED_ADMIN_KEY_PROD nor CONVEX_DEPLOY_KEY_PROD is set -- skipping. Convex functions will NOT reach the production backend."
+              exit 0
+            fi
+          else
+            if [ -z "${CONVEX_SELF_HOSTED_ADMIN_KEY:-}" ]; then
+              echo "::warning::CONVEX_SELF_HOSTED_ADMIN_KEY is not set -- skipping. Convex functions will NOT reach the self-hosted dev backend, and the app will fail with \"Could not find public function\"."
+              echo "::warning::Get it with: kubectl -n bootcamp-platform-dev get secret convex-selfhosted -o jsonpath='{.data.ADMIN_KEY}' | base64 -d"
+              exit 0
+            fi
+            echo "Deploying to the self-hosted dev backend at $CONVEX_SELF_HOSTED_URL"
+            # Cloud credentials must not be in scope or the CLI uses them
+            # instead of the self-hosted target.
+            env -u CONVEX_DEPLOY_KEY -u CONVEX_DEPLOYMENT \
+              CONVEX_SELF_HOSTED_URL="$CONVEX_SELF_HOSTED_URL" \
+              CONVEX_SELF_HOSTED_ADMIN_KEY="$CONVEX_SELF_HOSTED_ADMIN_KEY" \
+              npx convex deploy --yes
+          fi
 
   image:
     name: Build & push image
-    needs: test
+    needs: [test, convex]
     # Only push on an actual commit to develop or main, never for pull requests.
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -100,7 +178,11 @@ jobs:
           context: .
           push: true
           build-args: |
-            NEXT_PUBLIC_CONVEX_URL=${{ vars.NEXT_PUBLIC_CONVEX_URL || 'https://placeholder.convex.cloud' }}
+            # Baked into the image at build time, so it MUST match the branch's
+            # backend: develop runs against the self-hosted in-cluster Convex,
+            # main against cloud production. A single shared variable would ship
+            # a production image pointing at the dev backend.
+            NEXT_PUBLIC_CONVEX_URL=${{ github.ref == 'refs/heads/main' && (vars.NEXT_PUBLIC_CONVEX_URL_PROD || vars.NEXT_PUBLIC_CONVEX_URL) || (vars.NEXT_PUBLIC_CONVEX_URL_DEV || vars.NEXT_PUBLIC_CONVEX_URL) }}
             NEXT_PUBLIC_APP_ENV=${{ steps.vars.outputs.app_env }}
             NEXT_PUBLIC_APP_COMMIT=${{ steps.vars.outputs.app_commit }}
             NEXT_PUBLIC_CLARITY_PROJECT_ID=${{ steps.vars.outputs.env_tag == 'prod' && vars.NEXT_PUBLIC_CLARITY_PROJECT_ID || '' }}
@@ -113,7 +195,7 @@ jobs:
   promote-dev:
     name: Promote to bootcamp-platform-dev (GitOps)
     needs: image
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     steps:
       # GITOPS_PAT: a fine-grained PAT scoped to CleveritDemo/orbital-k3s-gitops
@@ -160,7 +242,7 @@ jobs:
   promote-prod:
     name: Promote to bootcamp-platform-prod (GitOps)
     needs: image
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Check GITOPS_PAT is configured
