@@ -52,6 +52,8 @@ interface ExamQuestion {
     options: ExamOption[];
 }
 
+type ExamAttemptMode = 'single' | 'limited' | 'infinite';
+
 interface Module {
     id: number | string;
     title: string;
@@ -114,6 +116,112 @@ const getGroupedLessons = (lessons: Lesson[]) => {
     }
 
     return groups;
+};
+
+const getInitialExamQuestions = (): ExamQuestion[] => ([
+    { id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }
+]);
+
+const cleanBulkLine = (line: string) => line
+    .trim()
+    .replace(/^[-*•]\s*/, '')
+    .trim();
+
+const splitBulkExamSections = (rawText: string) => {
+    const lines = rawText.replace(/\r\n/g, '\n').split('\n');
+    const sections: { heading: string; lines: string[] }[] = [];
+    let currentSection: { heading: string; lines: string[] } | null = null;
+    let foundMarkdownHeading = false;
+
+    lines.forEach((line) => {
+        const headingMatch = line.match(/^#{1,6}\s*(?:\d+[.)]?\s*)?(.*)$/);
+        if (headingMatch) {
+            foundMarkdownHeading = true;
+            if (currentSection) sections.push(currentSection);
+            currentSection = { heading: headingMatch[1].trim(), lines: [] };
+            return;
+        }
+
+        if (currentSection) {
+            currentSection.lines.push(line);
+        }
+    });
+
+    if (currentSection) sections.push(currentSection);
+
+    if (foundMarkdownHeading) {
+        return sections.filter(section => section.heading || section.lines.some(line => line.trim()));
+    }
+
+    return rawText
+        .split(/\n\s*\n/g)
+        .map(block => ({ heading: '', lines: block.split('\n') }))
+        .filter(section => section.lines.some(line => line.trim()));
+};
+
+const parseBulkExamQuestions = (rawText: string): ExamQuestion[] => {
+    const sections = splitBulkExamSections(rawText);
+
+    return sections.map((section, blockIndex) => {
+        const lines = section.lines
+            .map(cleanBulkLine)
+            .filter(Boolean);
+        const answerLineIndex = lines.findIndex(line => /^(respuesta|correcta)\s*:/i.test(line));
+        const answerToken = answerLineIndex >= 0
+            ? lines[answerLineIndex].split(':').slice(1).join(':').trim().toLowerCase()
+            : '';
+        const contentLines = answerLineIndex >= 0
+            ? lines.filter((_, index) => index !== answerLineIndex)
+            : lines;
+        const firstOptionIndex = contentLines.findIndex(line => /^([a-zA-Z]|\d+)[.)]\s+/.test(line));
+
+        if (firstOptionIndex < 0) {
+            throw new Error(`La pregunta ${blockIndex + 1} debe tener alternativas tipo A), A. o 1.`);
+        }
+
+        const stemLines = contentLines.slice(0, firstOptionIndex);
+        const optionLines = contentLines.slice(firstOptionIndex);
+
+        if (optionLines.length < 2) {
+            throw new Error(`La pregunta ${blockIndex + 1} debe tener enunciado y al menos dos alternativas.`);
+        }
+
+        const stemText = stemLines.join('\n').trim();
+        const questionText = [section.heading, stemText]
+            .filter(Boolean)
+            .join('\n\n')
+            .replace(/^\d+[.)]\s*/, '')
+            .trim();
+        const options = optionLines.map((line, optionIndex) => {
+            const labelMatch = line.match(/^([a-zA-Z]|\d+)[.)]\s*(.*)$/);
+            const label = labelMatch?.[1]?.toLowerCase() || '';
+            let optionText = (labelMatch?.[2] || line).trim();
+            const hasInlineCorrectMarker = /(^|\s)(\*|\[x\]|\(x\)|\[correcta\]|\(correcta\)|correcta)$/i.test(optionText);
+            optionText = optionText
+                .replace(/\s*(\*|\[x\]|\(x\)|\[correcta\]|\(correcta\)|correcta)$/i, '')
+                .trim();
+
+            return {
+                id: `${Date.now()}-${blockIndex + 1}-${optionIndex + 1}`,
+                text: optionText,
+                isCorrect: hasInlineCorrectMarker || (!!answerToken && (answerToken === label || answerToken === optionText.toLowerCase())),
+            };
+        });
+
+        if (!questionText || options.some(option => !option.text)) {
+            throw new Error(`La pregunta ${blockIndex + 1} tiene contenido incompleto.`);
+        }
+
+        if (!options.some(option => option.isCorrect)) {
+            throw new Error(`Marca la respuesta correcta en la pregunta ${blockIndex + 1}. Usa * al final o "Respuesta: A".`);
+        }
+
+        return {
+            id: `${Date.now()}-${blockIndex + 1}`,
+            text: questionText,
+            options,
+        };
+    });
 };
 
 export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }: ManageBootcampClientProps) {
@@ -438,10 +546,12 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const typeSelectorRef = useRef<HTMLDivElement>(null);
 
     // Exam Builder State
-    const [examQuestions, setExamQuestions] = useState<ExamQuestion[]>([
-        { id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }
-    ]);
+    const [examQuestions, setExamQuestions] = useState<ExamQuestion[]>(getInitialExamQuestions());
+    const [examHasTimeLimit, setExamHasTimeLimit] = useState(true);
     const [examDuration, setExamDuration] = useState(15); // Default 15 mins
+    const [examAttemptMode, setExamAttemptMode] = useState<ExamAttemptMode>('infinite');
+    const [examMaxAttempts, setExamMaxAttempts] = useState(1);
+    const [bulkExamContent, setBulkExamContent] = useState('');
 
     const [toast, setToast] = useState<{ show: boolean, message: string } | null>(null);
 
@@ -533,6 +643,30 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         setTimeout(() => setToast(null), 5000);
     };
 
+    const resetExamState = () => {
+        setExamQuestions(getInitialExamQuestions());
+        setExamHasTimeLimit(true);
+        setExamDuration(15);
+        setExamAttemptMode('infinite');
+        setExamMaxAttempts(1);
+        setBulkExamContent('');
+    };
+
+    const handleImportBulkExam = () => {
+        try {
+            const parsedQuestions = parseBulkExamQuestions(bulkExamContent);
+            if (parsedQuestions.length === 0) {
+                alert('Pega al menos una pregunta para importar.');
+                return;
+            }
+            setExamQuestions(parsedQuestions);
+            showToast(`${parsedQuestions.length} preguntas importadas. Revísalas antes de publicar.`);
+        } catch (error) {
+            const e = error as Error;
+            alert(e.message || 'No se pudo interpretar el contenido pegado.');
+        }
+    };
+
     // Helpers
     const toggleModule = (id: number | string) => {
         setExpandedModule(expandedModule === id ? null : id);
@@ -585,20 +719,34 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
 
         let finalContent = editorContent;
 
+        let finalContentType = contentType;
+
         // Serialize Exam Data if content type is exam
-        if (contentType === 'exam') {
+        if (contentType === 'exam' || contentType === 'exam_formal') {
             // Validate Exam
             const isValid = examQuestions.every(q => q.text.trim() && q.options.length > 0 && q.options.every(o => o.text.trim()));
             if (!isValid) {
                 alert('Por favor completa todas las preguntas y alternativas.');
                 return;
             }
+            if (examQuestions.some(q => !q.options.some(o => o.isCorrect))) {
+                alert('Cada pregunta debe tener una respuesta correcta marcada.');
+                return;
+            }
+            const isFormalExam = contentType === 'exam_formal';
             finalContent = JSON.stringify({
                 questions: examQuestions,
                 settings: {
-                    duration: examDuration
+                    kind: isFormalExam ? 'exam' : 'quiz',
+                    hasTimeLimit: isFormalExam ? examHasTimeLimit : false,
+                    duration: isFormalExam && examHasTimeLimit ? examDuration : null,
+                    attemptMode: isFormalExam ? examAttemptMode : 'infinite',
+                    maxAttempts: isFormalExam
+                        ? (examAttemptMode === 'limited' ? examMaxAttempts : (examAttemptMode === 'single' ? 1 : null))
+                        : null
                 }
             });
+            finalContentType = 'exam';
         } else if (contentType === 'text') {
             // New structure for Text: JSON with html + imageUrl
             // We use resourceContent state for the image URL
@@ -629,7 +777,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                     editingLessonId,
                     bootcampId,
                     contentTitle,
-                    contentType,
+                    finalContentType,
                     finalContent
                 );
             } else {
@@ -639,7 +787,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                     activeModuleForContent,
                     bootcampId,
                     contentTitle,
-                    contentType,
+                    finalContentType,
                     finalContent
                 );
             }
@@ -651,8 +799,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
             setContentTitle('');
             setEditorContent('');
             setResourceContent('');
-            setExamQuestions([{ id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }]); // Reset Exam
-            setExamDuration(15);
+            resetExamState();
             setCheckValue(1);
             setCheckDescription('');
             router.refresh();
@@ -666,25 +813,36 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const handleEditLesson = (lesson: Lesson, moduleId: number | string) => {
         setActiveModuleForContent(moduleId);
         setEditingLessonId(lesson.id);
-        setContentType(lesson.type as any);
         setContentTitle(lesson.title);
         const lessonContent = lesson.content || '';
         if (lesson.type === 'exam') {
             try {
                 const parsed = JSON.parse(lessonContent);
+                const settings = Array.isArray(parsed) ? null : parsed.settings;
+                const isFormalExam = settings?.kind === 'exam';
+                setContentType(isFormalExam ? 'exam_formal' : 'exam');
                 if (Array.isArray(parsed)) {
                     setExamQuestions(parsed);
+                    setExamHasTimeLimit(false);
                     setExamDuration(15);
+                    setExamAttemptMode('infinite');
+                    setExamMaxAttempts(1);
                 } else {
                     setExamQuestions(parsed.questions || []);
+                    setExamHasTimeLimit(isFormalExam ? (parsed.settings?.hasTimeLimit ?? parsed.settings?.duration !== null) : false);
                     setExamDuration(parsed.settings?.duration || 15);
+                    setExamAttemptMode(isFormalExam ? (parsed.settings?.attemptMode || 'infinite') : 'infinite');
+                    setExamMaxAttempts(isFormalExam ? (parsed.settings?.maxAttempts || 1) : 1);
                 }
+                setBulkExamContent('');
                 setEditorContent('');
             } catch (e) {
                 console.error("Error parsing exam content for edit", e);
-                setExamQuestions([{ id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }]);
+                setContentType('exam');
+                resetExamState();
             }
         } else if (lesson.type === 'text') {
+            setContentType(lesson.type as any);
             try {
                 const parsed = JSON.parse(lessonContent);
                 // Check if it's our new JSON format
@@ -702,8 +860,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 setResourceContent('');
             }
             // Reset exam state just in case
-            setExamQuestions([{ id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }]);
+            resetExamState();
         } else if (lesson.type === 'check') {
+            setContentType(lesson.type as any);
             try {
                 const parsed = JSON.parse(lessonContent);
                 setCheckValue(Number(parsed.value) || 1);
@@ -713,8 +872,9 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 setCheckDescription('');
             }
             // Reset exam state just in case
-            setExamQuestions([{ id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }]);
+            resetExamState();
         } else {
+            setContentType(lesson.type as any);
             // Try to parse JSON for other types (Video, etc)
             try {
                 const parsed = JSON.parse(lessonContent);
@@ -732,7 +892,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                 setEditorContent('');
             }
             // Reset exam state just in case
-            setExamQuestions([{ id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }]);
+            resetExamState();
         }
     };
 
@@ -784,13 +944,21 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         showToast(`¡Enlace Único generado y copiado! \nEste enlace es de un solo uso.`);
     };
 
-    const getLessonIcon = (type: string) => {
-        switch (type) {
+    const getLessonIcon = (lesson: Lesson) => {
+        switch (lesson.type) {
             case 'video': return <MonitorPlay size={18} className="text-blue-500" />;
             case 'presentation': return <Layout size={18} className="text-orange-500" />;
             case 'podcast': return <Headphones size={18} className="text-violet-500" />;
             case 'pdf': return <FileUp size={18} className="text-red-500" />;
-            case 'exam': return <Trophy size={18} className="text-yellow-500" />;
+            case 'exam': {
+                try {
+                    const parsed = JSON.parse(lesson.content || '{}');
+                    if (parsed.settings?.kind === 'exam') {
+                        return <BarChart3 size={18} className="text-emerald-500" />;
+                    }
+                } catch { }
+                return <Trophy size={18} className="text-yellow-500" />;
+            }
             case 'check': return <CheckSquare size={18} className="text-emerald-500" />;
             default: return <FileText size={18} className="text-green-500" />;
         }
@@ -1180,21 +1348,6 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                             <TiptapEditor content={editorContent} onChange={setEditorContent} />
                         </div>
                     )}
-                    {contentType === 'exam_formal' && (
-                        <div className="flex flex-col items-center justify-center py-12 px-6 border border-dashed border-emerald-500/30 rounded-xl bg-emerald-500/5">
-                            <div className="p-4 rounded-full bg-emerald-500/10 text-emerald-500 mb-4">
-                                <BarChart3 size={32} />
-                            </div>
-                            <h4 className="text-lg font-semibold text-foreground mb-2">Examen Formal</h4>
-                            <p className="text-sm text-muted text-center max-w-sm mb-4">
-                                Los exámenes formales con calificación, tiempo límite estricto y certificación están en desarrollo.
-                            </p>
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-semibold border border-emerald-500/20">
-                                <Loader2 size={12} className="animate-spin" />
-                                Pronto...
-                            </span>
-                        </div>
-                    )}
                     {contentType === 'check' && (
                         <div className="space-y-4 p-4 border border-border bg-card-bg/20 rounded-xl">
                             <div>
@@ -1226,29 +1379,114 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                             </div>
                         </div>
                     )}
-                    {contentType !== 'text' && contentType !== 'exam_formal' && contentType !== 'subtitle' && contentType !== 'check' && (
+                    {contentType !== 'text' && contentType !== 'subtitle' && contentType !== 'check' && (
                         <div>
-                            {contentType === 'exam' ? (
+                            {(contentType === 'exam' || contentType === 'exam_formal') ? (
                                 <div className="space-y-6 border border-border rounded-lg p-6 bg-background/50">
                                     <div className="flex items-center gap-2 mb-4 text-primary">
-                                        <Trophy size={20} />
-                                        <h4 className="font-semibold">Constructor de Cuestionario</h4>
+                                        {contentType === 'exam_formal' ? <BarChart3 size={20} /> : <Trophy size={20} />}
+                                        <h4 className="font-semibold">{contentType === 'exam_formal' ? 'Constructor de Examen' : 'Constructor de Cuestionario'}</h4>
                                     </div>
 
-                                    <div className="mb-6 p-4 bg-secondary/20 rounded-lg border border-border flex items-center gap-4">
-                                        <Clock size={20} className="text-muted" />
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1">Duración (minutos)</label>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                max="180"
-                                                value={examDuration}
-                                                onChange={(e) => setExamDuration(Number(e.target.value))}
-                                                className="w-24 px-3 py-1.5 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 outline-none text-center font-medium"
+                                    <div className={`grid gap-4 ${contentType === 'exam_formal' ? 'lg:grid-cols-[1.1fr_0.9fr]' : ''}`}>
+                                        <div className="p-4 bg-secondary/20 rounded-lg border border-border space-y-3">
+                                            <div className="flex items-center gap-2 text-primary">
+                                                <Upload size={18} />
+                                                <h5 className="font-medium text-sm">Carga masiva desde texto</h5>
+                                            </div>
+                                            <textarea
+                                                value={bulkExamContent}
+                                                onChange={(e) => setBulkExamContent(e.target.value)}
+                                                className="w-full h-44 px-3 py-2 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 outline-none text-sm resize-y font-mono"
+                                                placeholder={`## 1. Context Management\n\nEnunciado completo de la pregunta.\n\nA. Alternativa correcta *\nB. Alternativa incorrecta\nC. Alternativa incorrecta\n\n## 2. Prompt Engineering\n\nOtro enunciado.\n\nA. Opción uno\nB. Opción correcta\nRespuesta: B`}
                                             />
+                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                                <p className="text-xs text-muted">
+                                                    Puedes pegar secciones Markdown con ##. Marca la correcta con * o usa "Respuesta: A".
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleImportBulkExam}
+                                                    className="px-3 py-2 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                                                    disabled={!bulkExamContent.trim()}
+                                                >
+                                                    Importar preguntas
+                                                </button>
+                                            </div>
                                         </div>
-                                        <p className="text-sm text-muted">Tiempo límite para los estudiantes</p>
+
+                                        {contentType === 'exam_formal' && (
+                                            <div className="p-4 bg-secondary/20 rounded-lg border border-border space-y-4">
+                                                <div className="flex items-center gap-2 text-primary">
+                                                    <Clock size={18} />
+                                                    <h5 className="font-medium text-sm">Publicación del examen</h5>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium mb-2">Límite de tiempo</label>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setExamHasTimeLimit(true)}
+                                                            className={`px-3 py-2 rounded-lg border text-sm ${examHasTimeLimit ? 'bg-primary/10 text-primary border-primary/30' : 'border-border text-muted hover:text-foreground'}`}
+                                                        >
+                                                            Con límite
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setExamHasTimeLimit(false)}
+                                                            className={`px-3 py-2 rounded-lg border text-sm ${!examHasTimeLimit ? 'bg-primary/10 text-primary border-primary/30' : 'border-border text-muted hover:text-foreground'}`}
+                                                        >
+                                                            Indefinido
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {examHasTimeLimit && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium mb-1">Duración (minutos)</label>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            max="180"
+                                                            value={examDuration}
+                                                            onChange={(e) => setExamDuration(Number(e.target.value) || 1)}
+                                                            className="w-28 px-3 py-1.5 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 outline-none text-center font-medium"
+                                                        />
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <label className="block text-sm font-medium mb-2">Intentos permitidos</label>
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        {[
+                                                            { id: 'single' as const, label: 'Una vez' },
+                                                            { id: 'limited' as const, label: 'X veces' },
+                                                            { id: 'infinite' as const, label: 'Infinito' },
+                                                        ].map((mode) => (
+                                                            <button
+                                                                key={mode.id}
+                                                                type="button"
+                                                                onClick={() => setExamAttemptMode(mode.id)}
+                                                                className={`px-2 py-2 rounded-lg border text-xs ${examAttemptMode === mode.id ? 'bg-primary/10 text-primary border-primary/30' : 'border-border text-muted hover:text-foreground'}`}
+                                                            >
+                                                                {mode.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                {examAttemptMode === 'limited' && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium mb-1">Cantidad de intentos</label>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            max="20"
+                                                            value={examMaxAttempts}
+                                                            onChange={(e) => setExamMaxAttempts(Number(e.target.value) || 1)}
+                                                            className="w-28 px-3 py-1.5 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 outline-none text-center font-medium"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {examQuestions.map((question, qIndex) => (
@@ -2442,7 +2680,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                                                         <div className="flex items-center gap-3 flex-1 min-w-0">
                                                                                             <GripVertical size={16} className="text-muted/50 cursor-grab active:cursor-grabbing hover:text-primary transition-colors flex-shrink-0" />
                                                                                             <div className="p-1.5 rounded-md bg-secondary/30 text-muted flex-shrink-0">
-                                                                                                {getLessonIcon(lesson.type)}
+                                                                                                {getLessonIcon(lesson)}
                                                                                             </div>
                                                                                             <span className="text-sm font-medium truncate" title={lesson.title}>{lesson.title}</span>
                                                                                         </div>
