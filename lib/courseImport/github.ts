@@ -230,7 +230,9 @@ export async function commitFiles(
         throw new Error('No hay archivos que enviar al repositorio.');
     }
 
-    const base = `/repos/${owner}/${repo}/git`;
+    const ownerSegment = encodeURIComponent(owner);
+    const repoSegment = encodeURIComponent(repo);
+    const base = `/repos/${ownerSegment}/${repoSegment}/git`;
 
     let headSha: string | null = null;
     let baseTreeSha: string | null = null;
