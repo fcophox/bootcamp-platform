@@ -37,6 +37,10 @@ interface GitBlobResponse {
 }
 
 const GITHUB_API_ORIGIN = 'https://api.github.com';
+const GITHUB_OWNER_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+const GITHUB_REPO_PATTERN = /^[A-Za-z0-9._-]+$/;
+const GITHUB_SHA_PATTERN = /^[a-f0-9]{40}$/i;
+const INVALID_GIT_REF_CHARS = /[\x00-\x20\x7f~^:?*[\\]/;
 
 function githubApiUrl(path: string): URL {
     if (!path.startsWith('/')) {
@@ -49,6 +53,58 @@ function githubApiUrl(path: string): URL {
     }
 
     return url;
+}
+
+function githubRepoPath(owner: string, repo: string): string {
+    if (!GITHUB_OWNER_PATTERN.test(owner)) {
+        throw new Error('Owner de GitHub inválido.');
+    }
+    if (!GITHUB_REPO_PATTERN.test(repo) || repo === '.' || repo === '..') {
+        throw new Error('Repositorio de GitHub inválido.');
+    }
+
+    return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+}
+
+function encodeGitRef(ref: string): string {
+    if (
+        !ref ||
+        ref === '@' ||
+        ref.startsWith('/') ||
+        ref.endsWith('/') ||
+        ref.endsWith('.') ||
+        ref.includes('..') ||
+        ref.includes('//') ||
+        ref.includes('@{') ||
+        INVALID_GIT_REF_CHARS.test(ref) ||
+        ref.split('/').some((part) => part.startsWith('.') || part.endsWith('.lock'))
+    ) {
+        throw new Error('Rama de GitHub inválida.');
+    }
+
+    return encodeURIComponent(ref);
+}
+
+function encodeGitSha(sha: string): string {
+    if (!GITHUB_SHA_PATTERN.test(sha)) {
+        throw new Error('SHA de GitHub inválido.');
+    }
+
+    return encodeURIComponent(sha);
+}
+
+function encodeGithubFilePath(path: string): string {
+    const parts = path.split('/');
+    if (
+        !path ||
+        path.startsWith('/') ||
+        path.endsWith('/') ||
+        parts.some((part) => part === '' || part === '.' || part === '..' || /[\x00-\x1f\x7f]/.test(part))
+    ) {
+        throw new Error('Ruta de archivo inválida para GitHub.');
+    }
+
+    return parts.map((part) => encodeURIComponent(part)).join('/');
 }
 
 function githubHeaders(pat: string): Record<string, string> {
@@ -107,7 +163,8 @@ export async function fetchRepoFiles(
     basePath: string,
     pat: string
 ): Promise<RepoFile[]> {
-    const treePath = `/repos/${owner}/${repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`;
+    const repoPath = githubRepoPath(owner, repo);
+    const treePath = `${repoPath}/git/trees/${encodeGitRef(ref)}?recursive=1`;
     const treeResponse = await fetch(githubApiUrl(treePath), {
         headers: githubHeaders(pat),
     });
@@ -150,7 +207,7 @@ export async function fetchRepoFiles(
 
     return Promise.all(
         blobs.map(async (entry) => {
-            const blobResponse = await githubFetch(`/repos/${owner}/${repo}/git/blobs/${entry.sha}`, pat);
+            const blobResponse = await githubFetch(`${repoPath}/git/blobs/${encodeGitSha(entry.sha)}`, pat);
             const blob = (await blobResponse.json()) as GitBlobResponse;
             const content =
                 blob.encoding === 'base64' ? Buffer.from(blob.content, 'base64').toString('utf8') : blob.content;
@@ -165,6 +222,7 @@ export function parseRepoUrl(repoUrl: string): { owner: string; repo: string } {
     if (!match) {
         throw new Error(`No se pudo interpretar la URL del repositorio: "${repoUrl}". Usa "owner/repo" o una URL de GitHub.`);
     }
+    githubRepoPath(match[1], match[2]);
     return { owner: match[1], repo: match[2] };
 }
 
@@ -245,13 +303,13 @@ export async function commitFiles(
         throw new Error('No hay archivos que enviar al repositorio.');
     }
 
-    const ownerSegment = encodeURIComponent(owner);
-    const repoSegment = encodeURIComponent(repo);
-    const base = `/repos/${ownerSegment}/${repoSegment}/git`;
+    const repoPath = githubRepoPath(owner, repo);
+    const base = `${repoPath}/git`;
 
     let headSha: string | null = null;
     let baseTreeSha: string | null = null;
-    const refResponse = await fetch(githubApiUrl(`${base}/ref/heads/${encodeURIComponent(ref)}`), {
+    const encodedRef = encodeGitRef(ref);
+    const refResponse = await fetch(githubApiUrl(`${base}/ref/heads/${encodedRef}`), {
         headers: githubHeaders(pat),
     });
     if (refResponse.ok) {
@@ -269,7 +327,7 @@ export async function commitFiles(
     // Empty repository: unlock the Git Data endpoints.
     const bootstrapped = headSha === null;
     if (bootstrapped) {
-        await githubPut(`/repos/${ownerSegment}/${repoSegment}/contents/${files[0].path}`, pat, {
+        await githubPut(`${repoPath}/contents/${encodeGithubFilePath(files[0].path)}`, pat, {
             message,
             content: Buffer.from(files[0].content, 'utf8').toString('base64'),
             branch: ref,
@@ -305,7 +363,7 @@ export async function commitFiles(
     });
 
     if (headSha || bootstrapped) {
-        const update = await fetch(githubApiUrl(`${base}/refs/heads/${encodeURIComponent(ref)}`), {
+        const update = await fetch(githubApiUrl(`${base}/refs/heads/${encodedRef}`), {
             method: 'PATCH',
             headers: { ...githubHeaders(pat), 'Content-Type': 'application/json' },
             // force only when discarding the bootstrap commit we just made
