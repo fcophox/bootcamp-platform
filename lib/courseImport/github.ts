@@ -317,9 +317,10 @@ export async function commitFiles(
         const commitResponse = await fetch(githubApiUrl(`${base}/commits/${headSha}`), {
             headers: githubHeaders(pat),
         });
-        if (commitResponse.ok) {
-            baseTreeSha = ((await commitResponse.json()) as GitCommitResponse).tree.sha;
+        if (!commitResponse.ok) {
+            throw new Error(describeGithubError(commitResponse.status, `${base}/commits/${headSha}`));
         }
+        baseTreeSha = ((await commitResponse.json()) as GitCommitResponse).tree.sha;
     } else if (refResponse.status !== 404 && refResponse.status !== 409) {
         throw new Error(describeGithubError(refResponse.status, `${base}/ref/heads/${ref}`));
     }
