@@ -13,9 +13,16 @@ export function ClarityAnalytics() {
         const projectId = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID;
         if (!isProdEnv() || !projectId) return;
 
-        import('@microsoft/clarity').then(({ default: Clarity }) => {
-            Clarity.init(projectId);
-        });
+        // Load Clarity script dynamically to avoid SSR issues
+        const loadClarity = async () => {
+            try {
+                const Clarity = await import('@microsoft/clarity');
+                Clarity.default.init(projectId);
+            } catch (error) {
+                console.warn('Failed to load Microsoft Clarity:', error);
+            }
+        };
+        loadClarity();
     }, []);
 
     return null;
