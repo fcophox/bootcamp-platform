@@ -31,6 +31,7 @@ interface RawModuleYaml {
 
 interface RawExamQuestion {
 	text?: string;
+	explanation?: string;
 	options?: Array<{ text?: string; correct?: boolean }>;
 }
 
@@ -183,6 +184,7 @@ function parseExamLesson(
 	const questions = parsed.questions.map((q, i) => ({
 		id: String(i + 1),
 		text: q.text ?? '',
+		explanation: q.explanation ?? '',
 		options: (q.options ?? []).map((o, j) => ({
 			id: `${i + 1}-${j + 1}`,
 			text: o.text ?? '',

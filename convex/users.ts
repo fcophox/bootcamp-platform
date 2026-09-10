@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { Scrypt } from "lucia";
 import bcrypt from "bcryptjs";
 import { internal } from "./_generated/api";
+import { getVipRole } from "../lib/vipEmails";
 
 /**
  * Returns the currently authenticated user's document from the "users" table.
@@ -34,12 +35,12 @@ export const getCurrentUserWithRole = query({
     
     const email = user.email?.toLowerCase().trim() || "";
     
-    // VIP hardcoded emails (fallback for superadmins)
-    if (email === 'fcojhormazabalh@gmail.com') {
-      return { email, role: 'superadmin', name: user.name };
-    }
-    if (email === 'docente@cleverex.com') {
-      return { email, role: 'docente', name: user.name };
+    // VIP hardcoded emails (fallback for superadmins). Shared with
+    // utils/roles.ts via lib/vipEmails.ts -- this list used to be a separate
+    // literal here and had drifted out of sync with that one.
+    const vipRole = getVipRole(email);
+    if (vipRole) {
+      return { email, role: vipRole, name: user.name };
     }
     
     // Check if user has a role in native users table

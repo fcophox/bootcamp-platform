@@ -1,0 +1,41 @@
+# Lección de tipo examen. Los exámenes son SIEMPRE archivos .yaml (nunca .md),
+# y todo archivo .yaml de lección debe llevar `type: exam`.
+
+title: "Evaluación del módulo"
+type: exam
+
+settings:
+  # Minutos disponibles para completar el examen. Por defecto: 15.
+  duration: 10
+
+questions:
+  # Pregunta con una única respuesta correcta.
+  - text: "¿Qué formato usan las lecciones de tipo text?"
+    options:
+      - text: "Markdown"
+        correct: true
+      - text: "HTML escrito a mano"
+        correct: false
+      - text: "Texto plano sin formato"
+        correct: false
+
+  # Se admite más de una opción correcta en la misma pregunta.
+  - text: "¿Cuáles de estos tipos de lección requieren el campo url?"
+    options:
+      - text: "video"
+        correct: true
+      - text: "pdf"
+        correct: true
+      - text: "podcast"
+        correct: true
+      - text: "text"
+        correct: false
+
+  # Una pregunta debe tener al menos una opción; el examen, al menos una
+  # pregunta. Si no, la importación falla indicando el archivo.
+  - text: "¿Dónde se define el orden de las lecciones?"
+    options:
+      - text: "En el prefijo numérico del nombre del archivo"
+        correct: true
+      - text: "En un campo order dentro del frontmatter"
+        correct: false

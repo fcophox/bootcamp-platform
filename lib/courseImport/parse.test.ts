@@ -98,6 +98,7 @@ settings:
   duration: 20
 questions:
   - text: "Pregunta 1"
+    explanation: "Porque A es la alternativa correcta."
     options:
       - text: "A"
         correct: true
@@ -110,6 +111,7 @@ questions:
 		const content = JSON.parse(result.modules[0].lessons[0].content);
 		expect(content.settings.duration).toBe(20);
 		expect(content.questions).toHaveLength(1);
+		expect(content.questions[0].explanation).toBe('Porque A es la alternativa correcta.');
 		expect(content.questions[0].options[0].isCorrect).toBe(true);
 	});
 

@@ -64,6 +64,8 @@ const getLessonDurationInfo = (lesson: any) => {
 
     try {
         const parsed = JSON.parse(lesson.content || '{}');
+        if (lesson.type === 'exam' && parsed.settings?.kind !== 'exam') return 'Indefinido';
+        if (parsed.settings?.hasTimeLimit === false) return 'Indefinido';
         if (parsed.settings?.duration) return `${parsed.settings.duration} min`;
         if (parsed.duration) return `${parsed.duration} min`;
     } catch {}
@@ -74,7 +76,7 @@ const getLessonDurationInfo = (lesson: any) => {
         case 'audio':
             return '10 min';
         case 'exam':
-            return '15 min';
+            return 'Indefinido';
         case 'text':
         case 'document':
         case 'file':
@@ -462,14 +464,22 @@ export default function ClassPlayerPage() {
                         <div className="w-full h-full">
                             {(() => {
                                 let questions = [];
-                                let settings = { duration: 15, passingScore: 70 };
+                                let settings: { kind: 'quiz' | 'exam'; duration: number | null; passingScore: number; maxAttempts: number | null } = { kind: 'quiz', duration: null, passingScore: 70, maxAttempts: null };
                                 try {
                                     const parsed = JSON.parse(currentClass.content || '{}');
                                     if (Array.isArray(parsed)) {
                                         questions = parsed;
                                     } else {
                                         questions = parsed.questions || [];
-                                        settings = { ...settings, ...parsed.settings };
+                                        const parsedSettings = parsed.settings || {};
+                                        const kind = parsedSettings.kind === 'exam' ? 'exam' : 'quiz';
+                                        settings = {
+                                            ...settings,
+                                            ...parsedSettings,
+                                            kind,
+                                            duration: kind === 'exam' && parsedSettings.hasTimeLimit !== false ? (parsedSettings.duration || 15) : null,
+                                            maxAttempts: kind === 'exam' && parsedSettings.attemptMode !== 'infinite' ? (parsedSettings.maxAttempts || (parsedSettings.attemptMode === 'single' ? 1 : null)) : null,
+                                        };
                                     }
                                 } catch {
                                     return <div className="p-10 text-center text-red-500">Error cargando el cuestionario</div>;
@@ -481,6 +491,10 @@ export default function ClassPlayerPage() {
                                         questions={questions}
                                         durationMinutes={settings.duration}
                                         passingScore={settings.passingScore}
+                                        maxAttempts={settings.maxAttempts}
+                                        variant={settings.kind}
+                                        initialAttemptCount={isClassCompleted(currentClass.id) ? 1 : 0}
+                                        attemptStorageKey={`exam-attempts:${bootcampId}:${currentClass.id}`}
                                         onComplete={(score: number, passed: boolean) => {
                                             if (!isClassCompleted(currentClass.id)) {
                                                 handleToggleComplete();

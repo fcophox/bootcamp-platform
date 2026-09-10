@@ -1,5 +1,10 @@
 # AGENTS.md
 
+> **Open items:** see [`docs/KNOWN-GAPS.md`](./docs/KNOWN-GAPS.md) for known
+> gaps and follow-ups (empty production Convex, dev accounts, template i18n,
+> lint debt).
+
+
 Canonical stack/architecture/status reference for any coding agent working in
 this repo (Claude Code, Codex, or otherwise). For Claude-Code-specific
 conventions (commands, workflow), see `CLAUDE.md`. For the full rationale
@@ -44,6 +49,17 @@ and `CMS_SETUP.md` are stale SQLite-era artifacts — ignore both.
 Both are gated only for *authentication* by `proxy.ts`; *role*-based
 authorization is re-checked inside each page/action via `utils/roles*.ts`.
 
+`proxy.ts` additionally reconciles the request origin before delegating to
+`convexAuthNextjsMiddleware`. Behind Cloudflare Tunnel + Traefik the pod sees
+`X-Forwarded-Proto: http` while the browser sends `Origin: https://…`, and
+`request.url` is the raw internal socket (`http://0.0.0.0:3000/…`).
+`@convex-dev/auth`'s `isCorsRequest` compares those protocols, so it misfires:
+`POST /api/auth` 403s "Invalid origin" and `validateCors` strips the auth
+cookies off every other request (`POST /api/presence` 401 flood; server actions
+failing with "An unexpected response was received from the server"). The Host
+header is fine — Traefik forwards it intact. Read `proxy.ts`'s header comment
+and `proxy.test.ts` before touching this.
+
 ## Data model
 
 Tables live in Convex (`convex/schema.ts`), addressed by camelCase names
@@ -77,13 +93,73 @@ domain, calling the compatibility shim then `revalidatePath`/`redirect`. See
 - Edit `Design.MD`, never the generated token blocks in `app/globals.css`
   directly (`scripts/sync-design.js` regenerates them; `next.config.ts`
   auto-watches in dev).
-- **Bump `package.json` version before pushing.** The CI pipeline tags the
-  Docker image with `NEXT_PUBLIC_APP_VERSION` (read from `package.json`).
-  Flux GitOps compares the image tag to decide whether to roll the pods.
-  If the version doesn't change, containers are never replaced — your code
-  ships to `develop` or `main` but the running pods keep serving the old
-  image. Every PR that changes application code **must** include a version
-  bump (patch for fixes, minor for features, major for breaking changes).
+- **Bump `package.json` version before pushing** (patch for fixes, minor for
+  features, major for breaking changes).
+
+  Note on *why*: the image tag is the **git SHA**, not the version. CI builds
+  `ghcr.io/cleveritdemo/bootcamp-platform:develop-<short-sha>` (plus the moving
+  `:develop`), and the `promote-dev` job pins the dev overlay in
+  `orbital-k3s-gitops` to that SHA tag — so pods roll on **every** commit,
+  bumped or not. `NEXT_PUBLIC_APP_VERSION` is a build arg surfaced in the UI
+  footer (`v0.1.17 (dev · 7d3d439)`), which is the fastest way to confirm what
+  is actually live. Bump it to keep that footer and the release history
+  meaningful, not because deployment depends on it.
+
+### Convex functions are deployed separately from the app
+
+`convex/` (functions + schema) does **not** travel in the Docker image — the
+image only carries `NEXT_PUBLIC_CONVEX_URL` pointing at the backend. CI deploys
+them in the `Deploy Convex functions` job; the `image` job depends on it, so app
+code can't ship ahead of the backend it calls.
+
+**The two environments use different Convex backends:**
+
+| Branch | Backend | Auth | CI secret | Image URL variable |
+|---|---|---|---|---|
+| `develop` | **self-hosted, in-cluster** — `convex-dev.nodrize.dev` | admin key | `CONVEX_SELF_HOSTED_ADMIN_KEY` | `NEXT_PUBLIC_CONVEX_URL_DEV` |
+| `main` | **cloud** production deployment | deploy key | `CONVEX_DEPLOY_KEY_PROD` | `NEXT_PUBLIC_CONVEX_URL_PROD` |
+
+`NEXT_PUBLIC_CONVEX_URL` is **baked into the image at build time**, so it must
+match the branch's backend. CI selects the variable from the branch; a single
+shared variable would ship a production image pointing at the dev backend.
+
+The self-hosted backend is defined in `orbital-k3s-gitops` under
+`apps/bootcamp-platform/convex-selfhosted/` (StatefulSet + Service on ports
+3210/3211, ingress, and a weekly CronJob that exports cloud-prod and
+`--replace-all` imports it into dev — **dev data is overwritten every Monday**).
+
+Self-hosted mode is selected by `CONVEX_SELF_HOSTED_URL` / `_ADMIN_KEY`, and the
+cloud variables must be *absent* or the CLI prefers them — hence the `env -u
+CONVEX_DEPLOY_KEY -u CONVEX_DEPLOYMENT` in both CI and the sync CronJob.
+
+The admin key lives in Vault and is synced to the `convex-selfhosted` secret:
+
+```bash
+kubectl -n bootcamp-platform-dev get secret convex-selfhosted \
+  -o jsonpath='{.data.ADMIN_KEY}' | base64 -d
+```
+
+**If the branch's secret is not set, the job logs a warning and skips**, and
+Convex changes silently never reach the backend.
+
+To push functions by hand to the self-hosted dev backend:
+
+```bash
+env -u CONVEX_DEPLOY_KEY -u CONVEX_DEPLOYMENT \
+  CONVEX_SELF_HOSTED_URL=https://convex-dev.nodrize.dev \
+  CONVEX_SELF_HOSTED_ADMIN_KEY="$(kubectl -n bootcamp-platform-dev get secret \
+    convex-selfhosted -o jsonpath='{.data.ADMIN_KEY}' | base64 -d)" \
+  npx convex deploy --yes
+```
+
+To check what is actually live on a deployment:
+
+```bash
+curl -s -X POST "$NEXT_PUBLIC_CONVEX_URL/api/query" -H 'Content-Type: application/json' \
+  -d '{"path":"courseImport:applyImport","args":{},"format":"json"}'
+# "Could not find public function" = not deployed
+# ArgumentValidationError                = deployed, just needs args
+```
 
 ## Branch strategy
 
@@ -133,6 +209,23 @@ See `architecture-roadmap/ROADMAP.md` for full detail. Highlights:
 
 - `npm run dev` — start dev server (also auto-spawns the Design.MD watcher).
 - `npm run build` / `npm start` — production build / serve.
-- `npm run lint` — ESLint. No test runner is configured.
+- `npm run lint` — ESLint. ~430 pre-existing problems, so a non-zero exit is
+  not necessarily your change.
+- `npm run test` — Vitest (`vitest run`); `npm run test:watch` for watch mode.
+  CI runs this and it gates the build.
 - `npm run sync-design` / `npm run watch-design` — compile `Design.MD` tokens
   into `app/globals.css` once / in watch mode.
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read
+`convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running
+`npx convex ai-files install`.
+
+<!-- convex-ai-end -->
