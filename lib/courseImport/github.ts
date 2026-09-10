@@ -40,7 +40,7 @@ const GITHUB_API_ORIGIN = 'https://api.github.com';
 const GITHUB_OWNER_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
 const GITHUB_REPO_PATTERN = /^[A-Za-z0-9._-]+$/;
 const GITHUB_SHA_PATTERN = /^[a-f0-9]{40}$/i;
-const INVALID_GIT_REF_CHARS = /[\x00-\x20\x7f~^:?*[\\]/;
+const INVALID_GIT_REF_CHARS = /[\x00-\x20\x7f~^:?*\[\\]/;
 
 function githubApiUrl(path: string): URL {
     if (!path.startsWith('/')) {
