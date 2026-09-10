@@ -36,12 +36,10 @@ describe('VIP email overrides', () => {
     // query resolved. Scan the whole repo rather than a hand-maintained list of
     // files, so a fourth copy cannot quietly appear.
     it('no source file outside lib/vipEmails.ts hardcodes a VIP email', () => {
-        const files = execSync(
-            "git ls-files '*.ts' '*.tsx' | grep -v -e '^lib/vipEmails' -e '.test.ts'",
-            { encoding: 'utf8' },
-        )
+        const files = execSync("git ls-files '*.ts' '*.tsx'", { encoding: 'utf8' })
             .split('\n')
-            .filter(Boolean);
+            .filter(Boolean)
+            .filter((file) => !file.startsWith('lib/vipEmails') && !file.endsWith('.test.ts'));
 
         expect(files.length).toBeGreaterThan(20); // sanity: the scan found real files
 

@@ -49,6 +49,7 @@ interface ExamOption {
 interface ExamQuestion {
     id: string;
     text: string;
+    explanation?: string;
     options: ExamOption[];
 }
 
@@ -119,7 +120,7 @@ const getGroupedLessons = (lessons: Lesson[]) => {
 };
 
 const getInitialExamQuestions = (): ExamQuestion[] => ([
-    { id: '1', text: '', options: [{ id: '1-1', text: '', isCorrect: false }] }
+    { id: '1', text: '', explanation: '', options: [{ id: '1-1', text: '', isCorrect: false }] }
 ]);
 
 const cleanBulkLine = (line: string) => line
@@ -167,11 +168,17 @@ const parseBulkExamQuestions = (rawText: string): ExamQuestion[] => {
             .map(cleanBulkLine)
             .filter(Boolean);
         const answerLineIndex = lines.findIndex(line => /^(respuesta|correcta)\s*:/i.test(line));
+        const explanationLineIndex = lines.findIndex(line => /^(explicaci[oó]n|feedback)\s*:/i.test(line));
         const answerToken = answerLineIndex >= 0
             ? lines[answerLineIndex].split(':').slice(1).join(':').trim().toLowerCase()
             : '';
+        const explanation = explanationLineIndex >= 0
+            ? lines[explanationLineIndex].split(':').slice(1).join(':').trim()
+            : '';
         const contentLines = answerLineIndex >= 0
-            ? lines.filter((_, index) => index !== answerLineIndex)
+            ? lines.filter((_, index) => index !== answerLineIndex && index !== explanationLineIndex)
+            : explanationLineIndex >= 0
+            ? lines.filter((_, index) => index !== explanationLineIndex)
             : lines;
         const firstOptionIndex = contentLines.findIndex(line => /^([a-zA-Z]|\d+)[.)]\s+/.test(line));
 
@@ -219,6 +226,7 @@ const parseBulkExamQuestions = (rawText: string): ExamQuestion[] => {
         return {
             id: `${Date.now()}-${blockIndex + 1}`,
             text: questionText,
+            explanation,
             options,
         };
     });
@@ -1505,6 +1513,17 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                                         className="w-full px-3 py-2 text-lg font-medium bg-transparent border-b border-border focus:border-primary outline-none transition-colors"
                                                         placeholder="Escribe tu pregunta aquí..."
                                                     />
+                                                    <textarea
+                                                        value={question.explanation || ''}
+                                                        onChange={(e) => {
+                                                            const newQuestions = [...examQuestions];
+                                                            newQuestions[qIndex].explanation = e.target.value;
+                                                            setExamQuestions(newQuestions);
+                                                        }}
+                                                        rows={2}
+                                                        className="mt-3 w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:border-primary outline-none transition-colors resize-y"
+                                                        placeholder="Explicación opcional para mostrar al alumno después de responder..."
+                                                    />
                                                 </div>
                                                 {examQuestions.length > 1 && (
                                                     <button
@@ -1648,7 +1667,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         onClick={() => {
                                             setExamQuestions([
                                                 ...examQuestions,
-                                                { id: `${Date.now()}`, text: '', options: [{ id: `${Date.now()}-1`, text: '', isCorrect: false }] }
+                                                { id: `${Date.now()}`, text: '', explanation: '', options: [{ id: `${Date.now()}-1`, text: '', isCorrect: false }] }
                                             ]);
                                         }}
                                         className="w-full py-3 border border-dashed border-primary/30 rounded-lg text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2 font-medium"
