@@ -32,7 +32,9 @@ class CreateBootcampErrorBoundary extends Component<
                     <div className="max-w-md rounded-xl border border-red-500/20 bg-red-500/10 p-6">
                         <h2 className="text-lg font-semibold text-red-500 mb-2">Error al cargar</h2>
                         <pre className="text-sm text-red-400 whitespace-pre-wrap font-mono mb-4">
-                            {(this.state.error as Error)?.message || 'Error desconocido'}
+                            {process.env.NODE_ENV === 'development'
+                                ? ((this.state.error as Error)?.message || 'Error desconocido')
+                                : 'Ocurrió un error inesperado al cargar el formulario de creación.'}
                         </pre>
                         <button
                             onClick={() => window.location.reload()}
