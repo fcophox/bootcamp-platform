@@ -16,6 +16,7 @@ interface Option {
 interface Question {
     id: string;
     text: string;
+    explanation?: string;
     options: Option[];
 }
 
@@ -175,7 +176,7 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
                 </div>
             )}
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-12 flex flex-col items-center justify-center min-h-[500px]">
+            <div className={`flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-12 flex flex-col items-center min-h-[500px] ${status === 'review' || status === 'result' ? 'justify-start' : 'justify-center'}`}>
 
                 {/* INTRO STEP */}
                 {status === 'intro' && (
@@ -301,11 +302,13 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
 
                 {/* REVIEW STEP */}
                 {status === 'review' && (
-                    <div className="max-w-3xl w-full animate-in fade-in">
-                        <h2 className="text-2xl font-bold mb-2">Revisión de respuestas</h2>
-                        <p className="text-muted mb-8">Revisa tus selecciones antes de enviar. Una vez enviado no hay vuelta atrás.</p>
+                    <div className="max-w-4xl w-full animate-in fade-in">
+                        <div className="mb-8">
+                            <h2 className="text-3xl font-bold mb-2">Revisión de respuestas</h2>
+                            <p className="text-muted">Revisa tus selecciones antes de enviar. Una vez enviado no hay vuelta atrás.</p>
+                        </div>
 
-                        <div className="space-y-4 mb-8 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                        <div className="space-y-4 mb-8">
                             {questions.map((q, idx) => {
                                 const selectedOptionId = answers[q.id];
                                 const selectedOption = q.options.find(o => o.id === selectedOptionId);
@@ -325,9 +328,9 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
                                             </button>
                                         </div>
                                         <p className="font-medium mb-2">{q.text}</p>
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <span className="text-muted">Tu respuesta:</span>
-                                            <span className={selectedOption ? 'text-primary font-medium' : 'text-red-500'}>
+                                        <div className="text-sm">
+                                            <span className="block text-muted mb-1">Tu respuesta:</span>
+                                            <span className={`block ${selectedOption ? 'text-primary font-medium' : 'text-red-500'}`}>
                                                 {selectedOption ? selectedOption.text : 'Sin responder'}
                                             </span>
                                         </div>
@@ -357,53 +360,125 @@ export function LessonExamPlayer({ title, questions, durationMinutes, onComplete
 
                 {/* RESULT STEP */}
                 {status === 'result' && result && (
-                    <div className="max-w-xl w-full bg-card-bg border border-border rounded-2xl p-10 shadow-lg text-center animate-in zoom-in-95">
-                        <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 ${(result.score / result.total) * 100 >= passingScore ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                            {(result.score / result.total) * 100 >= passingScore ? <CheckCircle size={48} /> : <AlertCircle size={48} />}
-                        </div>
-
-                        <h2 className="text-3xl font-bold mb-2">
-                            {(result.score / result.total) * 100 >= passingScore ? '¡Felicitaciones!' : 'Sigue intentando'}
-                        </h2>
-                        <p className="text-muted mb-8">
-                                Has completado el {contentLabel}. Aquí está tu resultado:
-                        </p>
-
-                        <div className="py-8 border-y border-border mb-8">
-                            <div className="text-5xl font-black mb-2 text-foreground">
-                                {Math.round((result.score / result.total) * 100)}%
+                    <div className="w-full max-w-4xl animate-in fade-in slide-in-from-bottom-3">
+                        <div className="mb-8 flex flex-col gap-5 rounded-3xl bg-card-bg/60 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8 border border-border/40">
+                            <div className="flex items-center gap-4 min-w-0">
+                                <div className={`w-16 h-16 rounded-full flex items-center justify-center shrink-0 ${(result.score / result.total) * 100 >= passingScore ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                    {(result.score / result.total) * 100 >= passingScore ? <CheckCircle size={32} /> : <AlertCircle size={32} />}
+                                </div>
+                                <div className="min-w-0 text-left">
+                                    <h2 className="text-2xl font-bold mb-1">
+                                        {(result.score / result.total) * 100 >= passingScore ? '¡Felicitaciones!' : 'Sigue intentando'}
+                                    </h2>
+                                    <p className="text-sm text-muted">
+                                        Has completado el {contentLabel}. Aquí está tu resultado:
+                                    </p>
+                                </div>
                             </div>
-                            <p className="text-muted">
-                                {result.score} correctas de {result.total}
-                            </p>
+
+                            <div className="text-left sm:text-right">
+                                <div className="text-4xl font-black text-foreground sm:text-5xl">
+                                    {Math.round((result.score / result.total) * 100)}%
+                                </div>
+                                <p className="mt-1 text-sm text-muted">
+                                    {result.score} correctas de {result.total}
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="flex flex-col gap-3">
+                        <div className="mb-8 text-left">
+                            <div className="flex items-center justify-between gap-3 mb-4">
+                                <h3 className="text-xl font-semibold">Detalle de respuestas</h3>
+                                <span className="text-xs text-muted">Revisa cada pregunta</span>
+                            </div>
+                            <div className="space-y-4">
+                                {questions.map((question, index) => {
+                                    const selectedOptionId = answers[question.id];
+                                    const selectedOption = question.options.find(option => option.id === selectedOptionId);
+                                    const correctOption = question.options.find(option => option.isCorrect);
+                                    const isCorrect = Boolean(correctOption && selectedOptionId === correctOption.id);
+
+                                    return (
+                                        <div key={question.id} className="p-4 rounded-xl border border-border bg-background">
+                                            <div className="flex items-start justify-between gap-3 mb-3">
+                                                <div>
+                                                    <span className="text-xs font-semibold text-muted uppercase tracking-wider">Pregunta {index + 1}</span>
+                                                    <p className="font-medium mt-1 text-foreground">{question.text}</p>
+                                                </div>
+                                                <span className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${isCorrect ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                    {isCorrect ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                                                    {isCorrect ? 'Correcta' : 'Incorrecta'}
+                                                </span>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                {question.options.map((option) => {
+                                                    const isSelected = option.id === selectedOptionId;
+                                                    const optionIsCorrect = Boolean(option.isCorrect);
+                                                    const showAsWrong = isSelected && !optionIsCorrect;
+                                                    const showAsCorrect = optionIsCorrect;
+
+                                                    return (
+                                                        <div
+                                                            key={option.id}
+                                                            className={`flex items-start justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${showAsCorrect
+                                                                ? 'border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300'
+                                                                : showAsWrong
+                                                                ? 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300'
+                                                                : 'border-border bg-background text-muted'
+                                                                }`}
+                                                        >
+                                                            <span>{option.text}</span>
+                                                            <span className="shrink-0 text-xs font-semibold">
+                                                                {showAsCorrect ? (isSelected ? 'Tu respuesta correcta' : 'Respuesta correcta') : showAsWrong ? 'Tu respuesta' : ''}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {!selectedOption && (
+                                                <p className="mt-3 text-sm text-red-500 font-medium">No respondiste esta pregunta.</p>
+                                            )}
+
+                                            {question.explanation?.trim() && (
+                                                <div className="mt-3 rounded-lg bg-background border border-border px-3 py-2">
+                                                    <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">Explicación</p>
+                                                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">{question.explanation}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             {(result.score / result.total) * 100 >= passingScore ? (
                                 onNext && (
                                     <button
                                         onClick={onNext}
-                                        className="w-full px-8 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                                        className="w-auto self-end px-8 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 sm:ml-auto"
                                     >
-                                        Pasar a la siguiente <ArrowRight size={18} />
+                                        Siguiente <ArrowRight size={18} />
                                     </button>
                                 )
                             ) : (
                                 <>
-                                    {onNext && (
-                                        <button
-                                            onClick={onNext}
-                                            className="w-full px-8 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
-                                        >
-                                            Pasar a la siguiente <ArrowRight size={18} />
-                                        </button>
-                                    )}
                                     {!hasReachedAttemptLimit && (
                                         <button
                                             onClick={handleRetry}
-                                            className="w-full px-8 py-3 bg-secondary text-secondary-foreground rounded-xl font-medium hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                                            className="w-auto px-8 py-3 bg-secondary text-secondary-foreground rounded-xl font-medium hover:opacity-90 transition-all flex items-center justify-center gap-2"
                                         >
                                         <RefreshCw size={18} /> Volver a realizar {contentLabel}
+                                        </button>
+                                    )}
+                                    {onNext && (
+                                        <button
+                                            onClick={onNext}
+                                            className="w-auto self-end px-8 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20 sm:ml-auto"
+                                        >
+                                            Siguiente <ArrowRight size={18} />
                                         </button>
                                     )}
                                 </>
