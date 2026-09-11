@@ -5,7 +5,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeHotkey } from "@/components/theme-hotkey";
 import { OnlineUsersProvider } from "@/contexts/OnlineUsersContext";
 import { PresenceTracker } from "@/components/presence-tracker";
-import { EnvBanner } from "@/components/env-banner";
 import { ClarityAnalytics } from "@/components/clarity-analytics";
 import { VersionTag } from "@/components/version-tag";
 import { isProdEnv } from "@/utils/env";
@@ -91,9 +90,8 @@ export default function RootLayout({
     <ConvexAuthNextjsServerProvider>
       <html lang="es" suppressHydrationWarning>
         <body
-          className={`${sansation.variable} ${sansation.className} antialiased ${isProdEnv() ? "" : "pt-6"}`}
+          className={`${sansation.variable} ${sansation.className} antialiased`}
         >
-          <EnvBanner />
           <ClarityAnalytics />
           <VersionTag />
           <ConvexClientProvider>
