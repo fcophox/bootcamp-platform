@@ -474,20 +474,20 @@ export default function BootcampDetailsClient({ bootcamp, masterclass }: Bootcam
                                                                         } catch { }
                                                                         const accentClasses = examKind === 'exam'
                                                                             ? {
-                                                                                card: 'bg-emerald-500/5 hover:bg-emerald-500/10 border-emerald-500/20',
+                                                                                card: 'bg-transparent hover:bg-hover-bg/30 border-border/50',
                                                                                 badge: 'bg-emerald-500/20 text-emerald-400 shadow-emerald-500/10',
-                                                                                thumbnail: 'from-emerald-900/40 border-emerald-500/30 group-hover:border-emerald-500/50',
-                                                                                overlay: 'bg-emerald-500/10',
-                                                                                icon: 'text-emerald-300',
+                                                                                thumbnail: 'bg-card-bg/80 border-border/50 group-hover:border-border/50',
+                                                                                overlay: 'hidden',
+                                                                                icon: 'text-emerald-400',
                                                                                 title: 'group-hover:text-emerald-300',
                                                                                 button: 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-900/20 hover:shadow-emerald-600/30',
                                                                             }
                                                                             : {
-                                                                                card: 'bg-violet-500/5 hover:bg-violet-500/10 border-violet-500/20',
+                                                                                card: 'bg-transparent hover:bg-hover-bg/30 border-border/50',
                                                                                 badge: 'bg-violet-500/20 text-violet-400 shadow-violet-500/10',
-                                                                                thumbnail: 'from-violet-900/40 border-violet-500/30 group-hover:border-violet-500/50',
-                                                                                overlay: 'bg-violet-500/10',
-                                                                                icon: 'text-violet-300',
+                                                                                thumbnail: 'bg-card-bg/80 border-border/50 group-hover:border-border/50',
+                                                                                overlay: 'hidden',
+                                                                                icon: 'text-emerald-400',
                                                                                 title: 'group-hover:text-violet-300',
                                                                                 button: 'bg-violet-600 hover:bg-violet-700 shadow-violet-900/20 hover:shadow-violet-600/30',
                                                                             };
@@ -503,7 +503,7 @@ export default function BootcampDetailsClient({ bootcamp, masterclass }: Bootcam
                                                                                 {/* Content */}
                                                                                 <div className="flex flex-1 items-start gap-3 md:gap-6">
                                                                                     {/* Thumbnail */}
-                                                                                    <div className={`hidden md:flex h-20 w-20 bg-gradient-to-br to-background rounded-lg flex-shrink-0 border relative overflow-hidden items-center justify-center transition-colors ${accentClasses.thumbnail}`}>
+                                                                                    <div className={`hidden md:flex h-20 w-20 rounded-lg flex-shrink-0 border relative overflow-hidden items-center justify-center transition-colors ${accentClasses.thumbnail}`}>
                                                                                         <div className={`absolute inset-0 mix-blend-overlay ${accentClasses.overlay}`}></div>
                                                                                         <Trophy size={24} className={`relative z-10 ${accentClasses.icon}`} />
                                                                                     </div>
