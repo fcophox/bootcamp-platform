@@ -128,6 +128,9 @@ const cleanBulkLine = (line: string) => line
     .replace(/^[-*•]\s*/, '')
     .trim();
 
+const isBulkExplanationHeading = (heading: string) =>
+    /^(explanation|explicaci[oó]n|feedback)\s*:?$/i.test(heading.trim());
+
 const splitBulkExamSections = (rawText: string) => {
     const lines = rawText.replace(/\r\n/g, '\n').split('\n');
     const sections: { heading: string; lines: string[] }[] = [];
@@ -137,9 +140,15 @@ const splitBulkExamSections = (rawText: string) => {
     lines.forEach((line) => {
         const headingMatch = line.match(/^#{1,6}\s*(?:\d+[.)]?\s*)?(.*)$/);
         if (headingMatch) {
+            const heading = headingMatch[1].trim();
             foundMarkdownHeading = true;
+            if (currentSection && isBulkExplanationHeading(heading)) {
+                currentSection.lines.push('Explicación:');
+                return;
+            }
+
             if (currentSection) sections.push(currentSection);
-            currentSection = { heading: headingMatch[1].trim(), lines: [] };
+            currentSection = { heading, lines: [] };
             return;
         }
 
@@ -168,18 +177,28 @@ const parseBulkExamQuestions = (rawText: string): ExamQuestion[] => {
             .map(cleanBulkLine)
             .filter(Boolean);
         const answerLineIndex = lines.findIndex(line => /^(respuesta|correcta)\s*:/i.test(line));
-        const explanationLineIndex = lines.findIndex(line => /^(explicaci[oó]n|feedback)\s*:/i.test(line));
+        const explanationLineIndex = lines.findIndex(line => /^(explicaci[oó]n|explanation|feedback)\s*:/i.test(line));
         const answerToken = answerLineIndex >= 0
             ? lines[answerLineIndex].split(':').slice(1).join(':').trim().toLowerCase()
             : '';
-        const explanation = explanationLineIndex >= 0
-            ? lines[explanationLineIndex].split(':').slice(1).join(':').trim()
-            : '';
-        const contentLines = answerLineIndex >= 0
-            ? lines.filter((_, index) => index !== answerLineIndex && index !== explanationLineIndex)
-            : explanationLineIndex >= 0
-            ? lines.filter((_, index) => index !== explanationLineIndex)
-            : lines;
+        const explanationLineIndexes = new Set<number>();
+        const explanationParts: string[] = [];
+
+        if (explanationLineIndex >= 0) {
+            explanationLineIndexes.add(explanationLineIndex);
+            const inlineExplanation = lines[explanationLineIndex].split(':').slice(1).join(':').trim();
+            if (inlineExplanation) explanationParts.push(inlineExplanation);
+
+            for (let index = explanationLineIndex + 1; index < lines.length; index += 1) {
+                const line = lines[index];
+                if (/^(respuesta|correcta)\s*:/i.test(line) || /^([a-zA-Z]|\d+)[.)]\s+/.test(line)) break;
+                explanationLineIndexes.add(index);
+                explanationParts.push(line);
+            }
+        }
+
+        const explanation = explanationParts.join('\n').trim();
+        const contentLines = lines.filter((_, index) => index !== answerLineIndex && !explanationLineIndexes.has(index));
         const firstOptionIndex = contentLines.findIndex(line => /^([a-zA-Z]|\d+)[.)]\s+/.test(line));
 
         if (firstOptionIndex < 0) {
@@ -560,6 +579,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
     const [examAttemptMode, setExamAttemptMode] = useState<ExamAttemptMode>('infinite');
     const [examMaxAttempts, setExamMaxAttempts] = useState(1);
     const [bulkExamContent, setBulkExamContent] = useState('');
+    const [bulkExamFileName, setBulkExamFileName] = useState('');
 
     const [toast, setToast] = useState<{ show: boolean, message: string } | null>(null);
 
@@ -658,6 +678,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         setExamAttemptMode('infinite');
         setExamMaxAttempts(1);
         setBulkExamContent('');
+        setBulkExamFileName('');
     };
 
     const handleImportBulkExam = () => {
@@ -672,6 +693,30 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
         } catch (error) {
             const e = error as Error;
             alert(e.message || 'No se pudo interpretar el contenido pegado.');
+        }
+    };
+
+    const handleBulkExamFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (!file.name.toLowerCase().endsWith('.md')) {
+            alert('Selecciona un archivo Markdown con extensión .md.');
+            event.target.value = '';
+            setBulkExamFileName('');
+            return;
+        }
+
+        try {
+            const content = await file.text();
+            setBulkExamContent(content);
+            setBulkExamFileName(file.name);
+            showToast(`Archivo ${file.name} cargado. Puedes revisarlo antes de importar.`);
+        } catch {
+            alert('No se pudo leer el archivo Markdown.');
+            setBulkExamFileName('');
+        } finally {
+            event.target.value = '';
         }
     };
 
@@ -843,6 +888,7 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                     setExamMaxAttempts(isFormalExam ? (parsed.settings?.maxAttempts || 1) : 1);
                 }
                 setBulkExamContent('');
+                setBulkExamFileName('');
                 setEditorContent('');
             } catch (e) {
                 console.error("Error parsing exam content for edit", e);
@@ -1400,18 +1446,28 @@ export function ManageBootcampClient({ bootcamp, modules, initialStudents = [] }
                                         <div className="p-4 bg-secondary/20 rounded-lg border border-border space-y-3">
                                             <div className="flex items-center gap-2 text-primary">
                                                 <Upload size={18} />
-                                                <h5 className="font-medium text-sm">Carga masiva desde texto</h5>
+                                                <h5 className="font-medium text-sm">Carga masiva desde Markdown</h5>
                                             </div>
-                                            <textarea
-                                                value={bulkExamContent}
-                                                onChange={(e) => setBulkExamContent(e.target.value)}
-                                                className="w-full h-44 px-3 py-2 rounded-md bg-background border border-border focus:ring-2 focus:ring-primary/20 outline-none text-sm resize-y font-mono"
-                                                placeholder={`## 1. Context Management\n\nEnunciado completo de la pregunta.\n\nA. Alternativa correcta *\nB. Alternativa incorrecta\nC. Alternativa incorrecta\n\n## 2. Prompt Engineering\n\nOtro enunciado.\n\nA. Opción uno\nB. Opción correcta\nRespuesta: B`}
-                                            />
+                                            <label className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors">
+                                                <span className="inline-flex items-center gap-2 text-sm font-medium text-primary">
+                                                    <FileUp size={16} />
+                                                    Examinar archivo Markdown (.md)
+                                                </span>
+                                                <span className="text-xs text-muted sm:ml-auto">
+                                                    {bulkExamFileName || 'Selecciona el MD con las preguntas'}
+                                                </span>
+                                                <input
+                                                    type="file"
+                                                    accept=".md,text/markdown,text/plain"
+                                                    onChange={handleBulkExamFileUpload}
+                                                    className="sr-only"
+                                                />
+                                            </label>
                                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                                <p className="text-xs text-muted">
-                                                    Puedes pegar secciones Markdown con ##. Marca la correcta con * o usa "Respuesta: A".
-                                                </p>
+                                                <div className="space-y-1 text-xs text-muted">
+                                                    <p>El archivo debe usar secciones Markdown con ## para cada pregunta. Marca la correcta con * o usa &quot;Respuesta: A&quot;.</p>
+                                                    <p>Usa &quot;### Explanation&quot; debajo de las alternativas para escribir la explicación o feedback que verá el alumno sobre la respuesta correcta.</p>
+                                                </div>
                                                 <button
                                                     type="button"
                                                     onClick={handleImportBulkExam}
