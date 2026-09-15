@@ -4,10 +4,32 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Sidebar } from '@/components/sidebar';
 import { useSidebar } from '@/components/sidebar-context';
-import { User, ShieldCheck, GraduationCap, Mail, Search, Users, ShieldAlert, MoreHorizontal, Trash2, Loader2, UserPlus, UserMinus, AlertTriangle, X, Menu } from 'lucide-react';
+import { User, ShieldCheck, GraduationCap, Mail, Search, Users, ShieldAlert, MoreHorizontal, Trash2, Loader2, UserPlus, UserMinus, AlertTriangle, X, Menu, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Zap, Palette, Briefcase } from 'lucide-react';
 
 import { getAllUsersWithRoles } from '@/utils/roles-client';
 import { deleteUser, updateUserRole } from './actions';
+
+const BOOTCAMP_ICONS = {
+    code: Code,
+    database: Database,
+    layout: Layout,
+    globe: Globe,
+    server: Server,
+    cloud: Cloud,
+    cpu: Cpu,
+    smartphone: Smartphone,
+    bot: Bot,
+    brain: BrainCircuit,
+    sparkles: Sparkles,
+    network: Network,
+    terminal: Terminal,
+    microscope: Microscope,
+    rocket: Rocket,
+    binary: Binary,
+    zap: Zap,
+    palette: Palette,
+    briefcase: Briefcase,
+} as const;
 
 interface ConfirmModalProps {
     isOpen: boolean;
@@ -23,6 +45,7 @@ interface ConfirmModalProps {
 // Componente de tooltip para los bootcamps
 function BootcampTooltip({ bootcamp }: { bootcamp: { name: string; status: string; icon?: string } }) {
     const [showTooltip, setShowTooltip] = useState(false);
+    const Icon = BOOTCAMP_ICONS[(bootcamp.icon || 'code').toLowerCase() as keyof typeof BOOTCAMP_ICONS] || GraduationCap;
     
     return (
         <div 
@@ -35,11 +58,7 @@ function BootcampTooltip({ bootcamp }: { bootcamp: { name: string; status: strin
                     ? 'border-amber-500/30 bg-amber-500/10 text-amber-500'
                     : 'border-primary/30 bg-primary/10 text-primary'
             }`}>
-                {bootcamp.icon ? (
-                    <span className="text-xs">{bootcamp.icon}</span>
-                ) : (
-                    <GraduationCap size={14} />
-                )}
+                <Icon size={14} />
             </div>
             {showTooltip && (
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-card-bg border border-white/10 rounded-lg shadow-xl z-50 whitespace-nowrap animate-in fade-in zoom-in-95 duration-150">
