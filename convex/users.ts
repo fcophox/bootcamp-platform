@@ -153,6 +153,232 @@ export const listAllUsersWithRoles = query({
   },
 });
 
+export const deleteUserEverywhere = mutation({
+  args: {
+    userId: v.string(),
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const requesterId = await getAuthUserId(ctx);
+    if (!requesterId) {
+      throw new Error("No autorizado");
+    }
+
+    const requester = await ctx.db.get(requesterId);
+    const requesterEmail = requester?.email?.toLowerCase().trim() || "";
+    const requesterVipRole = getVipRole(requesterEmail);
+    let requesterRole = requesterVipRole || requester?.role || null;
+
+    if (!requesterRole) {
+      const legacyUsers = await ctx.db.query("legacyAuth").collect();
+      const legacyRequester = legacyUsers.find(
+        (user) => user.email.toLowerCase().trim() === requesterEmail
+      );
+      requesterRole = legacyRequester?.role || null;
+    }
+
+    if (requesterRole !== "superadmin") {
+      throw new Error("No autorizado");
+    }
+
+    const normalizedEmail = args.email.toLowerCase().trim();
+    if (!normalizedEmail) {
+      throw new Error("Email inválido");
+    }
+
+    let nativeUserId = ctx.db.normalizeId("users", args.userId);
+    if (!nativeUserId) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("email", (q) => q.eq("email", normalizedEmail))
+        .first();
+      nativeUserId = user?._id || null;
+    }
+
+    if (nativeUserId === requesterId) {
+      throw new Error("No puedes eliminar tu propio usuario.");
+    }
+
+    const nativeUserIdString = nativeUserId?.toString();
+
+    const legacyUsers = await ctx.db.query("legacyAuth").collect();
+    for (const legacyUser of legacyUsers) {
+      if (
+        legacyUser._id.toString() === args.userId ||
+        legacyUser.supabaseUserId === args.userId ||
+        legacyUser.email.toLowerCase().trim() === normalizedEmail
+      ) {
+        await ctx.db.delete(legacyUser._id);
+      }
+    }
+
+    const enrollments = await ctx.db.query("bootcampStudents").collect();
+    for (const enrollment of enrollments) {
+      if (
+        enrollment.userId === args.userId ||
+        (nativeUserIdString && enrollment.userId === nativeUserIdString) ||
+        enrollment.email?.toLowerCase().trim() === normalizedEmail
+      ) {
+        await ctx.db.delete(enrollment._id);
+      }
+    }
+
+    const presenceRows = await ctx.db.query("presence").collect();
+    for (const presence of presenceRows) {
+      if (
+        presence.userId === args.userId ||
+        (nativeUserIdString && presence.userId === nativeUserIdString) ||
+        presence.email.toLowerCase().trim() === normalizedEmail
+      ) {
+        await ctx.db.delete(presence._id);
+      }
+    }
+
+    if (nativeUserId) {
+      const sessions = await ctx.db
+        .query("authSessions")
+        .withIndex("userId", (q) => q.eq("userId", nativeUserId))
+        .collect();
+      for (const session of sessions) {
+        const refreshTokens = await ctx.db
+          .query("authRefreshTokens")
+          .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
+          .collect();
+        for (const refreshToken of refreshTokens) {
+          await ctx.db.delete(refreshToken._id);
+        }
+        await ctx.db.delete(session._id);
+      }
+
+      const accounts = await ctx.db
+        .query("authAccounts")
+        .withIndex("userIdAndProvider", (q) => q.eq("userId", nativeUserId))
+        .collect();
+      for (const account of accounts) {
+        const verificationCodes = await ctx.db
+          .query("authVerificationCodes")
+          .withIndex("accountId", (q) => q.eq("accountId", account._id))
+          .collect();
+        for (const code of verificationCodes) {
+          await ctx.db.delete(code._id);
+        }
+        await ctx.db.delete(account._id);
+      }
+
+      const verifiers = await ctx.db.query("authVerifiers").collect();
+      for (const verifier of verifiers) {
+        if (sessions.some((session) => session._id === verifier.sessionId)) {
+          await ctx.db.delete(verifier._id);
+        }
+      }
+
+      await ctx.db.delete(nativeUserId);
+    }
+
+    return { success: true };
+  },
+});
+
+export const associateUserToBootcamp = mutation({
+  args: {
+    userId: v.string(),
+    email: v.string(),
+    bootcampId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.email.toLowerCase().trim();
+    if (!normalizedEmail) {
+      throw new Error("Email inválido");
+    }
+
+    let bootcampId = ctx.db.normalizeId("bootcamps", args.bootcampId);
+    let bootcamp = bootcampId ? await ctx.db.get(bootcampId) : null;
+
+    if (!bootcamp) {
+      const legacyId = parseInt(args.bootcampId, 10);
+      if (!Number.isNaN(legacyId)) {
+        const bootcamps = await ctx.db.query("bootcamps").collect();
+        bootcamp = bootcamps.find((item) => item.legacyId === legacyId) || null;
+        bootcampId = bootcamp?._id || null;
+      }
+    }
+
+    if (!bootcamp || !bootcampId) {
+      throw new Error("Bootcamp no encontrado");
+    }
+
+    let nativeUserId = ctx.db.normalizeId("users", args.userId);
+    if (!nativeUserId) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("email", (q) => q.eq("email", normalizedEmail))
+        .first();
+      nativeUserId = user?._id || null;
+    }
+
+    const existingEnrollment = await ctx.db
+      .query("bootcampStudents")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("bootcampId"), bootcampId),
+          q.eq(q.field("email"), normalizedEmail)
+        )
+      )
+      .first();
+
+    if (existingEnrollment) {
+      throw new Error("Este usuario ya está asociado a ese bootcamp.");
+    }
+
+    const enrollments = await ctx.db.query("bootcampStudents").collect();
+    const maxLegacyId = enrollments.reduce((max, enrollment) => {
+      const legacyId = typeof enrollment.legacyId === "number" ? enrollment.legacyId : 0;
+      return legacyId > max ? legacyId : max;
+    }, 0);
+
+    const enrollment: {
+      bootcampId: typeof bootcampId;
+      userId?: string;
+      email: string;
+      name: string;
+      status: string;
+      invitedAt: number;
+      enrolledAt: number;
+      legacyId: number;
+      legacyBootcampId?: unknown;
+    } = {
+      bootcampId,
+      email: normalizedEmail,
+      name: normalizedEmail.split("@")[0],
+      status: "active",
+      invitedAt: Date.now(),
+      enrolledAt: Date.now(),
+      legacyId: maxLegacyId + 1,
+    };
+
+    if (nativeUserId) {
+      enrollment.userId = nativeUserId.toString();
+    } else {
+      enrollment.userId = args.userId;
+    }
+
+    if (bootcamp.legacyId !== undefined) {
+      enrollment.legacyBootcampId = bootcamp.legacyId;
+    }
+
+    await ctx.db.insert("bootcampStudents", enrollment);
+
+    return {
+      success: true,
+      bootcamp: {
+        id: bootcampId.toString(),
+        title: bootcamp.title,
+        icon: bootcamp.icon,
+      },
+    };
+  },
+});
+
 /**
  * Internal mutation para crear usuario desde legacy.
  */

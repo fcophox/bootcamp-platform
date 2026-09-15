@@ -176,6 +176,17 @@ export const acceptInvitation = mutation({
     }
     
     const email = args.userEmail.toLowerCase().trim();
+    let user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", email))
+      .first();
+    if (!user) {
+      const users = await ctx.db.query("users").collect();
+      user = users.find((u) => u.email?.toLowerCase().trim() === email) || null;
+    }
+    if (user && !user.role) {
+      await ctx.db.patch(user._id, { role: "alumno" });
+    }
     
     // Check if user is already enrolled
     const existingEnrollment = await ctx.db
@@ -188,7 +199,25 @@ export const acceptInvitation = mutation({
       )
       .first();
     
-    if (!existingEnrollment) {
+    if (existingEnrollment) {
+      const nextStatus = existingEnrollment.status || "invited";
+      const enrollmentPatch: {
+        userId?: string;
+        name?: string;
+        status: string;
+        joinedAt: number;
+        updatedAt: number;
+      } = {
+        name: existingEnrollment.name || args.userName || user?.name || email.split("@")[0],
+        status: nextStatus,
+        joinedAt: existingEnrollment.joinedAt || Date.now(),
+        updatedAt: Date.now(),
+      };
+      if (!existingEnrollment.userId && user) {
+        enrollmentPatch.userId = user._id.toString();
+      }
+      await ctx.db.patch(existingEnrollment._id, enrollmentPatch);
+    } else {
       // Get next legacyId for bootcampStudents
       const allStudents = await ctx.db.query("bootcampStudents").collect();
       const maxLegacyId = allStudents.reduce((max, s) => {
@@ -197,16 +226,33 @@ export const acceptInvitation = mutation({
       }, 0);
       
       // Enroll user in bootcamp
-      await ctx.db.insert("bootcampStudents", {
+      const enrollment: {
+        bootcampId: typeof bootcampId;
+        userId?: string;
+        email: string;
+        name: string;
+        status: string;
+        enrolledAt: number;
+        invitedAt: number;
+        legacyId: number;
+        legacyBootcampId?: unknown;
+      } = {
         bootcampId: bootcampId,
         email: email,
-        name: args.userName || email.split("@")[0],
-        status: "active",
+        name: args.userName || user?.name || email.split("@")[0],
+        status: "invited",
         enrolledAt: Date.now(),
         invitedAt: Date.now(),
         legacyId: maxLegacyId + 1,
-        legacyBootcampId: bootcamp?.legacyId || invitation.legacyBootcampId,
-      });
+      };
+      if (user) {
+        enrollment.userId = user._id.toString();
+      }
+      const legacyBootcampId = bootcamp?.legacyId || invitation.legacyBootcampId;
+      if (legacyBootcampId !== undefined) {
+        enrollment.legacyBootcampId = legacyBootcampId;
+      }
+      await ctx.db.insert("bootcampStudents", enrollment);
     }
     
     // Mark invitation as used

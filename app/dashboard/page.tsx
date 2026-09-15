@@ -1,4 +1,4 @@
-import { fetchQuery } from "convex/nextjs";
+import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { DashboardClient } from './dashboard-client';
@@ -6,7 +6,11 @@ import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+    searchParams,
+}: {
+    searchParams?: Promise<{ token?: string }>;
+}) {
     const token = await convexAuthNextjsToken();
     if (!token) {
         return redirect('/login');
@@ -27,6 +31,21 @@ export default async function DashboardPage() {
 
     if (role === 'docente' || role === 'superadmin') {
         return redirect('/cms');
+    }
+
+    const resolvedSearchParams = await searchParams;
+    const invitationToken = resolvedSearchParams?.token;
+
+    if (invitationToken) {
+        const validation = await fetchQuery(api.invitations.validateToken, { token: invitationToken }, { token });
+        if (validation.valid) {
+            await fetchMutation(
+                api.invitations.acceptInvitation,
+                { token: invitationToken, userEmail: email, userName: name || email?.split("@")[0] },
+                { token }
+            );
+        }
+        redirect('/dashboard');
     }
 
     // Call Convex query server-side
