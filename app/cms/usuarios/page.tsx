@@ -7,7 +7,7 @@ import { useSidebar } from '@/components/sidebar-context';
 import { User, ShieldCheck, GraduationCap, Mail, Search, Users, ShieldAlert, MoreHorizontal, Trash2, Loader2, UserPlus, UserMinus, AlertTriangle, X, Menu, Code, Database, Layout, Globe, Server, Cloud, Cpu, Smartphone, Bot, BrainCircuit, Sparkles, Network, Terminal, Microscope, Rocket, Binary, Zap, Palette, Briefcase } from 'lucide-react';
 
 import { getAllUsersWithRoles } from '@/utils/roles-client';
-import { deleteUser, updateUserRole } from './actions';
+import { associateUserToBootcamp, deleteUser, getAssignableBootcamps, updateUserRole } from './actions';
 
 const BOOTCAMP_ICONS = {
     code: Code,
@@ -42,10 +42,26 @@ interface ConfirmModalProps {
     isLoading?: boolean;
 }
 
+type BootcampOption = {
+    id: string;
+    title: string;
+    icon?: string;
+};
+
+type UserBootcamp = {
+    name: string;
+    status: string;
+    icon?: string;
+};
+
+function BootcampIcon({ icon, size = 14 }: { icon?: string; size?: number }) {
+    const Icon = BOOTCAMP_ICONS[(icon || 'code').toLowerCase() as keyof typeof BOOTCAMP_ICONS] || GraduationCap;
+    return <Icon size={size} />;
+}
+
 // Componente de tooltip para los bootcamps
 function BootcampTooltip({ bootcamp }: { bootcamp: { name: string; status: string; icon?: string } }) {
     const [showTooltip, setShowTooltip] = useState(false);
-    const Icon = BOOTCAMP_ICONS[(bootcamp.icon || 'code').toLowerCase() as keyof typeof BOOTCAMP_ICONS] || GraduationCap;
     
     return (
         <div 
@@ -58,7 +74,7 @@ function BootcampTooltip({ bootcamp }: { bootcamp: { name: string; status: strin
                     ? 'border-amber-500/30 bg-amber-500/10 text-amber-500'
                     : 'border-primary/30 bg-primary/10 text-primary'
             }`}>
-                <Icon size={14} />
+                <BootcampIcon icon={bootcamp.icon} />
             </div>
             {showTooltip && (
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-card-bg border border-white/10 rounded-lg shadow-xl z-50 whitespace-nowrap animate-in fade-in zoom-in-95 duration-150">
@@ -71,6 +87,98 @@ function BootcampTooltip({ bootcamp }: { bootcamp: { name: string; status: strin
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+function AssociateBootcampModal({
+    isOpen,
+    userEmail,
+    bootcamps,
+    selectedBootcampId,
+    isLoading,
+    error,
+    onSelectBootcamp,
+    onClose,
+    onConfirm,
+}: {
+    isOpen: boolean;
+    userEmail?: string | null;
+    bootcamps: BootcampOption[];
+    selectedBootcampId: string;
+    isLoading: boolean;
+    error?: string | null;
+    onSelectBootcamp: (bootcampId: string) => void;
+    onClose: () => void;
+    onConfirm: () => void;
+}) {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-background/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose} />
+            <div className="relative w-full max-w-lg bg-card-bg border border-white/10 rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-200 overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-50" />
+
+                <div className="flex justify-between items-start mb-5">
+                    <div>
+                        <h3 className="text-lg font-semibold text-foreground tracking-tight">Asociar a Bootcamp</h3>
+                        <p className="text-sm text-muted mt-1">Selecciona el bootcamp al que quieres asociar {userEmail}.</p>
+                    </div>
+                    <button onClick={onClose} className="p-1 hover:bg-white/5 rounded-lg transition-colors text-muted hover:text-foreground">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                {error && (
+                    <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-500">
+                        {error}
+                    </div>
+                )}
+
+                <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                    {bootcamps.length === 0 ? (
+                        <div className="text-center py-10 text-muted text-sm">No hay bootcamps disponibles.</div>
+                    ) : (
+                        bootcamps.map((bootcamp) => {
+                            const isSelected = selectedBootcampId === bootcamp.id;
+                            return (
+                                <button
+                                    key={bootcamp.id}
+                                    type="button"
+                                    onClick={() => onSelectBootcamp(bootcamp.id)}
+                                    className={`w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${isSelected
+                                        ? 'border-primary/50 bg-primary/10 text-foreground'
+                                        : 'border-border bg-background/40 text-muted hover:text-foreground hover:bg-hover-bg'
+                                    }`}
+                                >
+                                    <span className={`h-9 w-9 rounded-lg flex items-center justify-center border ${isSelected ? 'border-primary/30 bg-primary/15 text-primary' : 'border-border bg-card-bg text-muted'}`}>
+                                        <BootcampIcon icon={bootcamp.icon} size={18} />
+                                    </span>
+                                    <span className="flex-1 min-w-0 text-sm font-medium truncate">{bootcamp.title}</span>
+                                </button>
+                            );
+                        })
+                    )}
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                    <button
+                        onClick={onClose}
+                        disabled={isLoading}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-sm font-medium hover:bg-white/5 transition-all text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        disabled={isLoading || !selectedBootcampId || bootcamps.length === 0}
+                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
+                    >
+                        {isLoading ? <Loader2 size={16} className="animate-spin" /> : 'Asociar'}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
@@ -135,7 +243,7 @@ export default function UsuariosCMSPage() {
         id: string;
         email: string;
         role: string;
-        bootcamps?: { name: string; status: string; icon?: string }[];
+        bootcamps?: UserBootcamp[];
     }
     const [users, setUsers] = useState<UserWithRoles[]>([]);
     const [mounted, setMounted] = useState(false);
@@ -147,6 +255,14 @@ export default function UsuariosCMSPage() {
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
+    const [assignableBootcamps, setAssignableBootcamps] = useState<BootcampOption[]>([]);
+    const [selectedBootcampId, setSelectedBootcampId] = useState('');
+    const [associationError, setAssociationError] = useState<string | null>(null);
+    const [associationModal, setAssociationModal] = useState<{
+        isOpen: boolean;
+        userId: string | null;
+        email: string | null;
+    }>({ isOpen: false, userId: null, email: null });
 
     // Modal state
     const [modalConfig, setModalConfig] = useState<{
@@ -231,6 +347,26 @@ export default function UsuariosCMSPage() {
         setOpenMenuId(null);
     };
 
+    const openAssociationModal = async (user: UserWithRoles) => {
+        setAssociationModal({ isOpen: true, userId: user.id, email: user.email });
+        setSelectedBootcampId('');
+        setAssociationError(null);
+        setOpenMenuId(null);
+
+        if (assignableBootcamps.length === 0) {
+            setIsProcessing(user.id);
+            const result = await getAssignableBootcamps();
+            setIsProcessing(null);
+
+            if ('error' in result) {
+                setAssociationError(result.error);
+                return;
+            }
+
+            setAssignableBootcamps(result.bootcamps);
+        }
+    };
+
     const handleConfirmedAction = async () => {
         if (!modalConfig.userId || !modalConfig.type) return;
 
@@ -238,7 +374,7 @@ export default function UsuariosCMSPage() {
         setIsProcessing(userId);
 
         if (modalConfig.type === 'delete') {
-            const res = await deleteUser(userId);
+            const res = await deleteUser(userId, modalConfig.email || '');
             if (res.success) {
                 setUsers(users.filter(u => u.id !== userId));
             } else {
@@ -256,6 +392,39 @@ export default function UsuariosCMSPage() {
 
         setIsProcessing(null);
         setModalConfig({ isOpen: false, type: null, userId: null, email: null });
+    };
+
+    const handleAssociateBootcamp = async () => {
+        if (!associationModal.userId || !associationModal.email || !selectedBootcampId) return;
+
+        setIsProcessing(associationModal.userId);
+        setAssociationError(null);
+
+        const result = await associateUserToBootcamp(associationModal.userId, associationModal.email, selectedBootcampId);
+        setIsProcessing(null);
+
+        if ('error' in result) {
+            setAssociationError(result.error);
+            return;
+        }
+
+        const bootcamp = assignableBootcamps.find((item) => item.id === selectedBootcampId);
+        if (bootcamp) {
+            setUsers(users.map((user) => {
+                if (user.id !== associationModal.userId) return user;
+
+                return {
+                    ...user,
+                    bootcamps: [
+                        ...(user.bootcamps || []),
+                        { name: bootcamp.title, status: 'invited', icon: bootcamp.icon },
+                    ],
+                };
+            }));
+        }
+
+        setAssociationModal({ isOpen: false, userId: null, email: null });
+        setSelectedBootcampId('');
     };
 
     return (
@@ -466,6 +635,18 @@ export default function UsuariosCMSPage() {
                 confirmVariant={modalConfig.type === 'delete' ? 'danger' : 'primary'}
             />
 
+            <AssociateBootcampModal
+                isOpen={associationModal.isOpen}
+                userEmail={associationModal.email}
+                bootcamps={assignableBootcamps}
+                selectedBootcampId={selectedBootcampId}
+                isLoading={isProcessing === associationModal.userId}
+                error={associationError}
+                onSelectBootcamp={setSelectedBootcampId}
+                onClose={() => setAssociationModal({ isOpen: false, userId: null, email: null })}
+                onConfirm={handleAssociateBootcamp}
+            />
+
             {/* Floating Portal Menu */}
             {mounted && openMenuId && (() => {
                 const usr = users.find(u => u.id === openMenuId);
@@ -500,6 +681,16 @@ export default function UsuariosCMSPage() {
                         {usr.role !== 'superadmin' && (
                             <div className="h-px bg-white/5 my-1" />
                         )}
+
+                        <button
+                            onClick={() => openAssociationModal(usr)}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-primary hover:bg-primary/10 transition-colors text-left"
+                        >
+                            <GraduationCap size={14} />
+                            Asociar a Bootcamp
+                        </button>
+
+                        <div className="h-px bg-white/5 my-1" />
 
                         <button 
                             onClick={() => openConfirmModal('delete', usr)}
