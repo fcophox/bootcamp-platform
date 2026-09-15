@@ -200,7 +200,6 @@ export const acceptInvitation = mutation({
       .first();
     
     if (existingEnrollment) {
-      const nextStatus = existingEnrollment.status || "invited";
       const enrollmentPatch: {
         userId?: string;
         name?: string;
@@ -209,7 +208,7 @@ export const acceptInvitation = mutation({
         updatedAt: number;
       } = {
         name: existingEnrollment.name || args.userName || user?.name || email.split("@")[0],
-        status: nextStatus,
+        status: "active",
         joinedAt: existingEnrollment.joinedAt || Date.now(),
         updatedAt: Date.now(),
       };
@@ -240,7 +239,7 @@ export const acceptInvitation = mutation({
         bootcampId: bootcampId,
         email: email,
         name: args.userName || user?.name || email.split("@")[0],
-        status: "invited",
+        status: "active",
         enrolledAt: Date.now(),
         invitedAt: Date.now(),
         legacyId: maxLegacyId + 1,
