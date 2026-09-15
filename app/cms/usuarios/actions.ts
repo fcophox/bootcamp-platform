@@ -75,7 +75,7 @@ export async function getAssignableBootcamps(): Promise<{ bootcamps: BootcampOpt
 }
 
 export async function associateUserToBootcamp(userId: string, email: string, bootcampId: string) {
-    const { supabase, error: authError } = await requireSuperadmin();
+    const { error: authError } = await requireSuperadmin();
     if (authError) return { error: authError };
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -83,37 +83,20 @@ export async function associateUserToBootcamp(userId: string, email: string, boo
         return { error: 'Selecciona un usuario y un bootcamp válidos.' };
     }
 
-    const { data: existing, error: existingError } = await supabase
-        .from('BootcampStudent')
-        .select('id')
-        .eq('bootcampId', bootcampId)
-        .eq('email', normalizedEmail)
-        .maybeSingle();
+    const token = await convexAuthNextjsToken();
+    if (!token) return { error: 'No autorizado' };
 
-    if (existingError) {
-        return { error: existingError.message || 'No se pudo validar la asociación existente.' };
+    try {
+        const result = await fetchMutation(
+            api.users.associateUserToBootcamp,
+            { userId, email: normalizedEmail, bootcampId },
+            { token }
+        );
+
+        revalidatePath('/cms/usuarios');
+        revalidatePath(`/cms/bootcamp/${result.bootcamp.id}/manage`);
+        return { success: true, bootcamp: result.bootcamp };
+    } catch (error) {
+        return { error: error instanceof Error ? error.message : 'No se pudo asociar el usuario al bootcamp.' };
     }
-
-    if (existing) {
-        return { error: 'Este usuario ya está asociado a ese bootcamp.' };
-    }
-
-    const { error } = await supabase
-        .from('BootcampStudent')
-        .insert({
-            bootcampId,
-            userId,
-            email: normalizedEmail,
-            name: normalizedEmail.split('@')[0],
-            status: 'invited',
-            invitedAt: Date.now(),
-            enrolledAt: Date.now(),
-        });
-
-    if (error) {
-        return { error: error.message || 'No se pudo asociar el usuario al bootcamp.' };
-    }
-
-    revalidatePath('/cms/usuarios');
-    return { success: true };
 }

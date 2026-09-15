@@ -404,11 +404,11 @@ export default function UsuariosCMSPage() {
         setIsProcessing(null);
 
         if ('error' in result) {
-            setAssociationError(result.error);
+            setAssociationError(result.error || 'No se pudo asociar el usuario al bootcamp.');
             return;
         }
 
-        const bootcamp = assignableBootcamps.find((item) => item.id === selectedBootcampId);
+        const bootcamp = result.bootcamp || assignableBootcamps.find((item) => item.id === selectedBootcampId);
         if (bootcamp) {
             setUsers(users.map((user) => {
                 if (user.id !== associationModal.userId) return user;
@@ -417,7 +417,7 @@ export default function UsuariosCMSPage() {
                     ...user,
                     bootcamps: [
                         ...(user.bootcamps || []),
-                        { name: bootcamp.title, status: 'invited', icon: bootcamp.icon },
+                        { name: bootcamp.title, status: 'active', icon: bootcamp.icon },
                     ],
                 };
             }));

@@ -48,3 +48,64 @@ describe('users.listAllUsersWithRoles', () => {
     expect(users.some((user) => user.email === 'borrar@example.com')).toBe(false);
   });
 });
+
+describe('users.associateUserToBootcamp', () => {
+  it('creates an active enrollment with normalized bootcamp id', async () => {
+    const t = newTestContext();
+    const { id: bootcampId } = await t.mutation(api.db.genericInsert, {
+      table: 'bootcamps',
+      document: { title: 'Bootcamp Asociado', icon: 'zap', legacyId: 456 },
+    });
+    const { id: userId } = await t.mutation(api.db.genericInsert, {
+      table: 'users',
+      document: { email: 'asociado@example.com', name: 'Asociado', role: 'alumno' },
+    });
+
+    const result = await t.mutation(api.users.associateUserToBootcamp, {
+      userId,
+      email: 'Asociado@Example.com',
+      bootcampId,
+    });
+
+    const enrollments = await t.query(api.db.genericQuery, {
+      table: 'BootcampStudent',
+      eqFilters: [{ field: 'bootcampId', value: bootcampId }],
+    });
+    const dashboard = await t.query(api.dashboard.getStudentData, { email: 'asociado@example.com' });
+
+    expect(result.bootcamp).toMatchObject({ id: bootcampId, title: 'Bootcamp Asociado', icon: 'zap' });
+    expect(enrollments).toHaveLength(1);
+    expect(enrollments[0]).toMatchObject({
+      bootcampId,
+      userId,
+      email: 'asociado@example.com',
+      status: 'active',
+      legacyBootcampId: 456,
+    });
+    expect(dashboard.bootcamps.map((bootcamp) => bootcamp.title)).toContain('Bootcamp Asociado');
+  });
+
+  it('rejects duplicate associations for the same email and bootcamp', async () => {
+    const t = newTestContext();
+    const { id: bootcampId } = await t.mutation(api.db.genericInsert, {
+      table: 'bootcamps',
+      document: { title: 'Bootcamp Duplicado' },
+    });
+    const { id: userId } = await t.mutation(api.db.genericInsert, {
+      table: 'users',
+      document: { email: 'duplicado@example.com', name: 'Duplicado', role: 'alumno' },
+    });
+
+    await t.mutation(api.users.associateUserToBootcamp, {
+      userId,
+      email: 'duplicado@example.com',
+      bootcampId,
+    });
+
+    await expect(t.mutation(api.users.associateUserToBootcamp, {
+      userId,
+      email: 'duplicado@example.com',
+      bootcampId,
+    })).rejects.toThrow('Este usuario ya está asociado a ese bootcamp.');
+  });
+});
