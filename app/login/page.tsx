@@ -151,7 +151,7 @@ function LoginContent() {
 
                     if (loginSuccessful) {
                         // If there's a token, process the invitation after login
-                        if (token && tokenValidation?.valid) {
+                        if (token && tokenValidation?.valid !== false) {
                             try {
                                 await acceptInvitation(token, email, name || email.split('@')[0]);
                             } catch (inviteErr) {
@@ -160,7 +160,11 @@ function LoginContent() {
                             }
                         }
                         
-                        const target = (userRole === 'superadmin' || userRole === 'docente') ? '/cms' : '/dashboard';
+                        const target = (userRole === 'superadmin' || userRole === 'docente')
+                            ? '/cms'
+                            : token
+                                ? `/dashboard?token=${encodeURIComponent(token)}`
+                                : '/dashboard';
                         setTimeout(() => {
                             window.location.href = target;
                         }, 100);
@@ -179,7 +183,7 @@ function LoginContent() {
                     });
                     
                     // If there's a token, process the invitation after signup
-                    if (token && tokenValidation?.valid) {
+                    if (token && tokenValidation?.valid !== false) {
                         try {
                             const result = await acceptInvitation(token, email, name);
                             setStatus({ type: 'success', message: `¡Cuenta creada! Te has unido a "${result.bootcampTitle}"` });
@@ -194,7 +198,7 @@ function LoginContent() {
                     }
                     
                     setTimeout(() => {
-                        window.location.href = '/dashboard';
+                        window.location.href = token ? `/dashboard?token=${encodeURIComponent(token)}` : '/dashboard';
                     }, 1000);
                 }
             } catch (err: any) {
