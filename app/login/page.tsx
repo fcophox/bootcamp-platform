@@ -174,13 +174,26 @@ function LoginContent() {
                     setStatus({ type: 'error', message: 'Error durante el inicio de sesión.' });
                 } else {
                     // Sign Up
-                    await signIn("password", {
-                        email,
-                        password,
-                        flow: "signUp",
-                        name,
-                        role: "alumno",
-                    });
+                    try {
+                        await signIn("password", {
+                            email,
+                            password,
+                            flow: "signUp",
+                            name,
+                            role: "alumno",
+                        });
+                    } catch (signupErr: any) {
+                        const message = String(signupErr?.message || signupErr || '');
+                        if (message.toLowerCase().includes('already exists')) {
+                            setMode('login');
+                            setStatus({
+                                type: 'warning',
+                                message: 'Este correo ya tiene una cuenta. Ingresa con tu contraseña de siempre y se asociará el nuevo bootcamp.',
+                            });
+                            return;
+                        }
+                        throw signupErr;
+                    }
                     
                     // If there's a token, process the invitation after signup
                     if (token && tokenValidation?.valid !== false) {

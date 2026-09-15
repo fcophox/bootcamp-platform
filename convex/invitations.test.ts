@@ -41,7 +41,7 @@ describe('invitations.acceptInvitation', () => {
       bootcampId,
       userId,
       email: 'alumno@example.com',
-      status: 'invited',
+      status: 'active',
       name: 'Alumno Token',
     });
 
@@ -52,7 +52,7 @@ describe('invitations.acceptInvitation', () => {
     expect(user.role).toBe('alumno');
   });
 
-  it('links an existing invited enrollment without auto-activating it', async () => {
+  it('links and activates an existing invited enrollment', async () => {
     const t = newTestContext();
     const { id: bootcampId } = await t.mutation(api.db.genericInsert, {
       table: 'bootcamps',
@@ -84,7 +84,7 @@ describe('invitations.acceptInvitation', () => {
 
     expect(enrollments).toHaveLength(1);
     expect(enrollments[0].userId).toBe(userId);
-    expect(enrollments[0].status).toBe('invited');
+    expect(enrollments[0].status).toBe('active');
   });
 
   it('can recover a pending token after the account already exists', async () => {
@@ -113,15 +113,17 @@ describe('invitations.acceptInvitation', () => {
       eqFilters: [{ field: 'bootcampId', value: bootcampId }],
     });
     const invitation = await t.query(api.invitations.getByToken, { token: 'pending-token' });
+    const dashboard = await t.query(api.dashboard.getStudentData, { email: 'cinco@gmail.com' });
 
     expect(enrollments).toHaveLength(1);
     expect(enrollments[0]).toMatchObject({
       bootcampId,
       userId,
       email: 'cinco@gmail.com',
-      status: 'invited',
+      status: 'active',
     });
     expect(invitation?.isUsed).toBe(true);
     expect(invitation?.usedBy).toBe('cinco@gmail.com');
+    expect(dashboard.bootcamps.map((bootcamp) => bootcamp.title)).toContain('Bootcamp Recovery');
   });
 });
