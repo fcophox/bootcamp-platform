@@ -18,7 +18,7 @@ jobs:
     name: Test & build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v5
         with:
@@ -59,7 +59,7 @@ jobs:
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v5
         with:
@@ -127,7 +127,7 @@ jobs:
       env_tag: ${{ steps.vars.outputs.env_tag }}
       pinned_tag: ${{ steps.vars.outputs.pinned_tag }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # GHCR image names must be lowercase; github.repository preserves case.
       # develop -> :develop (bootcamp-platform-dev), main -> :prod
@@ -213,7 +213,7 @@ jobs:
 
       - name: Checkout orbital-k3s-gitops
         if: steps.check.outputs.configured == 'true'
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: CleveritDemo/orbital-k3s-gitops
           token: ${{ secrets.GITOPS_PAT }}
@@ -257,7 +257,7 @@ jobs:
 
       - name: Checkout orbital-k3s-gitops
         if: steps.check.outputs.configured == 'true'
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: CleveritDemo/orbital-k3s-gitops
           token: ${{ secrets.GITOPS_PAT }}
